@@ -10,7 +10,7 @@ Interactive study resources for the **Certified Kubernetes Administrator (CKA)**
 |---|---|
 | 🗂️ **Flashcards** | 170 cards mixing definitions, concept reviews, and applied scenarios. Filter by domain or card type, flip to reveal, shuffle, keyboard-navigable. |
 | 📘 **Study Guide** | Five domain guides with commands, YAML, and 💡 *exam-tip callouts* pulled from the course presenters. Rendered in-browser from markdown. |
-| ✅ **Practice Questions** | 107 multiple-choice questions. Choose a batch size (5/15/20/30/all) and domains, see the correct answer + explanation after each question, and get an overall + per-domain score breakdown. Scores are saved in your browser. |
+| ✅ **Practice Questions** | 300 multiple-choice questions. Choose a batch size (5/15/20/30/all) and domains, see the correct answer + explanation after each question, and get an overall + per-domain score breakdown. Scores are saved in your browser. |
 
 Every flashcard, question, and guide section is tagged with its **CKA exam domain** and a **source reference** back to the originating course/section.
 

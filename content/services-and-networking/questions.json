@@ -1,24 +1,880 @@
 [
-  {"id":"sn-q001","domain":"Services and Networking","question":"Which statement is a requirement of the Kubernetes networking model?","choices":["Pods reach each other using NAT-translated addresses","All Pods can communicate with all other Pods on all nodes without NAT, using real Pod IPs","Only Pods on the same node can communicate directly","Pods must use the node's IP address to communicate"],"answer":1,"explanation":"The model requires all Pods to reach all Pods on every node using their real IPs with no NAT. NAT is explicitly disallowed; cross-node communication is required; Pods use their own real IPs, not the node's.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Kubernetes Network Model"},
-  {"id":"sn-q002","domain":"Services and Networking","question":"Two containers run in the same Pod. How do they communicate with each other?","choices":["Over localhost on different ports","Via the Pod's ClusterIP service","Each container gets its own Pod IP and they route between them","Through the node's bridge interface using separate IPs"],"answer":0,"explanation":"Containers in a Pod share one network namespace and one IP, so they reach each other over localhost on different ports. They do not have separate IPs and do not need a Service to talk to each other.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Pod Networking Internals"},
-  {"id":"sn-q003","domain":"Services and Networking","question":"What is the purpose of the pause (infrastructure) container in a Pod?","choices":["It runs the main application workload","It load balances traffic to the Pod","It enforces NetworkPolicy rules for the Pod","It sets up and holds the Pod's network namespace so app containers can restart without losing the network stack"],"answer":3,"explanation":"The pause container starts first, creates the network namespace, and owns it for the Pod's lifecycle, so application containers can restart without re-IPing the Pod. It does not run the app, load balance, or enforce policy.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Pod Networking Internals"},
-  {"id":"sn-q004","domain":"Services and Networking","question":"Which component is responsible for implementing the Kubernetes networking model (interfaces, IP addressing, bridges/tunnels)?","choices":["kube-proxy","The CNI plugin","CoreDNS","The kubelet's cgroup driver"],"answer":1,"explanation":"Kubernetes defines the model but abstracts implementation to the CNI plugin (Calico, Cilium, etc.). kube-proxy implements Services, CoreDNS provides DNS, and the cgroup driver is unrelated to networking.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — CNI"},
-  {"id":"sn-q005","domain":"Services and Networking","question":"Which component implements Services on each node and runs as a DaemonSet?","choices":["kube-proxy","kubelet","CoreDNS","etcd"],"answer":0,"explanation":"kube-proxy implements Services (default iptables mode) and runs as a Pod via a DaemonSet, one per node. CoreDNS is DNS, kubelet manages Pods, etcd is the datastore.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Service Networking Internals"},
-  {"id":"sn-q006","domain":"Services and Networking","question":"In a Service spec, which field specifies the port the application listens on inside the container?","choices":["port","targetPort","nodePort","clusterIP"],"answer":1,"explanation":"targetPort is the container/app port. port is the Service's own listening port for clients, nodePort is the port exposed on each node, and clusterIP is the virtual IP.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Defining Deployments and Services"},
-  {"id":"sn-q007","domain":"Services and Networking","question":"What is the default Service type if none is specified?","choices":["NodePort","LoadBalancer","ClusterIP","ExternalName"],"answer":2,"explanation":"ClusterIP is the default and is internal-only. The other types must be explicitly requested.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — ClusterIP Internals"},
-  {"id":"sn-q008","domain":"Services and Networking","question":"What is the default port range for a NodePort service?","choices":["1024–4999","8000–9000","30000–32767","40000–49151"],"answer":2,"explanation":"NodePort uses 30000–32767 by default. A port can be auto-assigned from this range or set statically within it.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — NodePort Internals"},
-  {"id":"sn-q009","domain":"Services and Networking","question":"When you create a Service of type LoadBalancer, which other service resources are also created?","choices":["Only a ClusterIP","Only a NodePort","A NodePort and a ClusterIP","An ExternalName and a ClusterIP"],"answer":2,"explanation":"LoadBalancer builds on the lower types: it also gets a NodePort and a ClusterIP. The cloud LB sends traffic to the NodePort, which forwards to the ClusterIP, which reaches Pods.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — LoadBalancer Internals"},
-  {"id":"sn-q010","domain":"Services and Networking","question":"A Service must reference a service running outside the cluster by DNS name without proxying traffic. Which type fits?","choices":["Headless service","ExternalName","NodePort","LoadBalancer"],"answer":1,"explanation":"ExternalName creates a CNAME to an external DNS name with no selector and no proxying. A headless service returns Pod IPs; NodePort/LoadBalancer expose in-cluster Pods.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Other Types of Services"},
-  {"id":"sn-q011","domain":"Services and Networking","question":"How do you define a headless service, and what does DNS return for it?","choices":["Set type: ExternalName; DNS returns a CNAME","Set type: NodePort; DNS returns the node IPs","Omit the selector; DNS returns the ClusterIP","Set clusterIP: None; DNS returns the matching Pod IPs"],"answer":3,"explanation":"A headless service has clusterIP: None. With selectors, DNS returns all matching Pod IPs so the client chooses. This is common with StatefulSets and databases.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Other Types of Services"},
-  {"id":"sn-q012","domain":"Services and Networking","question":"A ClusterIP Service shows zero endpoints. What is the most likely cause?","choices":["The Service selector does not match any running, ready Pod's labels","The cluster has no LoadBalancer integration","CoreDNS is not running","The nodePort is outside 30000–32767"],"answer":0,"explanation":"Endpoints are created from Pods whose labels match the Service selector. No matching/ready Pods means no endpoints. LoadBalancer integration, CoreDNS, and nodePort range are unrelated to empty ClusterIP endpoints.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Understanding Services"},
-  {"id":"sn-q013","domain":"Services and Networking","question":"What is the fully qualified DNS name of a Service named web in namespace prod?","choices":["web.prod.pod.cluster.local","prod.web.svc.cluster.local","web.prod.svc.cluster.local","web.svc.prod.cluster.local"],"answer":2,"explanation":"The Service FQDN pattern is service.namespace.svc.cluster.local, so web.prod.svc.cluster.local. The 'pod' segment is used for Pod records; the segment order in the other options is wrong.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Cluster DNS Records"},
-  {"id":"sn-q014","domain":"Services and Networking","question":"Where is CoreDNS configured in a default Kubernetes cluster?","choices":["A ConfigMap named coredns in the kube-system namespace","A Secret named coredns in the default namespace","The /etc/kubernetes/coredns.conf file on each node","A CRD named CoreDNSConfig"],"answer":0,"explanation":"CoreDNS reads a ConfigMap named coredns in kube-system, mounted as the Corefile at /etc/coredns. It is not a Secret, a node file, or a CRD.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Cluster DNS"},
-  {"id":"sn-q015","domain":"Services and Networking","question":"What is the default dnsPolicy for a Pod, and what does setting dnsPolicy: None require?","choices":["Default is None; None requires nothing extra","Default is ClusterFirst; None requires a dnsConfig block defining nameservers/searches","Default is Default; None disables DNS entirely","Default is ClusterFirstWithHostNet; None inherits the node's resolver"],"answer":1,"explanation":"ClusterFirst is the default (cluster domain to cluster DNS, rest to node DNS). dnsPolicy: None ignores cluster DNS and requires a dnsConfig. The literal value 'Default' means inherit from the node and is not the actual default.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Custom Pod DNS Configuration"},
-  {"id":"sn-q016","domain":"Services and Networking","question":"Why is DNS preferred over environment variables for service discovery?","choices":["Env vars only work for LoadBalancer services","Env vars are injected only for Services that existed at Pod startup, so later Services require recreating the Pod; DNS updates dynamically","DNS is faster than env vars at the kernel level","Env vars cannot store IP addresses"],"answer":1,"explanation":"Service env vars are a snapshot at Pod startup; a Service created afterward won't appear until the Pod is recreated. DNS resolves dynamically without restarting Pods. The other claims are false.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Service Discovery"},
-  {"id":"sn-q017","domain":"Services and Networking","question":"Which statement correctly distinguishes an Ingress resource from an Ingress controller?","choices":["The Ingress resource defines the rules; the Ingress controller is the reverse proxy that implements them and must be deployed separately","The Ingress resource routes traffic; the controller only stores rules","Both are deployed automatically with every cluster","The Ingress controller defines hosts/paths; the resource forwards packets"],"answer":0,"explanation":"The Ingress resource holds the rules (hosts, paths, TLS); the controller is the actual reverse proxy that reads them and routes traffic, and it must be installed (clusters don't ship one). The other options invert or misstate these roles.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Ingress Architecture"},
-  {"id":"sn-q018","domain":"Services and Networking","question":"An Ingress rule uses pathType: Exact with path /blue. Which request matches?","choices":["/Blue","/blue/1","/blue","/blueprint"],"answer":2,"explanation":"Exact requires an exact, case-sensitive match. Only /blue matches. /Blue differs by case, and /blue/1 and /blueprint are different paths (those would only match under Prefix for /blue).","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Path-Based Routing"},
-  {"id":"sn-q019","domain":"Services and Networking","question":"Which is a valid reason to use Ingress instead of a Layer-4 LoadBalancer service?","choices":["Ingress can load balance UDP traffic by IP and port","Ingress works at Layer 7, enabling host- and path-based routing while fronting many services on one IP","Ingress always provisions a dedicated public IP per service","Ingress cannot terminate TLS"],"answer":1,"explanation":"Ingress is Layer 7 (HTTP), supporting name-based vhosts and path routing and exposing many services behind one IP. LoadBalancer services are Layer 4 (one service per IP/port). Ingress can terminate TLS, and it is used for HTTP, not arbitrary UDP.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Why Use Ingress Rather Than Load Balancers"},
-  {"id":"sn-q020","domain":"Services and Networking","question":"In the Gateway API, which resource defines protocol-specific routing rules and attaches to a Gateway?","choices":["GatewayClass","HTTPRoute","IngressClass","Service"],"answer":1,"explanation":"HTTPRoute (and TCPRoute, GRPCRoute, etc.) defines routing rules and attaches to a Gateway via parentRefs. GatewayClass defines the controller-backed class, IngressClass belongs to the older Ingress API, and a Service is a backend target.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — Ingress Architecture (Kubernetes docs)"},
-  {"id":"sn-q021","domain":"Services and Networking","question":"How does a NetworkPolicy behave once it selects a Pod for the Ingress direction?","choices":["It allows all ingress traffic to that Pod","Ingress becomes default-deny for that Pod, and only explicitly allowed traffic is permitted","It blocks all egress as well, automatically","It has no effect unless every namespace has a policy"],"answer":1,"explanation":"Selecting a Pod for a direction flips that direction to default-deny; only traffic matched by the policy's rules is allowed. It does not affect egress unless Egress is in policyTypes, and policies are additive across namespaces.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — CNI (Kubernetes docs)"},
-  {"id":"sn-q022","domain":"Services and Networking","question":"A NetworkPolicy object exists but appears to have no effect. What is a likely reason?","choices":["NetworkPolicies only apply to LoadBalancer services","The policy must be created in kube-system to take effect","The cluster's CNI plugin does not support NetworkPolicy enforcement","NetworkPolicies require a Gateway to be deployed"],"answer":2,"explanation":"NetworkPolicy enforcement depends on a supporting CNI (Calico, Cilium, etc.); with a non-enforcing CNI, policies are created but ignored. Policies apply to Pods (not just LoadBalancer services), work in any namespace, and have nothing to do with Gateways.","source":"Configuring and Managing Kubernetes Networking, Services, and Ingress — CNI (Kubernetes docs)"}
+ {
+  "id": "sn-q001",
+  "domain": "Services and Networking",
+  "question": "Which statement is a requirement of the Kubernetes networking model?",
+  "choices": [
+   "Pods reach each other using NAT-translated addresses",
+   "All Pods can communicate with all other Pods on all nodes without NAT, using real Pod IPs",
+   "Only Pods on the same node can communicate directly",
+   "Pods must use the node's IP address to communicate"
+  ],
+  "answer": 1,
+  "explanation": "The model requires all Pods to reach all Pods on every node using their real IPs with no NAT. NAT is explicitly disallowed; cross-node communication is required; Pods use their own real IPs, not the node's.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Kubernetes Network Model"
+ },
+ {
+  "id": "sn-q002",
+  "domain": "Services and Networking",
+  "question": "Two containers run in the same Pod. How do they communicate with each other?",
+  "choices": [
+   "Over localhost on different ports",
+   "Via the Pod's ClusterIP service",
+   "Each container gets its own Pod IP and they route between them",
+   "Through the node's bridge interface using separate IPs"
+  ],
+  "answer": 0,
+  "explanation": "Containers in a Pod share one network namespace and one IP, so they reach each other over localhost on different ports. They do not have separate IPs and do not need a Service to talk to each other.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Pod Networking Internals"
+ },
+ {
+  "id": "sn-q003",
+  "domain": "Services and Networking",
+  "question": "What is the purpose of the pause (infrastructure) container in a Pod?",
+  "choices": [
+   "It runs the main application workload",
+   "It load balances traffic to the Pod",
+   "It enforces NetworkPolicy rules for the Pod",
+   "It sets up and holds the Pod's network namespace so app containers can restart without losing the network stack"
+  ],
+  "answer": 3,
+  "explanation": "The pause container starts first, creates the network namespace, and owns it for the Pod's lifecycle, so application containers can restart without re-IPing the Pod. It does not run the app, load balance, or enforce policy.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Pod Networking Internals"
+ },
+ {
+  "id": "sn-q004",
+  "domain": "Services and Networking",
+  "question": "Which component is responsible for implementing the Kubernetes networking model (interfaces, IP addressing, bridges/tunnels)?",
+  "choices": [
+   "kube-proxy",
+   "The CNI plugin",
+   "CoreDNS",
+   "The kubelet's cgroup driver"
+  ],
+  "answer": 1,
+  "explanation": "Kubernetes defines the model but abstracts implementation to the CNI plugin (Calico, Cilium, etc.). kube-proxy implements Services, CoreDNS provides DNS, and the cgroup driver is unrelated to networking.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 CNI"
+ },
+ {
+  "id": "sn-q005",
+  "domain": "Services and Networking",
+  "question": "Which component implements Services on each node and runs as a DaemonSet?",
+  "choices": [
+   "kube-proxy",
+   "kubelet",
+   "CoreDNS",
+   "etcd"
+  ],
+  "answer": 0,
+  "explanation": "kube-proxy implements Services (default iptables mode) and runs as a Pod via a DaemonSet, one per node. CoreDNS is DNS, kubelet manages Pods, etcd is the datastore.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Service Networking Internals"
+ },
+ {
+  "id": "sn-q006",
+  "domain": "Services and Networking",
+  "question": "In a Service spec, which field specifies the port the application listens on inside the container?",
+  "choices": [
+   "port",
+   "targetPort",
+   "nodePort",
+   "clusterIP"
+  ],
+  "answer": 1,
+  "explanation": "targetPort is the container/app port. port is the Service's own listening port for clients, nodePort is the port exposed on each node, and clusterIP is the virtual IP.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Defining Deployments and Services"
+ },
+ {
+  "id": "sn-q007",
+  "domain": "Services and Networking",
+  "question": "What is the default Service type if none is specified?",
+  "choices": [
+   "NodePort",
+   "LoadBalancer",
+   "ClusterIP",
+   "ExternalName"
+  ],
+  "answer": 2,
+  "explanation": "ClusterIP is the default and is internal-only. The other types must be explicitly requested.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 ClusterIP Internals"
+ },
+ {
+  "id": "sn-q008",
+  "domain": "Services and Networking",
+  "question": "What is the default port range for a NodePort service?",
+  "choices": [
+   "1024\u20134999",
+   "8000\u20139000",
+   "30000\u201332767",
+   "40000\u201349151"
+  ],
+  "answer": 2,
+  "explanation": "NodePort uses 30000\u201332767 by default. A port can be auto-assigned from this range or set statically within it.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 NodePort Internals"
+ },
+ {
+  "id": "sn-q009",
+  "domain": "Services and Networking",
+  "question": "When you create a Service of type LoadBalancer, which other service resources are also created?",
+  "choices": [
+   "Only a ClusterIP",
+   "Only a NodePort",
+   "A NodePort and a ClusterIP",
+   "An ExternalName and a ClusterIP"
+  ],
+  "answer": 2,
+  "explanation": "LoadBalancer builds on the lower types: it also gets a NodePort and a ClusterIP. The cloud LB sends traffic to the NodePort, which forwards to the ClusterIP, which reaches Pods.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 LoadBalancer Internals"
+ },
+ {
+  "id": "sn-q010",
+  "domain": "Services and Networking",
+  "question": "A Service must reference a service running outside the cluster by DNS name without proxying traffic. Which type fits?",
+  "choices": [
+   "Headless service",
+   "ExternalName",
+   "NodePort",
+   "LoadBalancer"
+  ],
+  "answer": 1,
+  "explanation": "ExternalName creates a CNAME to an external DNS name with no selector and no proxying. A headless service returns Pod IPs; NodePort/LoadBalancer expose in-cluster Pods.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Other Types of Services"
+ },
+ {
+  "id": "sn-q011",
+  "domain": "Services and Networking",
+  "question": "How do you define a headless service, and what does DNS return for it?",
+  "choices": [
+   "Set type: ExternalName; DNS returns a CNAME",
+   "Set type: NodePort; DNS returns the node IPs",
+   "Omit the selector; DNS returns the ClusterIP",
+   "Set clusterIP: None; DNS returns the matching Pod IPs"
+  ],
+  "answer": 3,
+  "explanation": "A headless service has clusterIP: None. With selectors, DNS returns all matching Pod IPs so the client chooses. This is common with StatefulSets and databases.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Other Types of Services"
+ },
+ {
+  "id": "sn-q012",
+  "domain": "Services and Networking",
+  "question": "A ClusterIP Service shows zero endpoints. What is the most likely cause?",
+  "choices": [
+   "The Service selector does not match any running, ready Pod's labels",
+   "The cluster has no LoadBalancer integration",
+   "CoreDNS is not running",
+   "The nodePort is outside 30000\u201332767"
+  ],
+  "answer": 0,
+  "explanation": "Endpoints are created from Pods whose labels match the Service selector. No matching/ready Pods means no endpoints. LoadBalancer integration, CoreDNS, and nodePort range are unrelated to empty ClusterIP endpoints.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Understanding Services"
+ },
+ {
+  "id": "sn-q013",
+  "domain": "Services and Networking",
+  "question": "What is the fully qualified DNS name of a Service named web in namespace prod?",
+  "choices": [
+   "web.prod.pod.cluster.local",
+   "prod.web.svc.cluster.local",
+   "web.prod.svc.cluster.local",
+   "web.svc.prod.cluster.local"
+  ],
+  "answer": 2,
+  "explanation": "The Service FQDN pattern is service.namespace.svc.cluster.local, so web.prod.svc.cluster.local. The 'pod' segment is used for Pod records; the segment order in the other options is wrong.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Cluster DNS Records"
+ },
+ {
+  "id": "sn-q014",
+  "domain": "Services and Networking",
+  "question": "Where is CoreDNS configured in a default Kubernetes cluster?",
+  "choices": [
+   "A ConfigMap named coredns in the kube-system namespace",
+   "A Secret named coredns in the default namespace",
+   "The /etc/kubernetes/coredns.conf file on each node",
+   "A CRD named CoreDNSConfig"
+  ],
+  "answer": 0,
+  "explanation": "CoreDNS reads a ConfigMap named coredns in kube-system, mounted as the Corefile at /etc/coredns. It is not a Secret, a node file, or a CRD.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Cluster DNS"
+ },
+ {
+  "id": "sn-q015",
+  "domain": "Services and Networking",
+  "question": "What is the default dnsPolicy for a Pod, and what does setting dnsPolicy: None require?",
+  "choices": [
+   "Default is None; None requires nothing extra",
+   "Default is ClusterFirst; None requires a dnsConfig block defining nameservers/searches",
+   "Default is Default; None disables DNS entirely",
+   "Default is ClusterFirstWithHostNet; None inherits the node's resolver"
+  ],
+  "answer": 1,
+  "explanation": "ClusterFirst is the default (cluster domain to cluster DNS, rest to node DNS). dnsPolicy: None ignores cluster DNS and requires a dnsConfig. The literal value 'Default' means inherit from the node and is not the actual default.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Custom Pod DNS Configuration"
+ },
+ {
+  "id": "sn-q016",
+  "domain": "Services and Networking",
+  "question": "Why is DNS preferred over environment variables for service discovery?",
+  "choices": [
+   "Env vars only work for LoadBalancer services",
+   "Env vars are injected only for Services that existed at Pod startup, so later Services require recreating the Pod; DNS updates dynamically",
+   "DNS is faster than env vars at the kernel level",
+   "Env vars cannot store IP addresses"
+  ],
+  "answer": 1,
+  "explanation": "Service env vars are a snapshot at Pod startup; a Service created afterward won't appear until the Pod is recreated. DNS resolves dynamically without restarting Pods. The other claims are false.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Service Discovery"
+ },
+ {
+  "id": "sn-q017",
+  "domain": "Services and Networking",
+  "question": "Which statement correctly distinguishes an Ingress resource from an Ingress controller?",
+  "choices": [
+   "The Ingress resource defines the rules; the Ingress controller is the reverse proxy that implements them and must be deployed separately",
+   "The Ingress resource routes traffic; the controller only stores rules",
+   "Both are deployed automatically with every cluster",
+   "The Ingress controller defines hosts/paths; the resource forwards packets"
+  ],
+  "answer": 0,
+  "explanation": "The Ingress resource holds the rules (hosts, paths, TLS); the controller is the actual reverse proxy that reads them and routes traffic, and it must be installed (clusters don't ship one). The other options invert or misstate these roles.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Ingress Architecture"
+ },
+ {
+  "id": "sn-q018",
+  "domain": "Services and Networking",
+  "question": "An Ingress rule uses pathType: Exact with path /blue. Which request matches?",
+  "choices": [
+   "/Blue",
+   "/blue/1",
+   "/blue",
+   "/blueprint"
+  ],
+  "answer": 2,
+  "explanation": "Exact requires an exact, case-sensitive match. Only /blue matches. /Blue differs by case, and /blue/1 and /blueprint are different paths (those would only match under Prefix for /blue).",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Path-Based Routing"
+ },
+ {
+  "id": "sn-q019",
+  "domain": "Services and Networking",
+  "question": "Which is a valid reason to use Ingress instead of a Layer-4 LoadBalancer service?",
+  "choices": [
+   "Ingress can load balance UDP traffic by IP and port",
+   "Ingress works at Layer 7, enabling host- and path-based routing while fronting many services on one IP",
+   "Ingress always provisions a dedicated public IP per service",
+   "Ingress cannot terminate TLS"
+  ],
+  "answer": 1,
+  "explanation": "Ingress is Layer 7 (HTTP), supporting name-based vhosts and path routing and exposing many services behind one IP. LoadBalancer services are Layer 4 (one service per IP/port). Ingress can terminate TLS, and it is used for HTTP, not arbitrary UDP.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Why Use Ingress Rather Than Load Balancers"
+ },
+ {
+  "id": "sn-q020",
+  "domain": "Services and Networking",
+  "question": "In the Gateway API, which resource defines protocol-specific routing rules and attaches to a Gateway?",
+  "choices": [
+   "GatewayClass",
+   "HTTPRoute",
+   "IngressClass",
+   "Service"
+  ],
+  "answer": 1,
+  "explanation": "HTTPRoute (and TCPRoute, GRPCRoute, etc.) defines routing rules and attaches to a Gateway via parentRefs. GatewayClass defines the controller-backed class, IngressClass belongs to the older Ingress API, and a Service is a backend target.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 Ingress Architecture (Kubernetes docs)"
+ },
+ {
+  "id": "sn-q021",
+  "domain": "Services and Networking",
+  "question": "How does a NetworkPolicy behave once it selects a Pod for the Ingress direction?",
+  "choices": [
+   "It allows all ingress traffic to that Pod",
+   "Ingress becomes default-deny for that Pod, and only explicitly allowed traffic is permitted",
+   "It blocks all egress as well, automatically",
+   "It has no effect unless every namespace has a policy"
+  ],
+  "answer": 1,
+  "explanation": "Selecting a Pod for a direction flips that direction to default-deny; only traffic matched by the policy's rules is allowed. It does not affect egress unless Egress is in policyTypes, and policies are additive across namespaces.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 CNI (Kubernetes docs)"
+ },
+ {
+  "id": "sn-q022",
+  "domain": "Services and Networking",
+  "question": "A NetworkPolicy object exists but appears to have no effect. What is a likely reason?",
+  "choices": [
+   "NetworkPolicies only apply to LoadBalancer services",
+   "The policy must be created in kube-system to take effect",
+   "The cluster's CNI plugin does not support NetworkPolicy enforcement",
+   "NetworkPolicies require a Gateway to be deployed"
+  ],
+  "answer": 2,
+  "explanation": "NetworkPolicy enforcement depends on a supporting CNI (Calico, Cilium, etc.); with a non-enforcing CNI, policies are created but ignored. Policies apply to Pods (not just LoadBalancer services), work in any namespace, and have nothing to do with Gateways.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress \u2014 CNI (Kubernetes docs)"
+ },
+ {
+  "id": "sn-q023",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "Which CNI plugin relies heavily on eBPF for network enforcement instead of iptables?",
+  "choices": [
+   "Cilium",
+   "Calico",
+   "Flannel",
+   "Weave Net"
+  ],
+  "answer": 0,
+  "explanation": "Cilium uses eBPF in the kernel for high performance and fine-grained security policies. Flannel, Calico (in default mode), and Weave Net historically rely on iptables/Netfilter. (Weave Net is deprecated).",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q024",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "Pods are stuck in ContainerCreating state. The kubelet logs show 'network: cni config uninitialized'. What is the fix?",
+  "choices": [
+   "Restart the kubelet on the node",
+   "Deploy a supported CNI plugin to the cluster",
+   "Change the Pod's dnsPolicy to Default",
+   "Reboot the control plane nodes"
+  ],
+  "answer": 1,
+  "explanation": "This error means no CNI plugin is installed on the node. Deploying a CNI like Calico or Cilium will initialize the network. Restarting kubelet or rebooting won't help; dnsPolicy is unrelated.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q025",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "Which statement correctly distinguishes Flannel from Calico in their default configurations?",
+  "choices": [
+   "Flannel supports NetworkPolicy enforcement, whereas Calico only does routing",
+   "Calico provides purely overlay networks, while Flannel uses BGP",
+   "Flannel only provides pod-to-pod routing (no NetworkPolicy), while Calico supports both",
+   "Both plugins require a dedicated etcd cluster for IPAM"
+  ],
+  "answer": 2,
+  "explanation": "Flannel provides basic CNI networking without enforcing NetworkPolicies. Calico provides both networking (often via BGP) and policy enforcement. The other statements swap their roles or invent false requirements.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q026",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "kube-proxy is configured in iptables mode. What happens when a client sends traffic to a ClusterIP?",
+  "choices": [
+   "kube-proxy acts as a user-space proxy to forward the request",
+   "The API server routes the traffic via kubelet",
+   "The request is sent to CoreDNS for IP resolution",
+   "The traffic is transparently NATed by iptables to a random backend Pod IP"
+  ],
+  "answer": 3,
+  "explanation": "In iptables mode, kube-proxy writes DNAT rules. Traffic to the ClusterIP is caught by iptables in the kernel and forwarded to a backend Pod. It does not proxy in user space, nor does it route through kubelet or CoreDNS.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q027",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "Why might you choose the ipvs mode for kube-proxy instead of iptables?",
+  "choices": [
+   "It provides better scalability and load balancing algorithms for large numbers of Services",
+   "It encrypts traffic between nodes",
+   "It completely replaces the need for a CNI plugin",
+   "It allows Services to span multiple clusters natively"
+  ],
+  "answer": 0,
+  "explanation": "IPVS uses kernel hash tables, making it much more scalable for thousands of Services than iptables (which checks rules sequentially). It does not encrypt traffic, replace CNI, or provide multi-cluster networking.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q028",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A Deployment has three Pods. You need them to be reachable from other namespaces within the cluster. Which Service type should you use?",
+  "choices": [
+   "NodePort",
+   "ClusterIP",
+   "LoadBalancer",
+   "ExternalName"
+  ],
+  "answer": 1,
+  "explanation": "ClusterIP provides an internal virtual IP reachable from anywhere in the cluster. NodePort and LoadBalancer are for external access. ExternalName is for pointing to external targets.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q029",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A ClusterIP is pingable, but curling it on port 80 fails. What is the most likely cause?",
+  "choices": [
+   "ClusterIPs are only meant for UDP traffic",
+   "The Service needs to be upgraded to a NodePort",
+   "The targetPort on the Service does not match the port the application is listening on",
+   "Ping is supported but HTTP is blocked by default"
+  ],
+  "answer": 2,
+  "explanation": "If a ClusterIP responds to ping (often handled by the CNI or OS) but fails on the specific port, the Service's targetPort likely mismatches the container's listening port. ClusterIPs support TCP, HTTP works, and NodePort isn't required.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q030",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You attempt to create a NodePort Service with nodePort: 8080. The API server rejects it. Why?",
+  "choices": [
+   "NodePorts must be randomly assigned",
+   "Port 8080 is reserved for the API server",
+   "You must use port 80 for web traffic",
+   "The port is outside the default NodePort range of 30000-32767"
+  ],
+  "answer": 3,
+  "explanation": "By default, the kube-apiserver only allows NodePorts in the 30000-32767 range. 8080 is outside this range. It is not strictly reserved for the API server, but it violates the configured range.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q031",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A NodePort Service exposes port 31234. How can external clients reach the application?",
+  "choices": [
+   "By connecting to any worker node's IP on port 31234",
+   "Only by connecting to the control plane node's IP on port 31234",
+   "By connecting to the Service's ClusterIP on port 31234",
+   "By resolving the Service DNS name externally"
+  ],
+  "answer": 0,
+  "explanation": "A NodePort opens the specified port on every node in the cluster (typically workers). Traffic to <Any-Node-IP>:31234 is routed to the Service. Control plane nodes are not typically used for ingress, and ClusterIPs aren't external.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q032",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You create a LoadBalancer Service on bare-metal hardware. The External-IP stays 'Pending'. What is missing?",
+  "choices": [
+   "A default Gateway API class",
+   "A bare-metal load balancer implementation like MetalLB",
+   "The --enable-load-balancer flag on the kubelet",
+   "A cloud provider credentials file"
+  ],
+  "answer": 1,
+  "explanation": "Kubernetes does not have a built-in network load balancer for bare metal. You must install a controller like MetalLB to allocate IPs. It's not a kubelet flag, and cloud credentials don't work on bare metal.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q033",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A cloud LoadBalancer Service routes traffic to your Pods. To preserve the client source IP, which setting should you use?",
+  "choices": [
+   "sessionAffinity: ClientIP",
+   "ipFamilyPolicy: RequireDualStack",
+   "externalTrafficPolicy: Local",
+   "type: NodePort"
+  ],
+  "answer": 2,
+  "explanation": "Setting externalTrafficPolicy: Local routes external traffic only to Pods on the node receiving the traffic, bypassing SNAT and preserving the source IP. sessionAffinity is for sticky sessions, not source IP preservation.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q034",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A headless service is named 'db'. What does a DNS lookup for 'db' return?",
+  "choices": [
+   "The virtual ClusterIP of the service",
+   "A CNAME record pointing to an external database",
+   "The IP address of the node hosting the database",
+   "Multiple A records, one for each ready Pod matching the selector"
+  ],
+  "answer": 3,
+  "explanation": "A headless service (clusterIP: None) bypasses kube-proxy and returns A records for all ready Pods matching its selector. It does not return a ClusterIP, CNAME, or Node IP.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q035",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "Why do StatefulSets strictly require a Headless Service?",
+  "choices": [
+   "To assign stable DNS entries to individual Pods (e.g., web-0.nginx)",
+   "To expose the StatefulSet outside the cluster",
+   "To enforce strict ordered deployment",
+   "To ensure persistent volumes are dynamically provisioned"
+  ],
+  "answer": 0,
+  "explanation": "StatefulSets use the Headless Service to create predictable DNS records for each Pod, like pod-0.service.namespace.svc.cluster.local. This is essential for clustered apps. It doesn't handle external exposure, ordering, or storage.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q036",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "An ExternalName Service points to 'api.example.com'. How does the cluster route traffic to it?",
+  "choices": [
+   "kube-proxy sets up iptables rules to NAT to the external IP",
+   "CoreDNS returns a CNAME record for 'api.example.com'",
+   "The Ingress controller reverse-proxies the request",
+   "The CNI plugin establishes a VPN tunnel to the external domain"
+  ],
+  "answer": 1,
+  "explanation": "An ExternalName Service acts purely at the DNS level. CoreDNS returns a CNAME record directing clients to the external name. There is no proxying via kube-proxy, Ingress, or CNI tunnels.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q037",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You need a single Service to expose both HTTP on port 80 and HTTPS on port 443. What is required in the Service spec?",
+  "choices": [
+   "Two separate Service resources must be created",
+   "You must set type: LoadBalancer",
+   "The ports array must include both ports, and each must have a unique 'name' field",
+   "You must use an Ingress resource instead"
+  ],
+  "answer": 2,
+  "explanation": "A Service can expose multiple ports, but each port in the 'ports' array must be named to disambiguate them. You don't need two Services, a LoadBalancer, or an Ingress just for multiple ports.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q038",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A Service has a selector `app: web`. How are Endpoints managed for this Service?",
+  "choices": [
+   "You must manually create an Endpoints object with the Pod IPs",
+   "kube-proxy queries the API server directly and bypasses Endpoints",
+   "CoreDNS actively scans the network for matching Pods",
+   "The EndpointSlice controller automatically creates/updates EndpointSlices based on Pods with the label `app: web`"
+  ],
+  "answer": 3,
+  "explanation": "When a Service has a selector, the EndpointSlice controller automatically manages endpoints for ready Pods matching that selector. Manual creation is only for services without selectors. CoreDNS and kube-proxy consume endpoints, not create them.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q039",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You need a Service to route to an external database IP, but you do not have a DNS name for it. What should you do?",
+  "choices": [
+   "Create a Service without a selector and manually create an Endpoints object with the IP",
+   "Create an ExternalName Service with the IP address",
+   "Create a LoadBalancer Service and set the external IP",
+   "Modify the CoreDNS ConfigMap to add a custom host"
+  ],
+  "answer": 0,
+  "explanation": "By creating a Service without a selector, Kubernetes won't auto-create Endpoints. You can then manually create an Endpoints object with the target IP. ExternalName requires a DNS name, not an IP.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q040",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "What is the format of the DNS record for a Pod's IP address (10.1.2.3) in the 'default' namespace?",
+  "choices": [
+   "pod-10-1-2-3.default.svc.cluster.local",
+   "10-1-2-3.default.pod.cluster.local",
+   "10.1.2.3.default.cluster.local",
+   "default-10-1-2-3.pod.cluster.local"
+  ],
+  "answer": 1,
+  "explanation": "Pod IPs are resolved via dashes instead of dots, following the pattern: <ip-with-dashes>.<namespace>.pod.cluster.local. The other formats are incorrect.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q041",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You need to forward DNS queries for 'corp.local' to an external nameserver at 192.168.1.5. How do you configure CoreDNS?",
+  "choices": [
+   "Edit the kubelet configuration on all nodes",
+   "Create an ExternalName Service for 'corp.local'",
+   "Add a forward plugin block for 'corp.local' to the Corefile in the coredns ConfigMap",
+   "Set the dnsPolicy on all Pods to Default"
+  ],
+  "answer": 2,
+  "explanation": "CoreDNS behavior is controlled by the Corefile in its ConfigMap. You add a block for 'corp.local' using the 'forward' plugin to point to the external IP. ExternalName won't forward arbitrary queries, and dnsPolicy is per-pod.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q042",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "Pods cannot resolve cluster DNS names. The CoreDNS Pods are running. How do you check if CoreDNS is actually receiving queries?",
+  "choices": [
+   "Check the API server audit logs for DNS requests",
+   "SSH to the node and run tcpdump on port 443",
+   "Look at the Endpoints for the kube-dns Service",
+   "Run `kubectl logs` on the CoreDNS pods after enabling the 'log' plugin in the Corefile"
+  ],
+  "answer": 3,
+  "explanation": "Adding 'log' to the Corefile makes CoreDNS output every query to stdout, which you can view with `kubectl logs`. The API server doesn't process DNS, and checking endpoints doesn't show active queries.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q043",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A Pod is configured with `dnsPolicy: Default`. How does it resolve DNS queries?",
+  "choices": [
+   "It inherits the DNS configuration from the node it runs on",
+   "It uses the cluster's CoreDNS service for all queries",
+   "It resolves cluster names (like .svc.cluster.local) first, then external names",
+   "It strictly uses 8.8.8.8 for resolution"
+  ],
+  "answer": 0,
+  "explanation": "The 'Default' dnsPolicy means the Pod inherits the name resolution configuration from the host node (e.g., /etc/resolv.conf). It does NOT mean 'ClusterFirst', which is the actual default behavior if omitted.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q044",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "An app connects to a database Service using the `DB_PORT` environment variable. The DB Pod restarts and gets a new Service IP. Why does the app fail to connect?",
+  "choices": [
+   "DNS must be used to resolve environment variables",
+   "Environment variables are static; they don't update if the Service is recreated",
+   "The kubelet failed to update the pod's env vars",
+   "Environment variables only work for NodePort services"
+  ],
+  "answer": 1,
+  "explanation": "Service environment variables are injected only when the Pod starts. If a Service is deleted and recreated (getting a new IP), existing Pods keep the old env var. DNS is dynamic and avoids this issue.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q045",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "An Ingress rule specifies `path: /store` with `pathType: Prefix`. Which of these requests will NOT match?",
+  "choices": [
+   "/store",
+   "/store/",
+   "/storage",
+   "/store/items"
+  ],
+  "answer": 2,
+  "explanation": "Prefix matching works element by element. `/store` matches `/store`, `/store/`, and `/store/items`. It does NOT match `/storage` because 'storage' is a different path element than 'store'.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q046",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "What happens if an incoming request to an Ingress controller does not match any configured rules?",
+  "choices": [
+   "The request is routed to the kube-apiserver",
+   "The connection is dropped silently at the TCP level",
+   "The client is redirected to the cluster's default web page",
+   "It is routed to the Ingress controller's default backend (usually returning 404)"
+  ],
+  "answer": 3,
+  "explanation": "If no Ingress rule matches, the controller routes the request to a default backend, which typically returns a 404 Not Found error. It does not drop the connection or route to the API server.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q047",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You have both NGINX and HAProxy Ingress controllers in your cluster. How do you ensure a specific Ingress resource uses NGINX?",
+  "choices": [
+   "Set the `ingressClassName` field in the Ingress spec to reference the NGINX IngressClass",
+   "Deploy the Ingress in the nginx namespace",
+   "Specify the NGINX IP address in the Ingress status field",
+   "Use the `--controller=nginx` flag on `kubectl create ingress`"
+  ],
+  "answer": 0,
+  "explanation": "The `ingressClassName` field ties an Ingress resource to a specific controller via an IngressClass object. Namespaces and status fields don't control this mapping.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q048",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "To secure an Ingress with HTTPS, what resource must you create to hold the certificate and private key?",
+  "choices": [
+   "A ConfigMap containing the PEM files",
+   "A Secret of type `kubernetes.io/tls`",
+   "A NetworkPolicy allowing port 443",
+   "An IngressClass with TLS enabled"
+  ],
+  "answer": 1,
+  "explanation": "TLS certificates and private keys for Ingress are stored in a Secret of type `kubernetes.io/tls`. This Secret is then referenced in the `tls` block of the Ingress spec.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q049",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "In an Ingress spec, where do you specify the TLS Secret to use for a host?",
+  "choices": [
+   "In the `rules` array under the host definition",
+   "In the Ingress annotations as `nginx.ingress.kubernetes.io/ssl-secret`",
+   "In the `tls` array, specifying the `hosts` and `secretName`",
+   "As an environment variable on the backend Pod"
+  ],
+  "answer": 2,
+  "explanation": "The standard way to configure TLS is using the `tls` array at the top level of the Ingress spec, specifying the list of hosts and the `secretName` containing the certificate.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q050",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "How do you implement a default-deny-all ingress policy for a namespace?",
+  "choices": [
+   "Set `default-deny: true` in the Namespace annotations",
+   "Delete all Services in the namespace",
+   "Create a NetworkPolicy with `podSelector: matchAll` and `ingress: allowNone`",
+   "Create a NetworkPolicy with an empty `podSelector` ({}) and no `ingress` rules"
+  ],
+  "answer": 3,
+  "explanation": "An empty `podSelector: {}` selects all pods in the namespace. By specifying `policyTypes: [Ingress]` and omitting the `ingress` rules array, you deny all inbound traffic by default.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q051",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You apply a NetworkPolicy to deny all egress traffic in a namespace. Pods can no longer resolve external hostnames. Why?",
+  "choices": [
+   "The policy blocked egress on UDP port 53 to the CoreDNS Pods",
+   "CoreDNS is blocked by the ingress rules",
+   "DNS requests always use TCP port 80",
+   "The CNI plugin crashed due to the policy"
+  ],
+  "answer": 0,
+  "explanation": "A default-deny egress policy blocks all outbound traffic, including DNS queries (UDP 53) to the kube-dns Service. You must explicitly allow egress to CoreDNS for name resolution to work.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q052",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "You want to allow ingress from an external subnet 192.168.1.0/24. Which NetworkPolicy field do you use?",
+  "choices": [
+   "namespaceSelector",
+   "ipBlock",
+   "podSelector",
+   "ports"
+  ],
+  "answer": 1,
+  "explanation": "The `ipBlock` field is used to specify external CIDR ranges for ingress or egress. `namespaceSelector` and `podSelector` only work for traffic internal to the cluster.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q053",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "An ingress NetworkPolicy rule uses `namespaceSelector: matchLabels: env: prod`. What traffic is allowed?",
+  "choices": [
+   "Traffic from Pods labeled `env: prod` in the same namespace",
+   "Traffic from external IPs labeled `env: prod`",
+   "Traffic from all Pods in any namespace labeled `env: prod`",
+   "Traffic directed to the `env: prod` Service"
+  ],
+  "answer": 2,
+  "explanation": "A `namespaceSelector` evaluates the labels on the Namespaces themselves. It allows traffic from any Pod residing in any Namespace that possesses the `env: prod` label.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q054",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A NetworkPolicy ingress rule contains a `namespaceSelector` and a `podSelector` as separate items in the `from` array. How is this evaluated?",
+  "choices": [
+   "As a logical AND (Pod must match BOTH)",
+   "The podSelector overrides the namespaceSelector",
+   "It is invalid syntax and will be rejected",
+   "As a logical OR (Pod matches EITHER the namespace OR the pod label)"
+  ],
+  "answer": 3,
+  "explanation": "In a NetworkPolicy, elements within the `from` array are evaluated as a logical OR. If they were combined in a single array element, they would be evaluated as a logical AND.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q055",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "What kernel setting must be enabled on Linux worker nodes for Pods to communicate across nodes?",
+  "choices": [
+   "net.ipv4.ip_forward=1",
+   "net.ipv4.conf.all.rp_filter=2",
+   "net.bridge.bridge-nf-call-iptables=0",
+   "net.ipv6.conf.all.disable_ipv6=1"
+  ],
+  "answer": 0,
+  "explanation": "IP forwarding (`net.ipv4.ip_forward=1`) must be enabled so the Linux kernel will route packets between different interfaces (like the CNI bridge and the physical network adapter).",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q056",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "Why does Kubernetes recommend setting `net.bridge.bridge-nf-call-iptables=1` on nodes?",
+  "choices": [
+   "To bypass iptables for better performance",
+   "To ensure bridged IPv4 traffic is passed to iptables chains for processing by kube-proxy and NetworkPolicies",
+   "To prevent ARP spoofing on the node",
+   "To force all traffic through a NAT gateway"
+  ],
+  "answer": 1,
+  "explanation": "This setting ensures that packets traversing network bridges (used by many CNI plugins) are handed up to iptables. This is crucial for kube-proxy rules and NetworkPolicies to function properly.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q057",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "How do you configure CoreDNS to forward queries for 'consul.local' to a specific DNS server at 10.150.0.1?",
+  "choices": [
+   "Create a new Corefile configmap in the default namespace",
+   "Add 10.150.0.1 to the kubelet's --cluster-dns flag",
+   "Modify the Corefile to add a new server block for 'consul.local:53' that forwards to 10.150.0.1",
+   "Create an Endpoints object named 'consul.local'"
+  ],
+  "answer": 2,
+  "explanation": "To resolve a specific domain via a different upstream (a stub domain), you edit the Corefile to create a server block for that domain, using the `forward` plugin to point to the external IP.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q058",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "What happens if a Pod attempts to resolve an ExternalName Service named 'api' that points to 'example.com'?",
+  "choices": [
+   "The Pod receives the IP address of the ExternalName Service",
+   "The API server proxies the request to 'example.com'",
+   "The Pod sends traffic to the node's default gateway",
+   "CoreDNS returns a CNAME record with 'example.com'"
+  ],
+  "answer": 3,
+  "explanation": "ExternalName Services do not have IPs or proxy traffic. CoreDNS simply returns a CNAME record so the client Pod resolves the external name directly.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q059",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "A Service exposes TCP ports 80 and 443. The port 80 definition lacks a 'name' field. What is the result?",
+  "choices": [
+   "The API server rejects the Service creation",
+   "Port 80 becomes the default port",
+   "Traffic to port 443 fails",
+   "The Service is created as a Headless Service"
+  ],
+  "answer": 0,
+  "explanation": "When a Service has multiple ports, Kubernetes requires that every port in the `ports` array has a unique `name`. Without it, validation fails and the API server rejects the manifest.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ },
+ {
+  "id": "sn-q060",
+  "domain": "Services & Networking",
+  "domainKey": "services",
+  "question": "When you add a new label to a Pod so it matches an existing Service's selector, what updates the Endpoints?",
+  "choices": [
+   "The kubelet on the node",
+   "The EndpointSlice controller in the kube-controller-manager",
+   "kube-proxy on the node",
+   "CoreDNS polling the API server"
+  ],
+  "answer": 1,
+  "explanation": "The EndpointSlice (or Endpoints) controller constantly watches Services and Pods. When a Pod's labels change to match a selector, the controller updates the Endpoints/EndpointSlices. kube-proxy just reads the result.",
+  "source": "Adapted from Kubernetes docs \u2014 Networking"
+ }
 ]

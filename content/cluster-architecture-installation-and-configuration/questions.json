@@ -10,8 +10,8 @@
    "kubelet"
   ],
   "answer": 1,
-  "explanation": "The kube-apiserver is the only front door — every kubectl command, internal call, and webhook flows through it, and it persists state to etcd. The scheduler only places pods, the controller-manager runs reconciliation loops, and the kubelet is a node agent; none of these are the cluster's entry point or talk to etcd directly.",
-  "source": "Kubernetes Foundations — Understanding Kubernetes architecture"
+  "explanation": "The kube-apiserver is the only front door \u2014 every kubectl command, internal call, and webhook flows through it, and it persists state to etcd. The scheduler only places pods, the controller-manager runs reconciliation loops, and the kubelet is a node agent; none of these are the cluster's entry point or talk to etcd directly.",
+  "source": "Kubernetes Foundations \u2014 Understanding Kubernetes architecture"
  },
  {
   "id": "ca-q002",
@@ -25,7 +25,7 @@
   ],
   "answer": 0,
   "explanation": "The kubelet watches /etc/kubernetes/manifests and starts any static pods defined there (kube-apiserver.yaml, etcd.yaml, kube-controller-manager.yaml, kube-scheduler.yaml). /etc/kubernetes/pki holds certificates, /etc/containerd holds the runtime config, and /var/lib/kubelet/manifests is not the kubeadm default path.",
-  "source": "Installing Clusters with kubeadm — What kubeadm init creates"
+  "source": "Installing Clusters with kubeadm \u2014 What kubeadm init creates"
  },
  {
   "id": "ca-q003",
@@ -39,7 +39,7 @@
   ],
   "answer": 3,
   "explanation": "The CNI (Container Network Interface) gives pods their IPs and configures pod-to-pod routing; a missing or broken CNI causes NetworkPluginNotReady and NotReady nodes. CRI is the runtime interface (container won't start), CSI is storage (PV pending), and CRD is an API extension mechanism, not a networking interface.",
-  "source": "Kubernetes Foundations — Kubernetes extension interfaces"
+  "source": "Kubernetes Foundations \u2014 Kubernetes extension interfaces"
  },
  {
   "id": "ca-q004",
@@ -53,7 +53,7 @@
   ],
   "answer": 1,
   "explanation": "This sysctl makes bridged L2 traffic visible to iptables/netfilter, which kube-proxy and CNI plug-ins rely on; it's a hard kubeadm requirement and defaults to 0 on stock Ubuntu. Swap is handled by swapoff, OverlayFS is enabled by the overlay kernel module, and port 6443 is unrelated to this sysctl.",
-  "source": "Installing Clusters with kubeadm — Kernel modules and sysctl"
+  "source": "Installing Clusters with kubeadm \u2014 Kernel modules and sysctl"
  },
  {
   "id": "ca-q005",
@@ -62,12 +62,12 @@
   "choices": [
    "The pod-network-CIDR is too small",
    "Swap was left enabled",
-   "The cgroup driver mismatch — SystemdCgroup is not set to true in containerd",
+   "The cgroup driver mismatch \u2014 SystemdCgroup is not set to true in containerd",
    "The API server certificate expired"
   ],
   "answer": 2,
   "explanation": "containerd ships with SystemdCgroup = false but the kubelet uses the systemd cgroup driver; a mismatch makes pods crash-loop while logs point at the wrong layer. A small CIDR or enabled swap produce different, more obvious failures, and a fresh cluster's certs are valid.",
-  "source": "Installing Clusters with kubeadm — containerd and the CRI"
+  "source": "Installing Clusters with kubeadm \u2014 containerd and the CRI"
  },
  {
   "id": "ca-q006",
@@ -80,8 +80,8 @@
    "--kubernetes-version"
   ],
   "answer": 2,
-  "explanation": "If --pod-network-cidr doesn't match what the CNI expects (e.g., Calico's 192.168.0.0/16), pods get IPs but can't route across nodes — a silent timeout with no clean error. --upload-certs handles cert distribution, --apiserver-advertise-address sets the bind interface, and --kubernetes-version pins the version; none cause this silent routing failure.",
-  "source": "Installing Clusters with kubeadm — kubeadm init flags that matter"
+  "explanation": "If --pod-network-cidr doesn't match what the CNI expects (e.g., Calico's 192.168.0.0/16), pods get IPs but can't route across nodes \u2014 a silent timeout with no clean error. --upload-certs handles cert distribution, --apiserver-advertise-address sets the bind interface, and --kubernetes-version pins the version; none cause this silent routing failure.",
+  "source": "Installing Clusters with kubeadm \u2014 kubeadm init flags that matter"
  },
  {
   "id": "ca-q007",
@@ -89,13 +89,13 @@
   "question": "Immediately after kubeadm init (before installing a CNI), what is the expected state of the nodes and CoreDNS?",
   "choices": [
    "All nodes Ready, CoreDNS Running",
-   "Nodes NotReady and CoreDNS Pending — this is correct, not a failure",
+   "Nodes NotReady and CoreDNS Pending \u2014 this is correct, not a failure",
    "Nodes Ready but CoreDNS CrashLoopBackOff",
    "The API server is down until the CNI is installed"
   ],
   "answer": 1,
   "explanation": "The kubelet won't mark a node Ready until a CNI can assign pod IPs, and CoreDNS needs a pod IP to start, so NotReady nodes and Pending CoreDNS are expected. The control plane static pods use host networking and run fine; installing the CNI flips nodes to Ready in ~30 seconds. Misreading this as a failure wastes exam time.",
-  "source": "Installing Clusters with kubeadm — From init to ready"
+  "source": "Installing Clusters with kubeadm \u2014 From init to ready"
  },
  {
   "id": "ca-q008",
@@ -109,7 +109,7 @@
   ],
   "answer": 3,
   "explanation": "The short-lived bootstrap token proves the worker is allowed to join, while --discovery-token-ca-cert-hash (SHA-256 of the CA cert) lets the worker confirm it's talking to the genuine control plane, preventing a man-in-the-middle. There are no SSH keys or passwords in this flow, and the kubelet cert is auto-generated via CSR, not hand-copied.",
-  "source": "Installing Clusters with kubeadm — Bootstrap tokens and join workflow"
+  "source": "Installing Clusters with kubeadm \u2014 Bootstrap tokens and join workflow"
  },
  {
   "id": "ca-q009",
@@ -123,7 +123,7 @@
   ],
   "answer": 0,
   "explanation": "kubeadm token create --print-join-command emits a full join command with a fresh token and the correct CA cert hash. The other options don't produce a ready-to-use join command: 'certs renew' rotates certificates, and there's no kubectl resource that prints the assembled join string.",
-  "source": "Installing Clusters with kubeadm — Managing kubeconfig"
+  "source": "Installing Clusters with kubeadm \u2014 Managing kubeconfig"
  },
  {
   "id": "ca-q010",
@@ -137,7 +137,7 @@
   ],
   "answer": 2,
   "explanation": "A context is a named tuple of a cluster (API endpoint + CA), a user (identity/credentials), and a default namespace. The other options describe pod manifest fields or arbitrary pieces; they are not the definition of a context.",
-  "source": "Kubernetes Foundations — Context management"
+  "source": "Kubernetes Foundations \u2014 Context management"
  },
  {
   "id": "ca-q011",
@@ -150,8 +150,8 @@
    "It refreshes the bootstrap token"
   ],
   "answer": 0,
-  "explanation": "kubectl config commands operate purely on the local ~/.kube/config file and don't contact the API server, so they succeed regardless of cluster state — making them the ideal first step after each question to avoid running work against the wrong cluster.",
-  "source": "Kubernetes Foundations — When to use YAML instead of imperative"
+  "explanation": "kubectl config commands operate purely on the local ~/.kube/config file and don't contact the API server, so they succeed regardless of cluster state \u2014 making them the ideal first step after each question to avoid running work against the wrong cluster.",
+  "source": "Kubernetes Foundations \u2014 When to use YAML instead of imperative"
  },
  {
   "id": "ca-q012",
@@ -165,7 +165,7 @@
   ],
   "answer": 1,
   "explanation": "Because the task names a specific namespace and a namespaced resource (pods), a Role plus a RoleBinding in the frontend namespace is correct. A ClusterRoleBinding would grant access cluster-wide, and Pod Security Admission governs pod security context, not RBAC permissions.",
-  "source": "CKA Advanced Cluster Configuration — The foundation of RBAC"
+  "source": "CKA Advanced Cluster Configuration \u2014 The foundation of RBAC"
  },
  {
   "id": "ca-q013",
@@ -178,8 +178,8 @@
    "The request is queued until a binding is created"
   ],
   "answer": 0,
-  "explanation": "Kubernetes RBAC is purely additive — there are no deny rules. With no matching binding, the default answer is 403 Forbidden (secure by default). It is never allow-by-default, and there is no queuing behavior.",
-  "source": "CKA Advanced Cluster Configuration — The foundation of RBAC"
+  "explanation": "Kubernetes RBAC is purely additive \u2014 there are no deny rules. With no matching binding, the default answer is 403 Forbidden (secure by default). It is never allow-by-default, and there is no queuing behavior.",
+  "source": "CKA Advanced Cluster Configuration \u2014 The foundation of RBAC"
  },
  {
   "id": "ca-q014",
@@ -193,7 +193,7 @@
   ],
   "answer": 1,
   "explanation": "kubectl auth can-i with the --as impersonation flag and the full service account principal (system:serviceaccount:<ns>:<name>) asks the API server (via a SubjectAccessReview) whether that action is permitted. Describing the SA or listing bindings shows configuration but doesn't evaluate the effective allow/deny decision.",
-  "source": "CKA Advanced Cluster Configuration — Checking API access with can-i"
+  "source": "CKA Advanced Cluster Configuration \u2014 Checking API access with can-i"
  },
  {
   "id": "ca-q015",
@@ -206,8 +206,8 @@
    "Aggregate the ClusterRole into the admin role"
   ],
   "answer": 1,
-  "explanation": "Binding a ClusterRole with a RoleBinding scopes those permissions to just the namespace where the RoleBinding lives — the DRY hybrid pattern. A ClusterRoleBinding can't be namespace-scoped (the field is ignored), copying rules defeats reuse, and aggregation merges roles rather than scoping them.",
-  "source": "CKA Advanced Cluster Configuration — Cluster-wide permissions"
+  "explanation": "Binding a ClusterRole with a RoleBinding scopes those permissions to just the namespace where the RoleBinding lives \u2014 the DRY hybrid pattern. A ClusterRoleBinding can't be namespace-scoped (the field is ignored), copying rules defeats reuse, and aggregation merges roles rather than scoping them.",
+  "source": "CKA Advanced Cluster Configuration \u2014 Cluster-wide permissions"
  },
  {
   "id": "ca-q016",
@@ -220,8 +220,8 @@
    "-v=8"
   ],
   "answer": 3,
-  "explanation": "-v=8 prints the curl-equivalent request including headers (the authorization bearer token) and a truncated response body — ideal for RBAC and auth debugging. (Use -v=9 for the full untruncated body.) -v=6 shows the URL and HTTP status code, while levels 2 and 4 are standard operational logs without the HTTP wire detail.",
-  "source": "CKA Advanced Cluster Configuration — Accessing resources with kubectl -v"
+  "explanation": "-v=8 prints the curl-equivalent request including headers (the authorization bearer token) and a truncated response body \u2014 ideal for RBAC and auth debugging. (Use -v=9 for the full untruncated body.) -v=6 shows the URL and HTTP status code, while levels 2 and 4 are standard operational logs without the HTTP wire detail.",
+  "source": "CKA Advanced Cluster Configuration \u2014 Accessing resources with kubectl -v"
  },
  {
   "id": "ca-q017",
@@ -235,7 +235,7 @@
   ],
   "answer": 2,
   "explanation": "etcd's Raft protocol requires a majority (quorum = N/2 + 1) to make decisions; odd numbers avoid split-brain and give the best fault tolerance per node. A 3-node cluster survives losing 1; a 2-node cluster is worse than 1 because losing either node loses quorum. The other options are unrelated to consensus.",
-  "source": "CKA Advanced Cluster Configuration — Introduction to high availability"
+  "source": "CKA Advanced Cluster Configuration \u2014 Introduction to high availability"
  },
  {
   "id": "ca-q018",
@@ -248,8 +248,8 @@
    "As a Deployment in the kube-system namespace"
   ],
   "answer": 1,
-  "explanation": "In the stacked topology each control plane node runs its own etcd as a local static pod, and kubeadm manages etcd membership as nodes join — simpler and cheaper for medium clusters. External etcd runs on dedicated hosts. etcd is never part of kube-proxy, and the control plane components are static pods, not Deployments.",
-  "source": "CKA Advanced Cluster Configuration — Introduction to high availability"
+  "explanation": "In the stacked topology each control plane node runs its own etcd as a local static pod, and kubeadm manages etcd membership as nodes join \u2014 simpler and cheaper for medium clusters. External etcd runs on dedicated hosts. etcd is never part of kube-proxy, and the control plane components are static pods, not Deployments.",
+  "source": "CKA Advanced Cluster Configuration \u2014 Introduction to high availability"
  },
  {
   "id": "ca-q019",
@@ -263,7 +263,7 @@
   ],
   "answer": 0,
   "explanation": "etcd requires full TLS authentication, so the snapshot command must pass --cacert (validates etcd's identity), --cert (proves your admin rights), and --key (authenticates the session), plus the endpoint (https://127.0.0.1:2379). etcdctl talks to etcd directly, not through kubeconfig, usernames, or bootstrap tokens.",
-  "source": "CKA Advanced Cluster Configuration — Disaster recovery"
+  "source": "CKA Advanced Cluster Configuration \u2014 Disaster recovery"
  },
  {
   "id": "ca-q020",
@@ -277,7 +277,7 @@
   ],
   "answer": 1,
   "explanation": "Restoring into the running database's active directory while the API server is still writing corrupts the transaction/page tables. The correct workflow restores to a new empty directory (e.g., /var/lib/etcd-restored), then repoints etcd.yaml's hostPath to it. Disk space and read-only attributes are not the reason.",
-  "source": "CKA Advanced Cluster Configuration — Disaster recovery"
+  "source": "CKA Advanced Cluster Configuration \u2014 Disaster recovery"
  },
  {
   "id": "ca-q021",
@@ -291,7 +291,7 @@
   ],
   "answer": 2,
   "explanation": "You upgrade the control plane first (kubeadm upgrade plan/apply), then each worker (kubeadm upgrade node), advancing one minor version at a time and never skipping versions. Upgrading workers first or jumping multiple versions violates the version-skew policy and breaks the cluster.",
-  "source": "Kubernetes docs — Upgrading kubeadm clusters"
+  "source": "Kubernetes docs \u2014 Upgrading kubeadm clusters"
  },
  {
   "id": "ca-q022",
@@ -305,7 +305,7 @@
   ],
   "answer": 1,
   "explanation": "You drain the node to safely evict workloads and cordon it; --ignore-daemonsets is required because DaemonSet-managed pods can't be evicted and would otherwise block the drain. cordon alone doesn't evict, deleting the node is destructive, and tainting isn't the upgrade procedure.",
-  "source": "Kubernetes docs — Upgrading kubeadm clusters"
+  "source": "Kubernetes docs \u2014 Upgrading kubeadm clusters"
  },
  {
   "id": "ca-q023",
@@ -318,8 +318,8 @@
    "A chart is the package (templates + values); a release is a specific running instance of that chart"
   ],
   "answer": 3,
-  "explanation": "A chart is the package — Chart.yaml metadata, templates, and values.yaml. A release is a specific deployed instance of that chart in a cluster; Helm tracks release history so you can 'helm rollback'. The terms are not interchangeable, and a release is not a repository.",
-  "source": "CKA Advanced Cluster Configuration — Templating with Helm"
+  "explanation": "A chart is the package \u2014 Chart.yaml metadata, templates, and values.yaml. A release is a specific deployed instance of that chart in a cluster; Helm tracks release history so you can 'helm rollback'. The terms are not interchangeable, and a release is not a repository.",
+  "source": "CKA Advanced Cluster Configuration \u2014 Templating with Helm"
  },
  {
   "id": "ca-q024",
@@ -333,21 +333,21 @@
   ],
   "answer": 1,
   "explanation": "Kustomize is built into kubectl via the -k flag: 'kubectl apply -k overlays/dev' builds and applies in one step (use 'kubectl kustomize overlays/dev' to preview the rendered YAML). -f applies a single file without overlay processing, helm is a different tool, and 'kubectl kustomize apply' is not valid syntax.",
-  "source": "CKA Advanced Cluster Configuration — Layering with Kustomize"
+  "source": "CKA Advanced Cluster Configuration \u2014 Layering with Kustomize"
  },
  {
   "id": "ca-q025",
   "domain": "Cluster Architecture",
   "question": "Running 'kubectl get certificates' returns an error that the resource type isn't found. After installing the cert-manager operator manifest, what changes?",
   "choices": [
-   "Nothing — certificates are a built-in resource",
+   "Nothing \u2014 certificates are a built-in resource",
    "The operator registers CRDs so the API recognizes 'certificates', and a controller runs the reconciliation loop",
    "kube-proxy starts managing certificates",
    "The API server must be restarted manually to load the new type"
   ],
   "answer": 1,
   "explanation": "Installing the operator manifest registers CustomResourceDefinitions (adding the 'certificates' type to the API) and deploys the controller that watches them and runs the control loop. 'certificates' is not built in, kube-proxy is unrelated, and the API server picks up new CRDs dynamically without a manual restart.",
-  "source": "CKA Advanced Cluster Configuration — CRDs and the operator pattern"
+  "source": "CKA Advanced Cluster Configuration \u2014 CRDs and the operator pattern"
  },
  {
   "id": "ca-q026",
@@ -361,6 +361,741 @@
   ],
   "answer": 0,
   "explanation": "--dry-run=client -o yaml builds the manifest locally and prints valid YAML without contacting the API server, giving a correct starting template to redirect to a file and edit. 'apply' requires an existing file, 'run' creates a live bare pod, and 'edit' modifies an existing resource.",
-  "source": "Working with Your Cluster — Working with Manifests and dry-run"
+  "source": "Working with Your Cluster \u2014 Working with Manifests and dry-run"
+ },
+ {
+  "id": "ca-q027",
+  "domain": "Cluster Architecture",
+  "question": "Which control plane component watches for newly created pods with no assigned node and selects a node for them?",
+  "choices": [
+   "kube-scheduler",
+   "kube-apiserver",
+   "kube-controller-manager",
+   "kubelet"
+  ],
+  "answer": 0,
+  "explanation": "The kube-scheduler is responsible for assigning nodes to newly created pods based on resource requirements and constraints. The kube-apiserver only accepts and serves requests, the controller-manager runs reconciliation loops, and the kubelet executes pods on the node.",
+  "source": "Kubernetes docs \u2014 Kubernetes Components",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q028",
+  "domain": "Cluster Architecture",
+  "question": "A deployment's desired replica count is updated from 3 to 5. Which component detects this change and creates the new pods?",
+  "choices": [
+   "kube-scheduler",
+   "kube-controller-manager",
+   "kubelet",
+   "kube-proxy"
+  ],
+  "answer": 1,
+  "explanation": "The kube-controller-manager runs the deployment and replica set controllers, which detect the state change and create the new pods to meet the desired state. The scheduler only places them, the kubelet runs them, and kube-proxy handles network routing.",
+  "source": "Kubernetes docs \u2014 Kubernetes Components",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q029",
+  "domain": "Cluster Architecture",
+  "question": "What happens if the kubelet on a worker node is stopped or crashes?",
+  "choices": [
+   "All pods on the node are immediately terminated",
+   "The API server assumes the kubelet's duties",
+   "The node continues running existing pods but cannot accept new ones, and eventually becomes NotReady",
+   "The container runtime shuts down automatically"
+  ],
+  "answer": 2,
+  "explanation": "The kubelet is the node agent that communicates with the control plane. If it stops, existing pods keep running via the container runtime, but the node cannot report its status. After the node-monitor-grace-period, the control plane marks it NotReady. It does not terminate pods immediately or affect the runtime.",
+  "source": "Kubernetes docs \u2014 Node Management",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q030",
+  "domain": "Cluster Architecture",
+  "question": "How does a kubelet authenticate to the API server during node registration?",
+  "choices": [
+   "Using a pre-shared static password configured in kubelet.conf",
+   "Using an anonymous SSH connection",
+   "Using the API server's cluster IP address",
+   "Using a TLS client certificate generated via the TLS bootstrapping process"
+  ],
+  "answer": 3,
+  "explanation": "The kubelet uses TLS client certificates to authenticate to the API server. During kubeadm join, TLS bootstrapping is used to securely generate and sign this certificate. Static passwords and anonymous connections are not used for node auth.",
+  "source": "Kubernetes docs \u2014 TLS bootstrapping",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q031",
+  "domain": "Cluster Architecture",
+  "question": "Which statement correctly distinguishes kube-proxy's role from the CNI's role?",
+  "choices": [
+   "kube-proxy implements Kubernetes Services and load balancing; CNI assigns pod IPs and handles pod-to-pod routing",
+   "kube-proxy gives pods IP addresses; CNI implements Services",
+   "kube-proxy configures the DNS server; CNI routes external traffic",
+   "kube-proxy runs only on the control plane; CNI runs only on workers"
+  ],
+  "answer": 0,
+  "explanation": "kube-proxy maintains network rules on nodes to implement Kubernetes Services (ClusterIP, NodePort), allowing communication to backend Pods. The CNI plug-in is responsible for pod networking, including IP assignment and base pod-to-pod connectivity. Roles are not inverted, and both run on all nodes.",
+  "source": "Kubernetes docs \u2014 Cluster Networking",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q032",
+  "domain": "Cluster Architecture",
+  "question": "Why is etcd referred to as a consistent and highly-available key value store?",
+  "choices": [
+   "It stores all application databases directly on the nodes",
+   "It uses the Raft consensus algorithm to maintain cluster state across multiple nodes securely",
+   "It automatically scales up nodes when CPU usage is high",
+   "It caches container images for faster startup"
+  ],
+  "answer": 1,
+  "explanation": "etcd uses the Raft protocol to ensure data consistency across multiple nodes, making it highly available for storing all Kubernetes cluster data and state. It is not an application database, an autoscaler, or an image cache.",
+  "source": "Kubernetes docs \u2014 etcd",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q033",
+  "domain": "Cluster Architecture",
+  "question": "If you directly modify a resource via etcdctl instead of using the API server, what is the consequence?",
+  "choices": [
+   "The cluster state becomes instantly corrupted",
+   "The API server automatically syncs and validates the change post-modification",
+   "The change bypasses admission controllers, validation, and RBAC, risking cluster stability",
+   "It is the recommended way to resolve conflicting state"
+  ],
+  "answer": 2,
+  "explanation": "The API server enforces RBAC, validation, and admission control. Modifying etcd directly bypasses all safety checks, which can lead to invalid configurations and cluster instability. It is never recommended for normal operation.",
+  "source": "Kubernetes docs \u2014 etcd",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q034",
+  "domain": "Cluster Architecture",
+  "question": "You need to grant a user permission to view pods and services in the 'dev' namespace. Which RBAC resources are required?",
+  "choices": [
+   "A ClusterRole and a ClusterRoleBinding",
+   "A RoleBinding in the 'default' namespace pointing to a ClusterRole",
+   "A PodSecurityPolicy and a Role",
+   "A Role in the 'dev' namespace and a RoleBinding in the 'dev' namespace"
+  ],
+  "answer": 3,
+  "explanation": "Permissions restricted to a specific namespace for namespaced resources (pods, services) require a Role and a RoleBinding in that specific namespace. ClusterRoles/Bindings apply globally, and PSPs are deprecated/removed security constraints.",
+  "source": "Kubernetes docs \u2014 RBAC Good Practices",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q035",
+  "domain": "Cluster Architecture",
+  "question": "A developer can create deployments in the 'test' namespace but gets a 403 Forbidden when trying to list nodes. Why?",
+  "choices": [
+   "Nodes are cluster-scoped resources and their RoleBinding only grants permissions in the 'test' namespace",
+   "The developer's certificate has expired",
+   "The nodes are currently NotReady",
+   "Deployments are in a different API group than nodes"
+  ],
+  "answer": 0,
+  "explanation": "Nodes are cluster-scoped resources. A RoleBinding in a namespace cannot grant access to cluster-scoped resources; a ClusterRole and ClusterRoleBinding are required. Certificate expiry causes 401 Unauthorized, and node readiness doesn't affect RBAC.",
+  "source": "Kubernetes docs \u2014 RBAC",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q036",
+  "domain": "Cluster Architecture",
+  "question": "Which statement correctly distinguishes a Role from a ClusterRole?",
+  "choices": [
+   "A Role defines deny rules; a ClusterRole defines allow rules",
+   "A Role grants permissions within a specific namespace; a ClusterRole grants cluster-wide permissions or access to cluster-scoped resources",
+   "A Role is used for service accounts; a ClusterRole is for users",
+   "A Role manages pods; a ClusterRole manages nodes"
+  ],
+  "answer": 1,
+  "explanation": "Roles are always confined to a specific namespace, whereas ClusterRoles apply cluster-wide and can grant access to cluster-scoped resources (like nodes) or non-resource endpoints. RBAC is additive (no deny rules), and both can be bound to users or service accounts.",
+  "source": "Kubernetes docs \u2014 RBAC",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q037",
+  "domain": "Cluster Architecture",
+  "question": "When defining an RBAC rule for Deployments, which apiGroups value must be used?",
+  "choices": [
+   "[''] (core group)",
+   "['extensions']",
+   "['apps']",
+   "['batch']"
+  ],
+  "answer": 2,
+  "explanation": "Deployments belong to the 'apps' API group. The core group ('') is for resources like Pods and Services. 'extensions' is deprecated for Deployments, and 'batch' is for Jobs/CronJobs.",
+  "source": "Kubernetes docs \u2014 RBAC",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q038",
+  "domain": "Cluster Architecture",
+  "question": "If you want to grant read-only access to all core resources (Pods, Services, ConfigMaps), what should the verbs list contain?",
+  "choices": [
+   "['read', 'view']",
+   "['*']",
+   "['get', 'describe']",
+   "['get', 'list', 'watch']"
+  ],
+  "answer": 3,
+  "explanation": "In Kubernetes RBAC, read-only operations map to the verbs 'get', 'list', and 'watch'. 'read' and 'view' are not valid verbs, '*' grants full access, and 'describe' is a kubectl command that uses get/list under the hood, not an API verb.",
+  "source": "Kubernetes docs \u2014 RBAC",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q039",
+  "domain": "Cluster Architecture",
+  "question": "By default, what happens when a pod is created without explicitly specifying a service account?",
+  "choices": [
+   "It is assigned the 'default' service account in its namespace, and its token is automatically mounted",
+   "It runs anonymously without any API access",
+   "It is assigned the 'default' service account in its namespace, which has full admin privileges",
+   "The pod creation fails validation"
+  ],
+  "answer": 0,
+  "explanation": "Pods are automatically assigned the 'default' service account of their namespace, and the ServiceAccount admission controller automounts its token to /var/run/secrets/kubernetes.io/serviceaccount. The default SA has very limited permissions, not admin rights.",
+  "source": "Kubernetes docs \u2014 Configure Service Accounts for Pods",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q040",
+  "domain": "Cluster Architecture",
+  "question": "A pod does not need to communicate with the API server. How can you improve security by preventing the service account token from being mounted?",
+  "choices": [
+   "Delete the default service account",
+   "Set automountServiceAccountToken: false in the Pod or ServiceAccount spec",
+   "Use a NetworkPolicy to block API server egress",
+   "Set mountToken: disabled in the kubelet config"
+  ],
+  "answer": 1,
+  "explanation": "Setting automountServiceAccountToken: false prevents the kubelet from projecting the token into the pod's filesystem, reducing the attack surface. Deleting the default SA breaks pod creation, and NetworkPolicies are a broader networking tool, not the direct way to handle token mounts.",
+  "source": "Kubernetes docs \u2014 Configure Service Accounts for Pods",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q041",
+  "domain": "Cluster Architecture",
+  "question": "Which command allows an administrator to test if the service account 'app-sa' can create deployments in the 'prod' namespace?",
+  "choices": [
+   "kubectl get deployments --as=system:serviceaccount:prod:app-sa",
+   "kubectl auth check create deployments --serviceaccount=app-sa",
+   "kubectl auth can-i create deployments -n prod --as=system:serviceaccount:prod:app-sa",
+   "kubectl describe rolebinding app-sa"
+  ],
+  "answer": 2,
+  "explanation": "kubectl auth can-i evaluates authorization. By combining the action (create deployments), the namespace (-n prod), and the impersonation flag (--as=system:serviceaccount:prod:app-sa), it accurately queries the API server's SubjectAccessReview endpoint. The other commands are either invalid syntax or do not perform a definitive access check.",
+  "source": "Kubernetes docs \u2014 Authorization",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q042",
+  "domain": "Cluster Architecture",
+  "question": "You are running 'kubeadm init' and want to ensure the control plane nodes use a specific network interface for cluster communication. Which flag is required?",
+  "choices": [
+   "--control-plane-endpoint",
+   "--node-ip",
+   "--pod-network-cidr",
+   "--apiserver-advertise-address"
+  ],
+  "answer": 3,
+  "explanation": "--apiserver-advertise-address binds the API server to a specific IP address (and thus interface) for cluster communication. --control-plane-endpoint sets the shared endpoint for HA, --node-ip is a kubelet flag, and --pod-network-cidr defines the internal pod IP range.",
+  "source": "Kubernetes docs \u2014 kubeadm init",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q043",
+  "domain": "Cluster Architecture",
+  "question": "After 'kubeadm init' completes successfully, what is the critical manual step required before you can use kubectl as a regular user?",
+  "choices": [
+   "Copy /etc/kubernetes/admin.conf to ~/.kube/config and change its ownership",
+   "Install a CNI plugin",
+   "Reboot the control plane node",
+   "Run kubeadm join on the same node"
+  ],
+  "answer": 0,
+  "explanation": "To use kubectl, you must set up your kubeconfig by copying /etc/kubernetes/admin.conf to your home directory (~/.kube/config) and updating ownership. CNI installation is the next cluster setup step, but copying the config is required to even run the kubectl command.",
+  "source": "Kubernetes docs \u2014 Creating a cluster with kubeadm",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q044",
+  "domain": "Cluster Architecture",
+  "question": "A worker node fails to join the cluster, and the logs show 'token expired'. What is the default lifespan of a kubeadm bootstrap token?",
+  "choices": [
+   "1 hour",
+   "24 hours",
+   "7 days",
+   "Never expires"
+  ],
+  "answer": 1,
+  "explanation": "By default, kubeadm bootstrap tokens expire after 24 hours for security reasons. You must generate a new one using 'kubeadm token create' if you need to add nodes after this period. They do not last indefinitely or for a single hour.",
+  "source": "Kubernetes docs \u2014 kubeadm token",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q045",
+  "domain": "Cluster Architecture",
+  "question": "When upgrading a kubeadm cluster from v1.28.x to v1.29.y, which OS package must be upgraded first on the control plane node?",
+  "choices": [
+   "kubelet",
+   "kubectl",
+   "kubeadm",
+   "containerd"
+  ],
+  "answer": 2,
+  "explanation": "kubeadm manages the upgrade process. Therefore, you must upgrade the kubeadm package first, then run 'kubeadm upgrade apply', and finally upgrade the kubelet and kubectl packages. Reversing this order breaks the upgrade workflow.",
+  "source": "Kubernetes docs \u2014 Upgrading kubeadm clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q046",
+  "domain": "Cluster Architecture",
+  "question": "What is the maximum allowed version skew between the kube-apiserver and the kubelet?",
+  "choices": [
+   "They must be exactly the same version",
+   "The kubelet can be newer than the apiserver",
+   "The kubelet can be up to one minor version older than the apiserver",
+   "The kubelet can be up to three minor versions older than the apiserver"
+  ],
+  "answer": 3,
+  "explanation": "As of recent releases, the kubelet can be up to three minor versions older than the kube-apiserver (e.g., apiserver 1.29, kubelet 1.26). It cannot be newer. Previously it was two versions, but it is explicitly supported to allow easier node upgrades.",
+  "source": "Kubernetes docs \u2014 Version Skew Policy",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q047",
+  "domain": "Cluster Architecture",
+  "question": "A cluster administrator notices control plane certificates expire in 30 days. Which command safely renews all locally managed certificates?",
+  "choices": [
+   "kubeadm certs renew all",
+   "kubectl certificate approve",
+   "kubeadm upgrade apply",
+   "systemctl restart kubelet"
+  ],
+  "answer": 0,
+  "explanation": "kubeadm provides the 'kubeadm certs renew all' command to manually renew control plane certificates (apiserver, etcd, etc.) for another year. 'kubectl certificate approve' is for CSRs, and while upgrades do renew certs, 'certs renew' is the direct operational command.",
+  "source": "Kubernetes docs \u2014 Certificate Management with kubeadm",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q048",
+  "domain": "Cluster Architecture",
+  "question": "After running 'kubeadm certs renew all', the API server continues to present the old certificate. Why?",
+  "choices": [
+   "The new certificates are pending approval in etcd",
+   "The static pods must be restarted so the components load the new files from disk",
+   "The kubelet needs to be upgraded",
+   "You must reboot the node"
+  ],
+  "answer": 1,
+  "explanation": "Renewing certificates updates the files on disk in /etc/kubernetes/pki. Control plane components like the API server load certs at startup; they must be restarted (e.g., by temporarily moving their manifests out of /etc/kubernetes/manifests and back) to pick up the new certificates. Node reboot is extreme and unnecessary.",
+  "source": "Kubernetes docs \u2014 Certificate Management with kubeadm",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q049",
+  "domain": "Cluster Architecture",
+  "question": "You create a static pod by placing a manifest in /etc/kubernetes/manifests. How do you delete this pod?",
+  "choices": [
+   "kubectl delete pod <name>",
+   "kubectl delete -f <manifest>",
+   "Remove the manifest file from the directory",
+   "systemctl stop kubelet"
+  ],
+  "answer": 2,
+  "explanation": "Static pods are managed directly by the kubelet, not the API server. Removing the manifest file from the watch directory instructs the kubelet to terminate the pod. 'kubectl delete' will only delete the mirror pod on the API server, which the kubelet will immediately recreate.",
+  "source": "Kubernetes docs \u2014 Static Pods",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q050",
+  "domain": "Cluster Architecture",
+  "question": "When taking an etcd snapshot, which flag specifies the location of the etcd server?",
+  "choices": [
+   "--server",
+   "--cluster",
+   "--host",
+   "--endpoints"
+  ],
+  "answer": 3,
+  "explanation": "etcdctl requires the '--endpoints' flag (e.g., --endpoints=https://127.0.0.1:2379) to know which etcd member to connect to. '--server' is used by kubectl, not etcdctl.",
+  "source": "Kubernetes docs \u2014 Operating etcd clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q051",
+  "domain": "Cluster Architecture",
+  "question": "You execute 'etcdctl snapshot save snap.db'. How do you verify the snapshot is valid and not corrupted?",
+  "choices": [
+   "etcdctl snapshot status snap.db",
+   "etcdctl snapshot verify snap.db",
+   "cat snap.db",
+   "kubectl get etcdsnapshot"
+  ],
+  "answer": 0,
+  "explanation": "The 'etcdctl snapshot status snap.db' command reads the snapshot file and outputs metadata (hash, revision, total keys), effectively verifying it is a valid, readable etcd snapshot. There is no 'verify' command, and catting binary data is useless.",
+  "source": "Kubernetes docs \u2014 Operating etcd clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q052",
+  "domain": "Cluster Architecture",
+  "question": "During an etcd restore process on a kubeadm cluster, which file must be modified to point the etcd static pod to the new restored data directory?",
+  "choices": [
+   "/etc/kubernetes/kubelet.conf",
+   "/etc/kubernetes/manifests/etcd.yaml",
+   "/var/lib/etcd/config.yaml",
+   "/etc/etcd/etcd.conf"
+  ],
+  "answer": 1,
+  "explanation": "The kubeadm-managed etcd runs as a static pod. To use the newly restored data directory, you edit the hostPath volume in '/etc/kubernetes/manifests/etcd.yaml'. The kubelet detects the change and restarts the etcd pod automatically.",
+  "source": "Kubernetes docs \u2014 Operating etcd clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q053",
+  "domain": "Cluster Architecture",
+  "question": "Why must you stop the API server before restoring an etcd snapshot?",
+  "choices": [
+   "To prevent etcdctl from hanging",
+   "To clear the API server cache",
+   "To ensure no new state is written to etcd during the restore, preventing data corruption or inconsistency",
+   "Because the API server holds a lock on the snapshot file"
+  ],
+  "answer": 2,
+  "explanation": "If the API server is running, it may attempt to write new data while you are swapping out the backend store, leading to race conditions or split state. Stopping the API server ensures a clean cutover to the restored snapshot.",
+  "source": "Kubernetes docs \u2014 Operating etcd clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q054",
+  "domain": "Cluster Architecture",
+  "question": "In a highly available control plane setup, what is the role of the external load balancer?",
+  "choices": [
+   "To distribute external traffic to worker node NodePorts",
+   "To load balance etcd replication traffic",
+   "To provide ingress routing for HTTP applications",
+   "To route kubectl and worker node traffic evenly across multiple kube-apiserver instances"
+  ],
+  "answer": 3,
+  "explanation": "The control plane load balancer provides a single, stable IP/DNS endpoint (used in --control-plane-endpoint) for worker nodes and external clients to communicate with the multiple active kube-apiserver instances. It does not handle ingress or etcd replication.",
+  "source": "Kubernetes docs \u2014 Highly Available Topology",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q055",
+  "domain": "Cluster Architecture",
+  "question": "Which kubeconfig field defines the active combination of cluster, user, and namespace?",
+  "choices": [
+   "current-context",
+   "active-cluster",
+   "default-user",
+   "preferences"
+  ],
+  "answer": 0,
+  "explanation": "The 'current-context' field in a kubeconfig file points to the name of a context, which dictates which cluster to connect to, which user credentials to send, and which namespace to use by default.",
+  "source": "Kubernetes docs \u2014 Organizing Cluster Access Using kubeconfig Files",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q056",
+  "domain": "Cluster Architecture",
+  "question": "You have a kubeconfig file for a dev cluster and one for a prod cluster. How can you use them together without modifying the files?",
+  "choices": [
+   "kubectl merge dev.conf prod.conf",
+   "Set KUBECONFIG=dev.conf:prod.conf",
+   "Run them in different namespaces",
+   "Set KUBE_CLUSTERS=dev,prod"
+  ],
+  "answer": 1,
+  "explanation": "By setting the KUBECONFIG environment variable to a colon-separated list of file paths (e.g., KUBECONFIG=dev.conf:prod.conf), kubectl merges them in memory at runtime. There is no 'kubectl merge' command.",
+  "source": "Kubernetes docs \u2014 Organizing Cluster Access Using kubeconfig Files",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q057",
+  "domain": "Cluster Architecture",
+  "question": "Which command generates the YAML for a NodePort service exposing a deployment named 'web' on port 80, without creating it?",
+  "choices": [
+   "kubectl create service nodeport web --tcp=80:80",
+   "kubectl get service web -o yaml > new.yaml",
+   "kubectl expose deployment web --port=80 --type=NodePort --dry-run=client -o yaml",
+   "kubectl run web --expose --port=80"
+  ],
+  "answer": 2,
+  "explanation": "The imperative 'kubectl expose' command combined with '--dry-run=client -o yaml' builds the Service manifest based on the deployment's selectors and outputs it as YAML without sending it to the API server. The other options either create live resources or are invalid syntax for this task.",
+  "source": "Kubernetes docs \u2014 kubectl Cheat Sheet",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q058",
+  "domain": "Cluster Architecture",
+  "question": "You need to extract only the IP addresses of all pods. Which output format is most efficient?",
+  "choices": [
+   "-o yaml",
+   "-o wide",
+   "-o json",
+   "-o jsonpath='{.items[*].status.podIP}'"
+  ],
+  "answer": 3,
+  "explanation": "JSONPath allows you to query and extract specific fields directly from the API response, avoiding heavy bash parsing. '-o wide' includes IPs but also much other text, while yaml/json dumps the entire objects.",
+  "source": "Kubernetes docs \u2014 JSONPath Support",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q059",
+  "domain": "Cluster Architecture",
+  "question": "Which kubectl flag allows you to define a tabular output with specific fields as columns?",
+  "choices": [
+   "-o custom-columns",
+   "--sort-by",
+   "--show-labels",
+   "-o name"
+  ],
+  "answer": 0,
+  "explanation": "'-o custom-columns' lets you define column headers and map them to JSONPath expressions (e.g., -o custom-columns=NAME:.metadata.name,IP:.status.podIP) to create custom tables. '--sort-by' orders rows but doesn't define columns.",
+  "source": "Kubernetes docs \u2014 Custom Columns",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q060",
+  "domain": "Cluster Architecture",
+  "question": "You want to update a Helm release named 'frontend' with a new values file. Which command is correct?",
+  "choices": [
+   "helm apply frontend -f values.yaml",
+   "helm upgrade frontend myrepo/frontend -f values.yaml",
+   "helm install frontend --update",
+   "kubectl helm upgrade frontend"
+  ],
+  "answer": 1,
+  "explanation": "The 'helm upgrade' command is used to update an existing release to a new version of a chart or with new configuration values (passed via -f). 'helm apply' does not exist, and helm is a standalone binary, not a kubectl subcommand.",
+  "source": "Helm docs \u2014 helm upgrade",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q061",
+  "domain": "Cluster Architecture",
+  "question": "A Helm upgrade fails and causes application downtime. How do you quickly revert to the previous working state?",
+  "choices": [
+   "helm uninstall <release-name> && helm install",
+   "kubectl undo deployment",
+   "helm rollback <release-name>",
+   "helm downgrade <release-name>"
+  ],
+  "answer": 2,
+  "explanation": "Helm tracks the history of releases. 'helm rollback <release-name>' seamlessly reverts the release to the previous revision. Uninstalling destroys resources (like PVCs), and 'helm downgrade' is not a valid command.",
+  "source": "Helm docs \u2014 helm rollback",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q062",
+  "domain": "Cluster Architecture",
+  "question": "In a Kustomize directory structure, what is the purpose of the 'base' directory?",
+  "choices": [
+   "It holds the final generated YAML output",
+   "It contains the environment-specific configurations like dev or prod",
+   "It stores the Helm chart templates",
+   "It contains the common, unmodified resource manifests shared across multiple environments"
+  ],
+  "answer": 3,
+  "explanation": "In Kustomize, the 'base' directory holds the core, unmodified YAML manifests. Overlays (like dev or prod) reference this base and apply environment-specific patches. It is unrelated to Helm.",
+  "source": "Kubernetes docs \u2014 Declarative Management using Kustomize",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q063",
+  "domain": "Cluster Architecture",
+  "question": "To use Kustomize features natively within kubectl, which flag must you use?",
+  "choices": [
+   "-k",
+   "-f",
+   "--kustomize",
+   "-R"
+  ],
+  "answer": 0,
+  "explanation": "The '-k' flag (or --kustomize) tells kubectl to process a directory containing a kustomization.yaml file. '-f' is for standard files/directories without kustomize processing.",
+  "source": "Kubernetes docs \u2014 Declarative Management using Kustomize",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q064",
+  "domain": "Cluster Architecture",
+  "question": "What is the primary function of a CustomResourceDefinition (CRD) in Kubernetes?",
+  "choices": [
+   "To replace standard resources like Deployments with faster versions",
+   "To extend the Kubernetes API with user-defined resource types",
+   "To define network routing rules for external traffic",
+   "To monitor cluster performance and generate alerts"
+  ],
+  "answer": 1,
+  "explanation": "A CRD allows users to extend the Kubernetes API by defining new, custom resource types (e.g., 'Certificates', 'Prometheuses') that can be managed via kubectl just like native resources. It does not replace core resources or handle networking directly.",
+  "source": "Kubernetes docs \u2014 Custom Resources",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q065",
+  "domain": "Cluster Architecture",
+  "question": "Before shutting down a worker node for hardware maintenance, which command ensures no new pods are scheduled to it and gracefully evicts existing workloads?",
+  "choices": [
+   "kubectl cordon <node>",
+   "kubectl taint node <node> maintenance=true:NoSchedule",
+   "kubectl drain <node> --ignore-daemonsets",
+   "kubectl delete node <node>"
+  ],
+  "answer": 2,
+  "explanation": "'kubectl drain' safely evicts pods, respecting PodDisruptionBudgets, and automatically cordons the node to prevent new pods. '--ignore-daemonsets' is required to bypass DaemonSets. Cordoning alone does not evict, and deleting the node causes abrupt termination.",
+  "source": "Kubernetes docs \u2014 Safely Drain a Node",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q066",
+  "domain": "Cluster Architecture",
+  "question": "After hardware maintenance is complete, how do you allow the node to accept new pods again?",
+  "choices": [
+   "systemctl restart kubelet",
+   "kubeadm join",
+   "kubectl undrain <node>",
+   "kubectl uncordon <node>"
+  ],
+  "answer": 3,
+  "explanation": "'kubectl uncordon' removes the unschedulable taint/flag from the node, allowing the scheduler to place new pods on it. There is no 'undrain' command, and restarting the kubelet does not clear the unschedulable status in the API.",
+  "source": "Kubernetes docs \u2014 Safely Drain a Node",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q067",
+  "domain": "Cluster Architecture",
+  "question": "Which CLI tool allows you to inspect running containers directly through the Container Runtime Interface (CRI), bypassing the kubelet?",
+  "choices": [
+   "crictl",
+   "docker",
+   "kubeadm",
+   "containerd"
+  ],
+  "answer": 0,
+  "explanation": "'crictl' is the CLI tool for CRI-compatible container runtimes. It allows administrators to list and inspect pods, containers, and images directly for debugging. 'docker' is no longer the default runtime, and containerd is the runtime itself, not the standard generic CLI.",
+  "source": "Kubernetes docs \u2014 Debugging with crictl",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q068",
+  "domain": "Cluster Architecture",
+  "question": "Why might you use 'crictl logs' instead of 'kubectl logs' during troubleshooting?",
+  "choices": [
+   "Because crictl formats the logs in JSON",
+   "Because the API server or kubelet is down, preventing kubectl from fetching logs",
+   "Because crictl aggregates logs from all nodes",
+   "Because kubectl logs only works for control plane components"
+  ],
+  "answer": 1,
+  "explanation": "If the control plane, API server, or kubelet is broken, 'kubectl logs' will fail. 'crictl logs' talks directly to the local container runtime socket on the node, bypassing Kubernetes components, making it invaluable for debugging broken clusters.",
+  "source": "Kubernetes docs \u2014 Debugging with crictl",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q069",
+  "domain": "Cluster Architecture",
+  "question": "What is a mandatory OS-level requirement for the kubelet to function correctly by default?",
+  "choices": [
+   "SELinux must be in enforcing mode",
+   "A public IP address",
+   "Swap memory must be disabled",
+   "The firewalld service must be running"
+  ],
+  "answer": 2,
+  "explanation": "By default, the kubelet will fail to start if swap memory is enabled on the node. This ensures accurate memory accounting and QoS enforcement for containers. (While swap support is an alpha/beta feature in recent versions, disabling it remains the standard requirement.)",
+  "source": "Kubernetes docs \u2014 Installing kubeadm",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q070",
+  "domain": "Cluster Architecture",
+  "question": "A cluster is deployed, but pods on different nodes cannot ping each other. The nodes are Ready. What component is missing or misconfigured?",
+  "choices": [
+   "The kube-scheduler",
+   "CoreDNS",
+   "The ingress controller",
+   "The CNI plugin"
+  ],
+  "answer": 3,
+  "explanation": "The Container Network Interface (CNI) plugin handles cross-node pod-to-pod networking. Without a functional CNI, routing between nodes fails. CoreDNS relies on the network, and ingress handles external access, not internal pod routing.",
+  "source": "Kubernetes docs \u2014 Cluster Networking",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q071",
+  "domain": "Cluster Architecture",
+  "question": "Which command safely removes an etcd member from a running cluster before replacing the node?",
+  "choices": [
+   "etcdctl member remove",
+   "kubectl delete pod etcd",
+   "kubeadm reset",
+   "systemctl stop etcd"
+  ],
+  "answer": 0,
+  "explanation": "To safely scale down or remove a node from an etcd cluster, you must use 'etcdctl member remove <id>'. Deleting the pod or stopping the service just marks the node as down, which degrades quorum. The member must be explicitly removed from the Raft consensus.",
+  "source": "Kubernetes docs \u2014 Operating etcd clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q072",
+  "domain": "Cluster Architecture",
+  "question": "When defining an RBAC ClusterRole for reading namespaces, why is it unnecessary to specify a namespace in the binding?",
+  "choices": [
+   "Namespaces are implicitly in the 'default' namespace",
+   "Namespaces are cluster-scoped resources, so they require a ClusterRoleBinding which does not take a namespace",
+   "The API server ignores namespaces for all read operations",
+   "Roles automatically fall back to cluster scope"
+  ],
+  "answer": 1,
+  "explanation": "Namespaces themselves are cluster-scoped resources (they don't belong to a namespace). Therefore, you must use a ClusterRole and a ClusterRoleBinding to grant access to them. ClusterRoleBindings apply globally and do not accept a namespace parameter.",
+  "source": "Kubernetes docs \u2014 RBAC",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q073",
+  "domain": "Cluster Architecture",
+  "question": "How do you forcefully terminate a pod that is stuck in the 'Terminating' state due to a dead node?",
+  "choices": [
+   "kubectl edit pod <name> and remove finalizers",
+   "kubectl drain the node",
+   "kubectl delete pod <name> --force",
+   "crictl rm <pod-id>"
+  ],
+  "answer": 2,
+  "explanation": "Using 'kubectl delete pod <name> --force' (which implies --grace-period=0) immediately removes the pod from the API server without waiting for confirmation from the kubelet. This is necessary when the underlying node is permanently unreachable.",
+  "source": "Kubernetes docs \u2014 Pods",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q074",
+  "domain": "Cluster Architecture",
+  "question": "A user executes 'kubectl get pods --sort-by=.metadata.creationTimestamp'. In what order are the pods displayed?",
+  "choices": [
+   "Newest pods first",
+   "Alphabetical by name",
+   "Random order",
+   "Oldest pods first"
+  ],
+  "answer": 3,
+  "explanation": "The --sort-by flag sorts results in ascending order based on the specified JSONPath field. For timestamps, ascending means oldest dates first.",
+  "source": "Kubernetes docs \u2014 kubectl Cheat Sheet",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q075",
+  "domain": "Cluster Architecture",
+  "question": "You want to dry-run a kubectl command to ensure you have the correct RBAC permissions without actually making the change. Which flag should you use?",
+  "choices": [
+   "--dry-run=server",
+   "--dry-run=client",
+   "--validate=false",
+   "--check-auth"
+  ],
+  "answer": 0,
+  "explanation": "'--dry-run=server' sends the request to the API server to run through authentication, authorization (RBAC), and validation admission controllers, but prevents the final persistence to etcd. '--dry-run=client' only processes locally and doesn't verify RBAC.",
+  "source": "Kubernetes docs \u2014 kubectl command reference",
+  "domainKey": "cluster"
  }
 ]

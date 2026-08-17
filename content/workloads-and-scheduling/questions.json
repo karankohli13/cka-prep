@@ -1,19 +1,660 @@
 [
-  {"id":"ws-q001","domain":"Workloads and Scheduling","question":"You need to run one log-collection pod on every node, and have it automatically appear on any node added to the cluster. Which controller should you use?","choices":["Deployment","StatefulSet","DaemonSet","Job"],"answer":2,"explanation":"A DaemonSet ensures one pod runs on every node and automatically schedules a pod onto newly added nodes — ideal for log collectors and monitoring agents. A Deployment/StatefulSet run a fixed replica count not tied to node count; a Job runs to completion and stops.","source":"Workloads and Scheduling for CKA — Choosing the Right Workload Controller"},
-  {"id":"ws-q002","domain":"Workloads and Scheduling","question":"Which controller is best suited for a database that requires a stable identity and persistent storage per pod?","choices":["StatefulSet","ReplicaSet","Deployment","DaemonSet"],"answer":0,"explanation":"A StatefulSet gives each pod a stable, unique identity (e.g. db-0) plus persistent storage and ordered operations. Deployments and ReplicaSets treat pods as interchangeable; a DaemonSet pins one pod per node.","source":"Workloads and Scheduling for CKA — Choosing the Right Workload Controller"},
-  {"id":"ws-q003","domain":"Workloads and Scheduling","question":"A Job is defined with completions: 6 and parallelism: 2. What happens?","choices":["The Job runs pods until 6 complete successfully, at most 2 at a time","6 pods all run at once until 2 succeed","2 pods run, and the Job succeeds after either one completes","6 pods run forever, restarting on success"],"answer":0,"explanation":"completions is the number of required successful runs (6) and parallelism caps concurrent pods (2), so it runs in batches of two until six succeed. Jobs stop once completions are met; they do not run forever.","source":"Workloads and Scheduling for CKA — Demo: Managing Batch Workloads"},
-  {"id":"ws-q004","domain":"Workloads and Scheduling","question":"Which action will trigger a new rollout (new ReplicaSet) for a Deployment?","choices":["Changing the replicas count from 3 to 5","Updating the container image in the pod template","Adding a label to the Deployment's metadata","Editing the Deployment's revisionHistoryLimit"],"answer":1,"explanation":"Only changes to the pod template (such as the container image) create a new ReplicaSet and trigger a rollout. Changing replicas just scales; metadata labels and revisionHistoryLimit are deployment-spec fields that don't roll the pods.","source":"Managing Kubernetes Controllers and Deployments — Updating a Deployment"},
-  {"id":"ws-q005","domain":"Workloads and Scheduling","question":"In a RollingUpdate, what does maxSurge control?","choices":["The maximum pods that can be unavailable during the update","The number of old ReplicaSets retained for rollback","The maximum extra pods allowed above the desired replica count during the update","How long Kubernetes waits before marking the rollout failed"],"answer":2,"explanation":"maxSurge limits how many pods may run above the desired count while updating (default 25%). maxUnavailable limits pods offline; revisionHistoryLimit controls retained ReplicaSets; progressDeadlineSeconds governs failure timing.","source":"Managing Kubernetes Controllers and Deployments — Controlling Updates with UpdateStrategy"},
-  {"id":"ws-q006","domain":"Workloads and Scheduling","question":"A rollout to a bad image left the deployment broken. You need to return to the known-good revision 2. Which command does this?","choices":["kubectl rollout status deployment app --revision=2","kubectl rollout history deployment app --revision=2","kubectl rollout undo deployment app --to-revision=2","kubectl scale deployment app --replicas=2"],"answer":2,"explanation":"kubectl rollout undo --to-revision=2 scales down the current ReplicaSet and scales the revision-2 ReplicaSet back up. rollout history --revision=2 only inspects it; rollout status checks progress; scale changes replica count.","source":"Managing Kubernetes Controllers and Deployments — Pausing and Rolling Back Deployments"},
-  {"id":"ws-q007","domain":"Workloads and Scheduling","question":"Why should you define a readiness probe when using a RollingUpdate strategy?","choices":["It speeds up the rollout by skipping unhealthy pods","It is required for Kubernetes to create a ReplicaSet","It lets the deployment stop the rollout if new pods aren't ready, protecting the running version","It encrypts the pod's configuration during the update"],"answer":2,"explanation":"With a readiness probe, the deployment halts a rollout when too many new pods fail readiness (would breach maxUnavailable), keeping the previous version serving traffic. Without it, a pod is 'ready' at start and a broken rollout proceeds.","source":"Managing Kubernetes Controllers and Deployments — Successfully Controlling Deployment Rollouts"},
-  {"id":"ws-q008","domain":"Workloads and Scheduling","question":"You update a ConfigMap mounted as environment variables and want the running pods to use the new values. What must you do?","choices":["Nothing — env vars hot reload automatically","Restart the pods, because env vars do not hot reload","Convert the ConfigMap to a Secret","Delete and recreate the ConfigMap with --reload"],"answer":1,"explanation":"Environment variables do not hot reload; you must restart the pods (e.g. kubectl rollout restart) to pick up new values. Volume-mounted directories do support hot reloading, but env injection does not.","source":"Workloads and Scheduling for CKA — Decoupling Configuration"},
-  {"id":"ws-q009","domain":"Workloads and Scheduling","question":"Which statement about Kubernetes Secrets is correct?","choices":["Secret values are AES-encrypted in the manifest by default","Secret values are only Base64-encoded, which obscures but does not secure them","Secrets cannot be injected as environment variables","Anyone authorized to create a pod is automatically blocked from reading namespace Secrets"],"answer":1,"explanation":"Secrets are Base64-encoded (easily decoded), not encrypted by default; enable etcd encryption at rest for real protection. They can be injected as env vars or volumes, and anyone who can create a pod in a namespace can read its Secrets.","source":"Workloads and Scheduling for CKA — Managing Secrets"},
-  {"id":"ws-q010","domain":"Workloads and Scheduling","question":"Your HPA shows TARGETS as <unknown>/50% and is not scaling. What is the most likely cause?","choices":["The deployment has too many replicas","maxReplicas is set too low","The HPA stabilization window is too short","The metrics server is unavailable or the pods lack resource requests"],"answer":3,"explanation":"HPA needs the metrics server running and resource requests defined on the target pods to compute usage; <unknown> means metrics aren't available. Replica counts, maxReplicas, and the stabilization window don't cause <unknown> metrics.","source":"Workloads and Scheduling for CKA — Demo: Configuring HPA"},
-  {"id":"ws-q011","domain":"Workloads and Scheduling","question":"A container repeatedly fails its livenessProbe. What does Kubernetes do?","choices":["Restarts the container according to the pod's restart policy","Removes the pod's IP from the Service endpoints","Marks the node NotReady","Evicts every pod on the node"],"answer":0,"explanation":"A failing livenessProbe causes the kubelet to restart the container per the restart policy. Removing the pod IP from Service endpoints is the readinessProbe behavior; liveness does not affect node status or evict other pods.","source":"Managing the Kubernetes API Server and Pods — Defining Pod Health"},
-  {"id":"ws-q012","domain":"Workloads and Scheduling","question":"A pod has requests and limits set so that CPU and memory requests exactly equal their limits. Which QoS class is assigned?","choices":["BestEffort","Burstable","Guaranteed","Priority"],"answer":2,"explanation":"Guaranteed QoS is assigned when requests equal limits for both CPU and memory — these pods are protected longest under resource pressure. Burstable is requests < limits; BestEffort is no requests/limits; Priority is not a QoS class.","source":"Workloads and Scheduling for CKA — Configuring Pod Admission"},
-  {"id":"ws-q013","domain":"Workloads and Scheduling","question":"A container exceeds its configured memory limit. What happens?","choices":["Its memory request is automatically increased","The pod is rescheduled to another node","The kernel terminates it and it shows OOMKilled","It is throttled and slowed down"],"answer":2,"explanation":"Exceeding the memory limit causes the kernel to kill the process, giving an OOMKilled status. Throttling is what happens when a container exceeds its CPU limit, not its memory limit.","source":"Workloads and Scheduling for CKA — Demo: Defining Resource Limits"},
-  {"id":"ws-q014","domain":"Workloads and Scheduling","question":"You add nodeSelector: disk=ssd to a pod, but no node has that label. What is the result?","choices":["The pod schedules on a random node","The pod stays in Pending state","The scheduler creates the label automatically","The pod schedules on the control plane"],"answer":1,"explanation":"nodeSelector is a hard requirement; with no matching node the pod remains Pending. Check kubectl get events / describe pod for a 'didn't match node selector' message. The scheduler never invents labels or ignores the selector.","source":"Workloads and Scheduling for CKA — Demo: Node Selection"},
-  {"id":"ws-q015","domain":"Workloads and Scheduling","question":"You want three replicas of an app spread so no two run on the same node for high availability. Which mechanism achieves this?","choices":["nodeSelector","A taint with NoExecute","A Pod Disruption Budget","Pod anti-affinity"],"answer":3,"explanation":"Pod anti-affinity (with topologyKey kubernetes.io/hostname) tells the scheduler not to co-locate replicas with the same label on a node, spreading them for HA. nodeSelector pins to labels; taints repel pods; a PDB guards against voluntary disruptions, not placement.","source":"Workloads and Scheduling for CKA — Demo: Pod Anti-affinity"},
-  {"id":"ws-q016","domain":"Workloads and Scheduling","question":"You create a static pod by placing a manifest in /etc/kubernetes/manifests. Which statement is true?","choices":["You can delete it with kubectl delete pod","It is managed by the kubelet, and you remove it by deleting the manifest file","It is invisible from kubectl get pods","It is scheduled by the kube-scheduler like any other pod"],"answer":1,"explanation":"Static pods are managed by the kubelet, not the API server; to remove one you delete its manifest from the staticPodPath. The kubelet creates a read-only mirror pod so it IS visible via kubectl, but kubectl delete won't remove it and the scheduler isn't involved.","source":"Managing the Kubernetes API Server and Pods — Introducing and Working Static Pods"},
-  {"id":"ws-q017","domain":"Workloads and Scheduling","question":"kubectl drain on a node fails with a message that eviction would violate a Pod Disruption Budget. What is a valid way to proceed?","choices":["Delete the PDB's namespace","Scale the deployment up so the minAvailable floor is still met after eviction","Use kubectl cordon instead, which ignores PDBs","Set the pod's restartPolicy to Never"],"answer":1,"explanation":"A PDB blocks evictions that would drop below its floor; scaling up the deployment so enough replicas remain lets the drain proceed. cordon only marks the node unschedulable (it doesn't evict or bypass PDBs), and restartPolicy is unrelated.","source":"Workloads and Scheduling for CKA — Demo: Protect Pods with PDBs"}
+ {
+  "id": "ws-q001",
+  "domain": "Workloads and Scheduling",
+  "question": "You need to run one log-collection pod on every node, and have it automatically appear on any node added to the cluster. Which controller should you use?",
+  "choices": [
+   "Deployment",
+   "StatefulSet",
+   "DaemonSet",
+   "Job"
+  ],
+  "answer": 2,
+  "explanation": "A DaemonSet ensures one pod runs on every node and automatically schedules a pod onto newly added nodes \u2014 ideal for log collectors and monitoring agents. A Deployment/StatefulSet run a fixed replica count not tied to node count; a Job runs to completion and stops.",
+  "source": "Workloads and Scheduling for CKA \u2014 Choosing the Right Workload Controller"
+ },
+ {
+  "id": "ws-q002",
+  "domain": "Workloads and Scheduling",
+  "question": "Which controller is best suited for a database that requires a stable identity and persistent storage per pod?",
+  "choices": [
+   "StatefulSet",
+   "ReplicaSet",
+   "Deployment",
+   "DaemonSet"
+  ],
+  "answer": 0,
+  "explanation": "A StatefulSet gives each pod a stable, unique identity (e.g. db-0) plus persistent storage and ordered operations. Deployments and ReplicaSets treat pods as interchangeable; a DaemonSet pins one pod per node.",
+  "source": "Workloads and Scheduling for CKA \u2014 Choosing the Right Workload Controller"
+ },
+ {
+  "id": "ws-q003",
+  "domain": "Workloads and Scheduling",
+  "question": "A Job is defined with completions: 6 and parallelism: 2. What happens?",
+  "choices": [
+   "The Job runs pods until 6 complete successfully, at most 2 at a time",
+   "6 pods all run at once until 2 succeed",
+   "2 pods run, and the Job succeeds after either one completes",
+   "6 pods run forever, restarting on success"
+  ],
+  "answer": 0,
+  "explanation": "completions is the number of required successful runs (6) and parallelism caps concurrent pods (2), so it runs in batches of two until six succeed. Jobs stop once completions are met; they do not run forever.",
+  "source": "Workloads and Scheduling for CKA \u2014 Demo: Managing Batch Workloads"
+ },
+ {
+  "id": "ws-q004",
+  "domain": "Workloads and Scheduling",
+  "question": "Which action will trigger a new rollout (new ReplicaSet) for a Deployment?",
+  "choices": [
+   "Changing the replicas count from 3 to 5",
+   "Updating the container image in the pod template",
+   "Adding a label to the Deployment's metadata",
+   "Editing the Deployment's revisionHistoryLimit"
+  ],
+  "answer": 1,
+  "explanation": "Only changes to the pod template (such as the container image) create a new ReplicaSet and trigger a rollout. Changing replicas just scales; metadata labels and revisionHistoryLimit are deployment-spec fields that don't roll the pods.",
+  "source": "Managing Kubernetes Controllers and Deployments \u2014 Updating a Deployment"
+ },
+ {
+  "id": "ws-q005",
+  "domain": "Workloads and Scheduling",
+  "question": "In a RollingUpdate, what does maxSurge control?",
+  "choices": [
+   "The maximum pods that can be unavailable during the update",
+   "The number of old ReplicaSets retained for rollback",
+   "The maximum extra pods allowed above the desired replica count during the update",
+   "How long Kubernetes waits before marking the rollout failed"
+  ],
+  "answer": 2,
+  "explanation": "maxSurge limits how many pods may run above the desired count while updating (default 25%). maxUnavailable limits pods offline; revisionHistoryLimit controls retained ReplicaSets; progressDeadlineSeconds governs failure timing.",
+  "source": "Managing Kubernetes Controllers and Deployments \u2014 Controlling Updates with UpdateStrategy"
+ },
+ {
+  "id": "ws-q006",
+  "domain": "Workloads and Scheduling",
+  "question": "A rollout to a bad image left the deployment broken. You need to return to the known-good revision 2. Which command does this?",
+  "choices": [
+   "kubectl rollout status deployment app --revision=2",
+   "kubectl rollout history deployment app --revision=2",
+   "kubectl rollout undo deployment app --to-revision=2",
+   "kubectl scale deployment app --replicas=2"
+  ],
+  "answer": 2,
+  "explanation": "kubectl rollout undo --to-revision=2 scales down the current ReplicaSet and scales the revision-2 ReplicaSet back up. rollout history --revision=2 only inspects it; rollout status checks progress; scale changes replica count.",
+  "source": "Managing Kubernetes Controllers and Deployments \u2014 Pausing and Rolling Back Deployments"
+ },
+ {
+  "id": "ws-q007",
+  "domain": "Workloads and Scheduling",
+  "question": "Why should you define a readiness probe when using a RollingUpdate strategy?",
+  "choices": [
+   "It speeds up the rollout by skipping unhealthy pods",
+   "It is required for Kubernetes to create a ReplicaSet",
+   "It lets the deployment stop the rollout if new pods aren't ready, protecting the running version",
+   "It encrypts the pod's configuration during the update"
+  ],
+  "answer": 2,
+  "explanation": "With a readiness probe, the deployment halts a rollout when too many new pods fail readiness (would breach maxUnavailable), keeping the previous version serving traffic. Without it, a pod is 'ready' at start and a broken rollout proceeds.",
+  "source": "Managing Kubernetes Controllers and Deployments \u2014 Successfully Controlling Deployment Rollouts"
+ },
+ {
+  "id": "ws-q008",
+  "domain": "Workloads and Scheduling",
+  "question": "You update a ConfigMap mounted as environment variables and want the running pods to use the new values. What must you do?",
+  "choices": [
+   "Nothing \u2014 env vars hot reload automatically",
+   "Restart the pods, because env vars do not hot reload",
+   "Convert the ConfigMap to a Secret",
+   "Delete and recreate the ConfigMap with --reload"
+  ],
+  "answer": 1,
+  "explanation": "Environment variables do not hot reload; you must restart the pods (e.g. kubectl rollout restart) to pick up new values. Volume-mounted directories do support hot reloading, but env injection does not.",
+  "source": "Workloads and Scheduling for CKA \u2014 Decoupling Configuration"
+ },
+ {
+  "id": "ws-q009",
+  "domain": "Workloads and Scheduling",
+  "question": "Which statement about Kubernetes Secrets is correct?",
+  "choices": [
+   "Secret values are AES-encrypted in the manifest by default",
+   "Secret values are only Base64-encoded, which obscures but does not secure them",
+   "Secrets cannot be injected as environment variables",
+   "Anyone authorized to create a pod is automatically blocked from reading namespace Secrets"
+  ],
+  "answer": 1,
+  "explanation": "Secrets are Base64-encoded (easily decoded), not encrypted by default; enable etcd encryption at rest for real protection. They can be injected as env vars or volumes, and anyone who can create a pod in a namespace can read its Secrets.",
+  "source": "Workloads and Scheduling for CKA \u2014 Managing Secrets"
+ },
+ {
+  "id": "ws-q010",
+  "domain": "Workloads and Scheduling",
+  "question": "Your HPA shows TARGETS as <unknown>/50% and is not scaling. What is the most likely cause?",
+  "choices": [
+   "The deployment has too many replicas",
+   "maxReplicas is set too low",
+   "The HPA stabilization window is too short",
+   "The metrics server is unavailable or the pods lack resource requests"
+  ],
+  "answer": 3,
+  "explanation": "HPA needs the metrics server running and resource requests defined on the target pods to compute usage; <unknown> means metrics aren't available. Replica counts, maxReplicas, and the stabilization window don't cause <unknown> metrics.",
+  "source": "Workloads and Scheduling for CKA \u2014 Demo: Configuring HPA"
+ },
+ {
+  "id": "ws-q011",
+  "domain": "Workloads and Scheduling",
+  "question": "A container repeatedly fails its livenessProbe. What does Kubernetes do?",
+  "choices": [
+   "Restarts the container according to the pod's restart policy",
+   "Removes the pod's IP from the Service endpoints",
+   "Marks the node NotReady",
+   "Evicts every pod on the node"
+  ],
+  "answer": 0,
+  "explanation": "A failing livenessProbe causes the kubelet to restart the container per the restart policy. Removing the pod IP from Service endpoints is the readinessProbe behavior; liveness does not affect node status or evict other pods.",
+  "source": "Managing the Kubernetes API Server and Pods \u2014 Defining Pod Health"
+ },
+ {
+  "id": "ws-q012",
+  "domain": "Workloads and Scheduling",
+  "question": "A pod has requests and limits set so that CPU and memory requests exactly equal their limits. Which QoS class is assigned?",
+  "choices": [
+   "BestEffort",
+   "Burstable",
+   "Guaranteed",
+   "Priority"
+  ],
+  "answer": 2,
+  "explanation": "Guaranteed QoS is assigned when requests equal limits for both CPU and memory \u2014 these pods are protected longest under resource pressure. Burstable is requests < limits; BestEffort is no requests/limits; Priority is not a QoS class.",
+  "source": "Workloads and Scheduling for CKA \u2014 Configuring Pod Admission"
+ },
+ {
+  "id": "ws-q013",
+  "domain": "Workloads and Scheduling",
+  "question": "A container exceeds its configured memory limit. What happens?",
+  "choices": [
+   "Its memory request is automatically increased",
+   "The pod is rescheduled to another node",
+   "The kernel terminates it and it shows OOMKilled",
+   "It is throttled and slowed down"
+  ],
+  "answer": 2,
+  "explanation": "Exceeding the memory limit causes the kernel to kill the process, giving an OOMKilled status. Throttling is what happens when a container exceeds its CPU limit, not its memory limit.",
+  "source": "Workloads and Scheduling for CKA \u2014 Demo: Defining Resource Limits"
+ },
+ {
+  "id": "ws-q014",
+  "domain": "Workloads and Scheduling",
+  "question": "You add nodeSelector: disk=ssd to a pod, but no node has that label. What is the result?",
+  "choices": [
+   "The pod schedules on a random node",
+   "The pod stays in Pending state",
+   "The scheduler creates the label automatically",
+   "The pod schedules on the control plane"
+  ],
+  "answer": 1,
+  "explanation": "nodeSelector is a hard requirement; with no matching node the pod remains Pending. Check kubectl get events / describe pod for a 'didn't match node selector' message. The scheduler never invents labels or ignores the selector.",
+  "source": "Workloads and Scheduling for CKA \u2014 Demo: Node Selection"
+ },
+ {
+  "id": "ws-q015",
+  "domain": "Workloads and Scheduling",
+  "question": "You want three replicas of an app spread so no two run on the same node for high availability. Which mechanism achieves this?",
+  "choices": [
+   "nodeSelector",
+   "A taint with NoExecute",
+   "A Pod Disruption Budget",
+   "Pod anti-affinity"
+  ],
+  "answer": 3,
+  "explanation": "Pod anti-affinity (with topologyKey kubernetes.io/hostname) tells the scheduler not to co-locate replicas with the same label on a node, spreading them for HA. nodeSelector pins to labels; taints repel pods; a PDB guards against voluntary disruptions, not placement.",
+  "source": "Workloads and Scheduling for CKA \u2014 Demo: Pod Anti-affinity"
+ },
+ {
+  "id": "ws-q016",
+  "domain": "Workloads and Scheduling",
+  "question": "You create a static pod by placing a manifest in /etc/kubernetes/manifests. Which statement is true?",
+  "choices": [
+   "You can delete it with kubectl delete pod",
+   "It is managed by the kubelet, and you remove it by deleting the manifest file",
+   "It is invisible from kubectl get pods",
+   "It is scheduled by the kube-scheduler like any other pod"
+  ],
+  "answer": 1,
+  "explanation": "Static pods are managed by the kubelet, not the API server; to remove one you delete its manifest from the staticPodPath. The kubelet creates a read-only mirror pod so it IS visible via kubectl, but kubectl delete won't remove it and the scheduler isn't involved.",
+  "source": "Managing the Kubernetes API Server and Pods \u2014 Introducing and Working Static Pods"
+ },
+ {
+  "id": "ws-q017",
+  "domain": "Workloads and Scheduling",
+  "question": "kubectl drain on a node fails with a message that eviction would violate a Pod Disruption Budget. What is a valid way to proceed?",
+  "choices": [
+   "Delete the PDB's namespace",
+   "Scale the deployment up so the minAvailable floor is still met after eviction",
+   "Use kubectl cordon instead, which ignores PDBs",
+   "Set the pod's restartPolicy to Never"
+  ],
+  "answer": 1,
+  "explanation": "A PDB blocks evictions that would drop below its floor; scaling up the deployment so enough replicas remain lets the drain proceed. cordon only marks the node unschedulable (it doesn't evict or bypass PDBs), and restartPolicy is unrelated.",
+  "source": "Workloads and Scheduling for CKA \u2014 Demo: Protect Pods with PDBs"
+ },
+ {
+  "id": "ws-q018",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "You need to generate a deployment manifest without sending it to the cluster. Which command should you use?",
+  "choices": [
+   "kubectl create deployment web --image=nginx --dry-run=client -o yaml",
+   "kubectl run deployment web --image=nginx --manifest-only",
+   "kubectl expose deployment web --port=80 -o yaml",
+   "kubectl generate deployment web --image=nginx > deploy.yaml"
+  ],
+  "answer": 0,
+  "explanation": "Using --dry-run=client -o yaml generates the resource manifest locally without sending it to the API server. run is for pods (not deployments); expose creates a Service; generate is not a valid kubectl command.",
+  "source": "Kubernetes docs \u2014 Managing Resources"
+ },
+ {
+  "id": "ws-q019",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A deployment has maxUnavailable: 1 and maxSurge: 1. With replicas: 3, what is the maximum number of pods running during an update?",
+  "choices": [
+   "1",
+   "4",
+   "2",
+   "3"
+  ],
+  "answer": 1,
+  "explanation": "maxSurge allows extra pods above the desired replicas count during a rollout. With replicas=3 and maxSurge=1, the maximum number of running pods at any time is 4. The other choices incorrectly assess the surge limit.",
+  "source": "Kubernetes docs \u2014 Deployments"
+ },
+ {
+  "id": "ws-q020",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "You execute `kubectl rollout undo deployment app`. What is the result if no revision is specified?",
+  "choices": [
+   "The deployment scales to zero replicas.",
+   "The deployment is paused indefinitely.",
+   "The deployment rolls back to the previous revision.",
+   "An error is returned stating a revision is required."
+  ],
+  "answer": 2,
+  "explanation": "If no --to-revision is specified, rollout undo defaults to rolling back to the immediate previous revision. It does not scale to zero, pause the deployment, or require the revision flag.",
+  "source": "Kubernetes docs \u2014 Deployments"
+ },
+ {
+  "id": "ws-q021",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "You need a pod to consume all key-value pairs from a ConfigMap as environment variables. Which field is appropriate?",
+  "choices": [
+   "valueFrom",
+   "configMapKeyRef",
+   "volumeMounts",
+   "envFrom"
+  ],
+  "answer": 3,
+  "explanation": "envFrom pulls all data keys from a ConfigMap or Secret as environment variables. valueFrom targets a single key via configMapKeyRef, while volumeMounts treats them as files (not env vars).",
+  "source": "Kubernetes docs \u2014 ConfigMaps"
+ },
+ {
+  "id": "ws-q022",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A ConfigMap is created with immutable: true. What happens if a user tries to modify its data?",
+  "choices": [
+   "The update fails and the API server rejects the change.",
+   "The data is updated, but running pods do not see the change.",
+   "The ConfigMap is recreated automatically.",
+   "The kubelet restarts all pods using the ConfigMap."
+  ],
+  "answer": 0,
+  "explanation": "Setting a ConfigMap to immutable prevents any updates to its data, protecting it from accidental changes. The API server will reject the modification. It does not update silently or trigger restarts.",
+  "source": "Kubernetes docs \u2014 ConfigMaps"
+ },
+ {
+  "id": "ws-q023",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "You need to pull a private image from a registry. Which type of Secret must you create?",
+  "choices": [
+   "kubernetes.io/tls",
+   "kubernetes.io/dockerconfigjson",
+   "Opaque",
+   "kubernetes.io/service-account-token"
+  ],
+  "answer": 1,
+  "explanation": "The dockerconfigjson (or dockercfg) type is used to store registry credentials for image pulls. Opaque is for generic data, tls is for certificates, and service-account-token is for API access.",
+  "source": "Kubernetes docs \u2014 Secrets"
+ },
+ {
+  "id": "ws-q024",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "How are Secret values stored in an Opaque secret manifest when created imperatively?",
+  "choices": [
+   "Encrypted using AES-256",
+   "Hashed with SHA-256",
+   "Base64-encoded",
+   "Plain text"
+  ],
+  "answer": 2,
+  "explanation": "In Secret manifests, values are Base64-encoded, which is easily decoded. They are not encrypted or hashed in the manifest itself, though they can be encrypted at rest in etcd.",
+  "source": "Kubernetes docs \u2014 Secrets"
+ },
+ {
+  "id": "ws-q025",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A Job repeatedly fails. Which field limits how many times the Job will try to create a replacement pod?",
+  "choices": [
+   "restartPolicy",
+   "activeDeadlineSeconds",
+   "parallelism",
+   "backoffLimit"
+  ],
+  "answer": 3,
+  "explanation": "backoffLimit dictates the number of retries for a failed Job before it is marked as failed. activeDeadlineSeconds limits total execution time; restartPolicy applies at the container level; parallelism dictates concurrent pods.",
+  "source": "Kubernetes docs \u2014 Jobs"
+ },
+ {
+  "id": "ws-q026",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A CronJob has concurrencyPolicy: Forbid. What happens if the previous run hasn't finished when it's time for the next run?",
+  "choices": [
+   "The new run starts alongside the old one.",
+   "The new run replaces the old run immediately.",
+   "The old run is paused until the new run completes.",
+   "The new run is skipped."
+  ],
+  "answer": 3,
+  "explanation": "With Forbid, the CronJob skips the new run if the previous one is still executing. Allow permits concurrent runs, and Replace cancels the currently running job to start the new one. Pausing is not a valid behavior.",
+  "source": "Kubernetes docs \u2014 CronJob"
+ },
+ {
+  "id": "ws-q027",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "Why might a DaemonSet fail to schedule a pod on a newly added control plane node?",
+  "choices": [
+   "The pod template lacks the proper toleration for the control plane taint.",
+   "DaemonSets are hard-coded to ignore control plane nodes.",
+   "The control plane node does not have the kubelet installed.",
+   "The nodeSelector field defaults to worker nodes."
+  ],
+  "answer": 0,
+  "explanation": "Control plane nodes typically have a NoSchedule taint. A DaemonSet must include a matching toleration to schedule pods there. DaemonSets do not ignore control planes natively, nor do they default to worker nodes.",
+  "source": "Kubernetes docs \u2014 DaemonSet"
+ },
+ {
+  "id": "ws-q028",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A StatefulSet with 3 replicas scales up to 4. In what order is the new pod created and named?",
+  "choices": [
+   "It is given a random hash like web-7fg2x.",
+   "It is named web-4 and created immediately.",
+   "It is named web-4 after web-3 is Running and Ready.",
+   "It is named web-3, and created only if all other pods are Ready."
+  ],
+  "answer": 3,
+  "explanation": "StatefulSets index starting from 0, so replicas are web-0, web-1, web-2. Scaling to 4 adds web-3. The StatefulSet waits until prior pods are Ready before starting the next one. They do not use random hashes.",
+  "source": "Kubernetes docs \u2014 StatefulSets"
+ },
+ {
+  "id": "ws-q029",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "What is the purpose of volumeClaimTemplates in a StatefulSet?",
+  "choices": [
+   "To dynamically provision unique PersistentVolumeClaims for each replica.",
+   "To share a single PersistentVolume across all replicas.",
+   "To mount an existing ConfigMap into every pod.",
+   "To define ephemeral storage for cache data."
+  ],
+  "answer": 0,
+  "explanation": "volumeClaimTemplates automatically creates a unique PersistentVolumeClaim for each pod in the StatefulSet (e.g., data-web-0). It is not for sharing a single volume, ConfigMaps, or ephemeral storage.",
+  "source": "Kubernetes docs \u2014 StatefulSets"
+ },
+ {
+  "id": "ws-q030",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A ReplicaSet is configured with a label selector app: web. What happens if you manually create a bare pod with the label app: web?",
+  "choices": [
+   "The bare pod is immediately deleted by the admission controller.",
+   "The ReplicaSet adopts it and terminates an existing pod if replicas are exceeded.",
+   "The ReplicaSet ignores it because it was not created by the template.",
+   "The bare pod fails to schedule due to a port conflict."
+  ],
+  "answer": 1,
+  "explanation": "ReplicaSets use label selectors to manage pods. If a pod matches the selector, the ReplicaSet adopts it. If this pushes the count over the desired replicas, one pod will be terminated to maintain the state.",
+  "source": "Kubernetes docs \u2014 ReplicaSet"
+ },
+ {
+  "id": "ws-q031",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A pod has two init containers, init-A and init-B. What is their execution order?",
+  "choices": [
+   "They run concurrently alongside the main containers.",
+   "They run in random order before the main containers.",
+   "They run sequentially: init-A must complete successfully before init-B starts.",
+   "They run concurrently, and the main container starts when both finish."
+  ],
+  "answer": 2,
+  "explanation": "Init containers run sequentially in the order they are defined in the pod manifest. Each must run to completion successfully before the next one starts, unlike main containers which start concurrently.",
+  "source": "Kubernetes docs \u2014 Init Containers"
+ },
+ {
+  "id": "ws-q032",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "What happens if an init container repeatedly fails?",
+  "choices": [
+   "The pod is marked as Running and the main containers start.",
+   "The pod is Evicted and moved to another node.",
+   "The failing init container is bypassed.",
+   "The kubelet restarts the pod until the init container succeeds (unless restartPolicy=Never)."
+  ],
+  "answer": 3,
+  "explanation": "If an init container fails, the kubelet repeatedly restarts the pod (if restartPolicy allows) until the init container succeeds. The main containers will not start, and it is not bypassed or immediately evicted.",
+  "source": "Kubernetes docs \u2014 Init Containers"
+ },
+ {
+  "id": "ws-q033",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "Two containers in the same pod need to exchange data via files. Which approach should be used?",
+  "choices": [
+   "Use an emptyDir volume mounted in both containers.",
+   "Map the host filesystem directly to both containers.",
+   "They share the root filesystem automatically.",
+   "Expose a ClusterIP service between them."
+  ],
+  "answer": 0,
+  "explanation": "An emptyDir volume provides ephemeral storage shared by all containers in a pod, perfect for file-based communication. Containers do not share root filesystems automatically, and host filesystem maps or Services are not ideal for simple pod-local sharing.",
+  "source": "Kubernetes docs \u2014 Pods"
+ },
+ {
+  "id": "ws-q034",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "Which probe is designed to protect slow-starting applications from being killed before they complete initialization?",
+  "choices": [
+   "readinessProbe",
+   "startupProbe",
+   "livenessProbe",
+   "initialDelaySeconds"
+  ],
+  "answer": 1,
+  "explanation": "The startupProbe disables liveness and readiness checks until it succeeds, giving slow-starting apps time to boot without being prematurely killed. initialDelaySeconds is a parameter, not a probe itself.",
+  "source": "Kubernetes docs \u2014 Pod Lifecycle"
+ },
+ {
+  "id": "ws-q035",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "You define a readinessProbe using a tcpSocket. How does the kubelet evaluate the probe's success?",
+  "choices": [
+   "It expects an HTTP 200 OK response from the port.",
+   "It runs a shell command and checks for an exit code of 0.",
+   "It attempts to open a TCP connection to the specified port.",
+   "It measures the latency of the network connection."
+  ],
+  "answer": 2,
+  "explanation": "A tcpSocket probe succeeds if it can establish a TCP connection to the specified port. HTTP 200 is for httpGet, exit code 0 is for exec probes, and latency is not evaluated.",
+  "source": "Kubernetes docs \u2014 Pod Lifecycle"
+ },
+ {
+  "id": "ws-q036",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A pod has a CPU limit of 500m but no request. How does the scheduler handle this?",
+  "choices": [
+   "The pod is rejected by the admission controller.",
+   "The pod receives a request of 0, making it lowest priority.",
+   "The pod's CPU request defaults to 500m for scheduling purposes.",
+   "The pod is scheduled only on nodes with no CPU pressure."
+  ],
+  "answer": 2,
+  "explanation": "If a limit is set but no request is specified, Kubernetes automatically sets the request to equal the limit (500m in this case). It does not default to 0 or get rejected.",
+  "source": "Kubernetes docs \u2014 Managing Resources"
+ },
+ {
+  "id": "ws-q037",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "Which configuration results in a BestEffort QoS class for a pod?",
+  "choices": [
+   "Requests are defined, but limits are omitted.",
+   "Requests equal limits for all resources.",
+   "Only memory limits are defined.",
+   "Requests and limits are both omitted for all containers."
+  ],
+  "answer": 3,
+  "explanation": "BestEffort is assigned when no resource requests or limits are set for any container in the pod. Burstable is assigned if requests < limits or only some are set; Guaranteed is when requests == limits everywhere.",
+  "source": "Kubernetes docs \u2014 Pod Quality of Service"
+ },
+ {
+  "id": "ws-q038",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A pod requires GPU hardware, so you add nodeSelector: gpu=true. What is a limitation of this approach compared to Node Affinity?",
+  "choices": [
+   "nodeSelector cannot express soft/preferred requirements.",
+   "nodeSelector requires a dedicated DaemonSet to enforce.",
+   "nodeSelector only works on control plane nodes.",
+   "nodeSelector ignores taints."
+  ],
+  "answer": 0,
+  "explanation": "nodeSelector is a strict, simple matching mechanism and cannot express preferred rules (soft affinity) or complex expressions like In/NotIn. It does not require a DaemonSet and applies to any node.",
+  "source": "Kubernetes docs \u2014 Assigning Pods to Nodes"
+ },
+ {
+  "id": "ws-q039",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A pod defines preferredDuringSchedulingIgnoredDuringExecution for a node label. What happens if no node has this label?",
+  "choices": [
+   "The pod stays in Pending state.",
+   "The pod schedules on the node with the most available resources.",
+   "The pod scheduler crashes.",
+   "The pod is rejected by the API server."
+  ],
+  "answer": 1,
+  "explanation": "preferredDuringScheduling is a soft requirement. If no node matches the preference, the scheduler simply ignores the rule and schedules the pod on an available node based on standard scoring criteria. It does not stay Pending.",
+  "source": "Kubernetes docs \u2014 Assigning Pods to Nodes"
+ },
+ {
+  "id": "ws-q040",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "You apply a NoExecute taint to a node. What happens to running pods on that node that lack a toleration?",
+  "choices": [
+   "They continue running but receive no new traffic.",
+   "They are immediately stopped without a grace period.",
+   "They are evicted from the node.",
+   "They are scaled down by their Deployment."
+  ],
+  "answer": 2,
+  "explanation": "A NoExecute taint causes running pods without a matching toleration to be evicted from the node. NoSchedule only prevents new pods from scheduling. The eviction respects the termination grace period; they aren't scaled down.",
+  "source": "Kubernetes docs \u2014 Taints and Tolerations"
+ },
+ {
+  "id": "ws-q041",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "Which toleration allows a pod to tolerate any taint with a specific key, regardless of its value or effect?",
+  "choices": [
+   "operator: Equal with value: '*'",
+   "effect: NoSchedule with operator: In",
+   "operator: Wildcard",
+   "operator: Exists without specifying a value or effect"
+  ],
+  "answer": 3,
+  "explanation": "Using operator: Exists for a key without defining the value or effect will match all taints that have that key. Equal requires an exact match, and Wildcard is not a valid operator.",
+  "source": "Kubernetes docs \u2014 Taints and Tolerations"
+ },
+ {
+  "id": "ws-q042",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "When defining pod affinity, what is the role of the topologyKey field?",
+  "choices": [
+   "It specifies the node label key used to define the boundaries of a failure domain.",
+   "It defines the maximum distance between pods in milliseconds.",
+   "It restricts the pod to specific cloud provider regions.",
+   "It links the pod to a PersistentVolume topology."
+  ],
+  "answer": 0,
+  "explanation": "topologyKey determines the domain (e.g., node, zone) for evaluating affinity. For example, topologyKey: kubernetes.io/hostname evaluates rules at the individual node level. It is not limited to cloud regions or PVs.",
+  "source": "Kubernetes docs \u2014 Assigning Pods to Nodes"
+ },
+ {
+  "id": "ws-q043",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "You run `kubectl scale statefulset db --replicas=5`. What is required for this to succeed?",
+  "choices": [
+   "The cluster must have an active metrics-server.",
+   "Nothing; it manually updates the desired replica count in the StatefulSet spec.",
+   "The StatefulSet must have an active HPA.",
+   "All existing pods must be fully ready before the command is accepted."
+  ],
+  "answer": 1,
+  "explanation": "kubectl scale is a manual imperative command that directly updates the replicas field in the resource's spec. It does not rely on metrics-server, HPA, or wait for existing pods before updating the spec.",
+  "source": "Kubernetes docs \u2014 Workload Management"
+ },
+ {
+  "id": "ws-q044",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "If you modify a static pod's manifest file in the staticPodPath directory, what occurs?",
+  "choices": [
+   "You must restart the kubelet manually to apply the changes.",
+   "The API server rejects the update.",
+   "The kubelet automatically detects the change and restarts the pod.",
+   "A new pod is created alongside the old one."
+  ],
+  "answer": 2,
+  "explanation": "The kubelet periodically scans the staticPodPath directory. When a manifest is changed, the kubelet automatically detects it and restarts the static pod with the new configuration without requiring a kubelet restart.",
+  "source": "Kubernetes docs \u2014 Static Pods"
+ },
+ {
+  "id": "ws-q045",
+  "domain": "Workloads & Scheduling",
+  "domainKey": "workloads",
+  "question": "A PodDisruptionBudget defines minAvailable: 2 for a deployment with 3 replicas. What happens during a node drain?",
+  "choices": [
+   "All pods are evicted immediately.",
+   "The node drain is blocked completely until the PDB is deleted.",
+   "The drain forces the deployment to scale up to 4 replicas.",
+   "Evictions proceed as long as at least 2 replicas remain running and healthy."
+  ],
+  "answer": 3,
+  "explanation": "A PDB protects against voluntary disruptions (like drains). With minAvailable: 2, the drain process will evict pods one at a time, pausing if the running replica count would drop below 2. It does not scale the deployment.",
+  "source": "Kubernetes docs \u2014 Disruptions"
+ }
 ]

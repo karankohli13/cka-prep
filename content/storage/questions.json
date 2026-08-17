@@ -1,170 +1,440 @@
 [
-  {
-    "id": "st-q001",
-    "domain": "Storage",
-    "question": "A PVC requests a ReadWriteOnce volume. Pod A is running on node-1 and successfully mounts it. Pod B is scheduled on node-2 and tries to mount the same PVC. What happens?",
-    "choices": [
-      "Pod B mounts the volume read-only automatically",
-      "Pod B stays in ContainerCreating with a FailedMount event",
-      "Both pods are evicted because RWO allows only one pod total",
-      "Kubernetes converts the volume to ReadWriteMany"
-    ],
-    "answer": 1,
-    "explanation": "ReadWriteOnce binds the volume to a single NODE. Pod B on a different node cannot mount it and gets stuck in ContainerCreating with a FailedMount event. It is not auto-downgraded to read-only, the volume is not converted to RWX, and RWO does allow multiple pods on the SAME node (so 'one pod total' is wrong).",
-    "source": "Storage for CKA — Volume Access Modes (demo)"
-  },
-  {
-    "id": "st-q002",
-    "domain": "Storage",
-    "question": "You delete a PVC whose PV uses persistentVolumeReclaimPolicy: Retain. What is the resulting state of the PV?",
-    "choices": [
-      "The PV and its underlying disk are deleted",
-      "The PV returns to Available and rebinds automatically",
-      "The PV enters Released and the data is preserved, requiring manual cleanup",
-      "The PV enters Failed"
-    ],
-    "answer": 2,
-    "explanation": "Retain keeps the PV after the PVC is deleted; it moves to the Released phase with the data untouched, and an admin must manually clean it up before reuse. Delete (not Retain) would remove the PV and disk. Retain does not auto-rebind, and Released is not the same as Failed.",
-    "source": "Storage for CKA — Volume Reclaim Policies"
-  },
-  {
-    "id": "st-q003",
-    "domain": "Storage",
-    "question": "Which field in a StorageClass determines which plugin/driver Kubernetes uses to create PersistentVolumes?",
-    "choices": [
-      "provisioner",
-      "volumeBindingMode",
-      "reclaimPolicy",
-      "accessModes"
-    ],
-    "answer": 0,
-    "explanation": "provisioner is the key field that tells Kubernetes which volume plugin/CSI driver to invoke when creating PVs. volumeBindingMode controls WHEN binding happens, reclaimPolicy controls what happens on PVC deletion, and accessModes is not a StorageClass field (it lives on PVs/PVCs).",
-    "source": "Storage for CKA — Storage Classes in Kubernetes"
-  },
-  {
-    "id": "st-q004",
-    "domain": "Storage",
-    "question": "A PVC referencing a StorageClass with volumeBindingMode: WaitForFirstConsumer stays in Pending, and kubectl get pv returns no resources. What is the correct action?",
-    "choices": [
-      "Manually create a matching PV",
-      "Change the PVC access mode to ReadWriteMany",
-      "Create a pod that mounts the PVC to trigger provisioning",
-      "Delete and recreate the StorageClass"
-    ],
-    "answer": 2,
-    "explanation": "WaitForFirstConsumer delays PV provisioning until a pod that uses the PVC is scheduled. Creating a consuming pod triggers binding and the PV appears. Manually creating a PV defeats dynamic provisioning, the access mode is unrelated, and recreating the StorageClass won't help.",
-    "source": "Storage for CKA — WaitForFirstConsumer Binding"
-  },
-  {
-    "id": "st-q005",
-    "domain": "Storage",
-    "question": "You must create a PVC that binds to a specific pre-existing static PV and must NOT trigger dynamic provisioning. What should you set?",
-    "choices": [
-      "storageClassName to the name of the default StorageClass",
-      "Omit storageClassName entirely",
-      "storageClassName: \"\" (empty string) on the PVC (and PV)",
-      "volumeBindingMode: Immediate"
-    ],
-    "answer": 2,
-    "explanation": "An empty string storageClassName (\"\") disables dynamic provisioning so the PVC binds to a matching static PV. Omitting storageClassName uses the DEFAULT StorageClass (dynamic provisioning). Naming the default class also triggers dynamic provisioning. volumeBindingMode is a StorageClass field, not a PVC field.",
-    "source": "Storage for CKA — Example Exam Question 1 (Static Provisioning)"
-  },
-  {
-    "id": "st-q006",
-    "domain": "Storage",
-    "question": "What is the default reclaim policy for a PersistentVolume that is dynamically provisioned by a StorageClass?",
-    "choices": [
-      "Retain",
-      "Recycle",
-      "Delete",
-      "Released"
-    ],
-    "answer": 2,
-    "explanation": "Dynamically provisioned PVs default to Delete, so deleting the PVC also removes the PV and the underlying storage. Retain is the default for manually-created static PVs. Recycle is deprecated. Released is a PV phase, not a reclaim policy.",
-    "source": "Storage for CKA — Storage Classes in Kubernetes"
-  },
-  {
-    "id": "st-q007",
-    "domain": "Storage",
-    "question": "A developer creates a PVC with no storageClassName field set. Which StorageClass is used?",
-    "choices": [
-      "No class — the PVC stays Pending forever",
-      "The cluster's default StorageClass, marked (default) in kubectl get sc",
-      "The first StorageClass alphabetically",
-      "A class named 'standard' regardless of cluster config"
-    ],
-    "answer": 1,
-    "explanation": "Omitting storageClassName makes Kubernetes use the cluster's default StorageClass (the one shown as (default) in kubectl get sc). It is not alphabetical, not hardcoded to 'standard' (that name varies by cluster), and it does not stay Pending as long as a default class exists.",
-    "source": "Storage for CKA — Dynamic Volume Provisioning (Immediate Binding)"
-  },
-  {
-    "id": "st-q008",
-    "domain": "Storage",
-    "question": "Which statement about ReadWriteMany (RWX) is correct?",
-    "choices": [
-      "It is the default access mode for all volume types",
-      "It lets a single pod mount the volume read-write",
-      "It allows many nodes to mount the volume read-write simultaneously and requires a supporting backend like NFS",
-      "It allows many nodes to mount the volume read-only only"
-    ],
-    "answer": 2,
-    "explanation": "RWX allows many nodes to mount the volume read-write at the same time, but only with a backend that supports it (e.g., NFS or a distributed filesystem). There is no universal default access mode. ReadWriteOncePod is the single-pod mode, and ReadOnlyMany (not RWX) is the read-only-many mode.",
-    "source": "Storage for CKA — Volume Types and Access Modes"
-  },
-  {
-    "id": "st-q009",
-    "domain": "Storage",
-    "question": "You create a busybox pod that mounts a PVC, but it immediately enters CrashLoopBackOff. The PVC is Bound. What is the most likely fix?",
-    "choices": [
-      "Add a long-running command such as sleep 3600 to the container",
-      "Change the reclaim policy to Retain",
-      "Switch the access mode to ReadWriteMany",
-      "Recreate the PVC without a storageClassName"
-    ],
-    "answer": 0,
-    "explanation": "A busybox container with no command runs nothing and exits, causing CrashLoopBackOff. Giving it a long-running command (e.g., /bin/sh -c 'sleep 3600') keeps it running. The PVC is already Bound, so reclaim policy, access mode, and storageClassName are not the problem.",
-    "source": "Storage for CKA — Example Exam Question 2 (Dynamic Provisioning)"
-  },
-  {
-    "id": "st-q010",
-    "domain": "Storage",
-    "question": "A cluster admin wants users to be able to grow an existing PVC's size after creation. Which StorageClass setting enables this?",
-    "choices": [
-      "volumeBindingMode: Immediate",
-      "allowVolumeExpansion: true",
-      "reclaimPolicy: Retain",
-      "accessModes: [ReadWriteMany]"
-    ],
-    "answer": 1,
-    "explanation": "allowVolumeExpansion: true lets users increase an existing PVC's size, and the provisioner resizes the underlying PV. volumeBindingMode controls binding timing, reclaimPolicy controls deletion behavior, and accessModes is not a StorageClass field.",
-    "source": "Storage for CKA — Storage Classes in Kubernetes"
-  },
-  {
-    "id": "st-q011",
-    "domain": "Storage",
-    "question": "Which of these correctly describes the difference between a plain Volume and a PersistentVolume?",
-    "choices": [
-      "A plain Volume persists across node failures; a PV does not",
-      "A plain Volume's lifecycle is tied to the pod; a PV's lifecycle is independent of any pod",
-      "Both are deleted when the pod is deleted",
-      "A PV can only be used by stateless apps"
-    ],
-    "answer": 1,
-    "explanation": "A plain Volume is a directory whose lifecycle is tied to the pod, so it is destroyed with the pod. A PV exists independently of pods and survives pod deletion/rescheduling. A plain Volume does NOT survive node failure, and PVs are specifically for stateful apps.",
-    "source": "Storage for CKA — Introduction to Kubernetes Storage"
-  },
-  {
-    "id": "st-q012",
-    "domain": "Storage",
-    "question": "After binding a PVC named my-pvc in namespace module1 to a PV named my-pv, which command output confirms the binding from the PV side?",
-    "choices": [
-      "kubectl get pv shows STATUS Available and an empty CLAIM",
-      "kubectl get pv shows STATUS Bound and CLAIM module1/my-pvc",
-      "kubectl get pvc shows STATUS Released",
-      "kubectl describe sc shows the PVC name"
-    ],
-    "answer": 1,
-    "explanation": "A successfully bound PV shows STATUS Bound and its CLAIM column lists namespace/pvc-name (module1/my-pvc). Available with empty CLAIM means it is not yet bound. Released means the PVC was deleted. describe sc shows StorageClass config, not PVC bindings.",
-    "source": "Storage for CKA — Create a PV and PVC (demo)"
-  }
+ {
+  "id": "st-q001",
+  "domain": "Storage",
+  "question": "A PVC requests a ReadWriteOnce volume. Pod A is running on node-1 and successfully mounts it. Pod B is scheduled on node-2 and tries to mount the same PVC. What happens?",
+  "choices": [
+   "Pod B mounts the volume read-only automatically",
+   "Pod B stays in ContainerCreating with a FailedMount event",
+   "Both pods are evicted because RWO allows only one pod total",
+   "Kubernetes converts the volume to ReadWriteMany"
+  ],
+  "answer": 1,
+  "explanation": "ReadWriteOnce binds the volume to a single NODE. Pod B on a different node cannot mount it and gets stuck in ContainerCreating with a FailedMount event. It is not auto-downgraded to read-only, the volume is not converted to RWX, and RWO does allow multiple pods on the SAME node (so 'one pod total' is wrong).",
+  "source": "Storage for CKA \u2014 Volume Access Modes (demo)"
+ },
+ {
+  "id": "st-q002",
+  "domain": "Storage",
+  "question": "You delete a PVC whose PV uses persistentVolumeReclaimPolicy: Retain. What is the resulting state of the PV?",
+  "choices": [
+   "The PV and its underlying disk are deleted",
+   "The PV returns to Available and rebinds automatically",
+   "The PV enters Released and the data is preserved, requiring manual cleanup",
+   "The PV enters Failed"
+  ],
+  "answer": 2,
+  "explanation": "Retain keeps the PV after the PVC is deleted; it moves to the Released phase with the data untouched, and an admin must manually clean it up before reuse. Delete (not Retain) would remove the PV and disk. Retain does not auto-rebind, and Released is not the same as Failed.",
+  "source": "Storage for CKA \u2014 Volume Reclaim Policies"
+ },
+ {
+  "id": "st-q003",
+  "domain": "Storage",
+  "question": "Which field in a StorageClass determines which plugin/driver Kubernetes uses to create PersistentVolumes?",
+  "choices": [
+   "provisioner",
+   "volumeBindingMode",
+   "reclaimPolicy",
+   "accessModes"
+  ],
+  "answer": 0,
+  "explanation": "provisioner is the key field that tells Kubernetes which volume plugin/CSI driver to invoke when creating PVs. volumeBindingMode controls WHEN binding happens, reclaimPolicy controls what happens on PVC deletion, and accessModes is not a StorageClass field (it lives on PVs/PVCs).",
+  "source": "Storage for CKA \u2014 Storage Classes in Kubernetes"
+ },
+ {
+  "id": "st-q004",
+  "domain": "Storage",
+  "question": "A PVC referencing a StorageClass with volumeBindingMode: WaitForFirstConsumer stays in Pending, and kubectl get pv returns no resources. What is the correct action?",
+  "choices": [
+   "Manually create a matching PV",
+   "Change the PVC access mode to ReadWriteMany",
+   "Create a pod that mounts the PVC to trigger provisioning",
+   "Delete and recreate the StorageClass"
+  ],
+  "answer": 2,
+  "explanation": "WaitForFirstConsumer delays PV provisioning until a pod that uses the PVC is scheduled. Creating a consuming pod triggers binding and the PV appears. Manually creating a PV defeats dynamic provisioning, the access mode is unrelated, and recreating the StorageClass won't help.",
+  "source": "Storage for CKA \u2014 WaitForFirstConsumer Binding"
+ },
+ {
+  "id": "st-q005",
+  "domain": "Storage",
+  "question": "You must create a PVC that binds to a specific pre-existing static PV and must NOT trigger dynamic provisioning. What should you set?",
+  "choices": [
+   "storageClassName to the name of the default StorageClass",
+   "Omit storageClassName entirely",
+   "storageClassName: \"\" (empty string) on the PVC (and PV)",
+   "volumeBindingMode: Immediate"
+  ],
+  "answer": 2,
+  "explanation": "An empty string storageClassName (\"\") disables dynamic provisioning so the PVC binds to a matching static PV. Omitting storageClassName uses the DEFAULT StorageClass (dynamic provisioning). Naming the default class also triggers dynamic provisioning. volumeBindingMode is a StorageClass field, not a PVC field.",
+  "source": "Storage for CKA \u2014 Example Exam Question 1 (Static Provisioning)"
+ },
+ {
+  "id": "st-q006",
+  "domain": "Storage",
+  "question": "What is the default reclaim policy for a PersistentVolume that is dynamically provisioned by a StorageClass?",
+  "choices": [
+   "Retain",
+   "Recycle",
+   "Delete",
+   "Released"
+  ],
+  "answer": 2,
+  "explanation": "Dynamically provisioned PVs default to Delete, so deleting the PVC also removes the PV and the underlying storage. Retain is the default for manually-created static PVs. Recycle is deprecated. Released is a PV phase, not a reclaim policy.",
+  "source": "Storage for CKA \u2014 Storage Classes in Kubernetes"
+ },
+ {
+  "id": "st-q007",
+  "domain": "Storage",
+  "question": "A developer creates a PVC with no storageClassName field set. Which StorageClass is used?",
+  "choices": [
+   "No class \u2014 the PVC stays Pending forever",
+   "The cluster's default StorageClass, marked (default) in kubectl get sc",
+   "The first StorageClass alphabetically",
+   "A class named 'standard' regardless of cluster config"
+  ],
+  "answer": 1,
+  "explanation": "Omitting storageClassName makes Kubernetes use the cluster's default StorageClass (the one shown as (default) in kubectl get sc). It is not alphabetical, not hardcoded to 'standard' (that name varies by cluster), and it does not stay Pending as long as a default class exists.",
+  "source": "Storage for CKA \u2014 Dynamic Volume Provisioning (Immediate Binding)"
+ },
+ {
+  "id": "st-q008",
+  "domain": "Storage",
+  "question": "Which statement about ReadWriteMany (RWX) is correct?",
+  "choices": [
+   "It is the default access mode for all volume types",
+   "It lets a single pod mount the volume read-write",
+   "It allows many nodes to mount the volume read-write simultaneously and requires a supporting backend like NFS",
+   "It allows many nodes to mount the volume read-only only"
+  ],
+  "answer": 2,
+  "explanation": "RWX allows many nodes to mount the volume read-write at the same time, but only with a backend that supports it (e.g., NFS or a distributed filesystem). There is no universal default access mode. ReadWriteOncePod is the single-pod mode, and ReadOnlyMany (not RWX) is the read-only-many mode.",
+  "source": "Storage for CKA \u2014 Volume Types and Access Modes"
+ },
+ {
+  "id": "st-q009",
+  "domain": "Storage",
+  "question": "You create a busybox pod that mounts a PVC, but it immediately enters CrashLoopBackOff. The PVC is Bound. What is the most likely fix?",
+  "choices": [
+   "Add a long-running command such as sleep 3600 to the container",
+   "Change the reclaim policy to Retain",
+   "Switch the access mode to ReadWriteMany",
+   "Recreate the PVC without a storageClassName"
+  ],
+  "answer": 0,
+  "explanation": "A busybox container with no command runs nothing and exits, causing CrashLoopBackOff. Giving it a long-running command (e.g., /bin/sh -c 'sleep 3600') keeps it running. The PVC is already Bound, so reclaim policy, access mode, and storageClassName are not the problem.",
+  "source": "Storage for CKA \u2014 Example Exam Question 2 (Dynamic Provisioning)"
+ },
+ {
+  "id": "st-q010",
+  "domain": "Storage",
+  "question": "A cluster admin wants users to be able to grow an existing PVC's size after creation. Which StorageClass setting enables this?",
+  "choices": [
+   "volumeBindingMode: Immediate",
+   "allowVolumeExpansion: true",
+   "reclaimPolicy: Retain",
+   "accessModes: [ReadWriteMany]"
+  ],
+  "answer": 1,
+  "explanation": "allowVolumeExpansion: true lets users increase an existing PVC's size, and the provisioner resizes the underlying PV. volumeBindingMode controls binding timing, reclaimPolicy controls deletion behavior, and accessModes is not a StorageClass field.",
+  "source": "Storage for CKA \u2014 Storage Classes in Kubernetes"
+ },
+ {
+  "id": "st-q011",
+  "domain": "Storage",
+  "question": "Which of these correctly describes the difference between a plain Volume and a PersistentVolume?",
+  "choices": [
+   "A plain Volume persists across node failures; a PV does not",
+   "A plain Volume's lifecycle is tied to the pod; a PV's lifecycle is independent of any pod",
+   "Both are deleted when the pod is deleted",
+   "A PV can only be used by stateless apps"
+  ],
+  "answer": 1,
+  "explanation": "A plain Volume is a directory whose lifecycle is tied to the pod, so it is destroyed with the pod. A PV exists independently of pods and survives pod deletion/rescheduling. A plain Volume does NOT survive node failure, and PVs are specifically for stateful apps.",
+  "source": "Storage for CKA \u2014 Introduction to Kubernetes Storage"
+ },
+ {
+  "id": "st-q012",
+  "domain": "Storage",
+  "question": "After binding a PVC named my-pvc in namespace module1 to a PV named my-pv, which command output confirms the binding from the PV side?",
+  "choices": [
+   "kubectl get pv shows STATUS Available and an empty CLAIM",
+   "kubectl get pv shows STATUS Bound and CLAIM module1/my-pvc",
+   "kubectl get pvc shows STATUS Released",
+   "kubectl describe sc shows the PVC name"
+  ],
+  "answer": 1,
+  "explanation": "A successfully bound PV shows STATUS Bound and its CLAIM column lists namespace/pvc-name (module1/my-pvc). Available with empty CLAIM means it is not yet bound. Released means the PVC was deleted. describe sc shows StorageClass config, not PVC bindings.",
+  "source": "Storage for CKA \u2014 Create a PV and PVC (demo)"
+ },
+ {
+  "id": "st-q013",
+  "domain": "Storage",
+  "question": "A static PV pv-app is currently in the Available phase. A developer creates a matching PVC. What phase transition does the PV undergo?",
+  "choices": [
+   "Available to Bound",
+   "Available to Pending to Bound",
+   "Available to Released",
+   "It stays Available until a pod mounts it"
+  ],
+  "answer": 0,
+  "explanation": "When a PVC successfully matches and claims an Available PV, the PV phase changes directly to Bound. Pending is a PVC state (not PV), Released happens when the PVC is deleted, and PVs bind to PVCs regardless of pod mounts (unless WaitForFirstConsumer is used).",
+  "source": "Kubernetes docs \u2014 Persistent Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q014",
+  "domain": "Storage",
+  "question": "A PVC is deleted, and its bound PV has a reclaim policy of Retain. How do you make this PV available for a new PVC?",
+  "choices": [
+   "Create a new PVC with the same name",
+   "Delete the PV and recreate it pointing to the same storage",
+   "Change the reclaim policy to Recycle",
+   "Run kubectl unbind pv <name>"
+  ],
+  "answer": 1,
+  "explanation": "With Retain, a Released PV still contains the previous claim's UID. To reuse it, you must manually delete and recreate the PV object (and optionally clean the backend storage). Recreating the PVC won't bind to a Released PV. Recycle is deprecated. There is no kubectl unbind command.",
+  "source": "Kubernetes docs \u2014 Persistent Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q015",
+  "domain": "Storage",
+  "question": "You want to provision AWS EBS volumes automatically when users create PVCs. Which resource and field must you configure to enable this?",
+  "choices": [
+   "A PersistentVolume with csi.driver: ebs.csi.aws.com",
+   "A PersistentVolumeClaim with storageClassName: aws-ebs",
+   "A StorageClass with provisioner: ebs.csi.aws.com",
+   "A ConfigMap containing the AWS storage parameters"
+  ],
+  "answer": 2,
+  "explanation": "To enable dynamic provisioning, a StorageClass must define a provisioner (like ebs.csi.aws.com) that handles the creation of the backend storage. PVCs request the class, but the class itself defines the provisioner. PVs are created by the provisioner, not manually. A ConfigMap is not used for this.",
+  "source": "Kubernetes docs \u2014 Storage Classes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q016",
+  "domain": "Storage",
+  "question": "Users need dynamically provisioned volumes to use a specific disk type. Where is this hardware-specific configuration defined?",
+  "choices": [
+   "In the PVC under spec.hardwareType",
+   "In the Pod under volumes.gcePersistentDisk.type",
+   "In the PV under spec.csi.volumeAttributes",
+   "In the StorageClass under the parameters field"
+  ],
+  "answer": 3,
+  "explanation": "The StorageClass parameters field passes provider-specific settings (like disk type, IOPS, or replication factor) to the provisioner. PVCs cannot specify hardware types directly. Pods do not define dynamic provisioning settings. PVs are the output of the provisioning process, not the configuration source.",
+  "source": "Kubernetes docs \u2014 Storage Classes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q017",
+  "domain": "Storage",
+  "question": "You must ensure a volume is mounted as read-write by only a single Pod, and no other Pods on the same node can mount it simultaneously. Which access mode should you use?",
+  "choices": [
+   "ReadWriteOncePod",
+   "ReadWriteOnce",
+   "ReadWriteMany",
+   "ReadOnlyMany"
+  ],
+  "answer": 0,
+  "explanation": "ReadWriteOncePod (RWOP) restricts volume access to a single pod across the whole cluster. ReadWriteOnce (RWO) restricts it to a single node, meaning multiple pods on the SAME node can still mount it. ReadWriteMany and ReadOnlyMany allow multiple nodes/pods.",
+  "source": "Kubernetes docs \u2014 Persistent Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q018",
+  "domain": "Storage",
+  "question": "Which statement correctly distinguishes the Delete reclaim policy from the deprecated Recycle policy?",
+  "choices": [
+   "Delete keeps the PV object; Recycle deletes it",
+   "Delete removes both the PV and external storage; Recycle performs a basic scrub and makes the PV Available again",
+   "Delete is for static provisioning; Recycle is for dynamic provisioning",
+   "Delete only removes the PVC; Recycle removes the PV"
+  ],
+  "answer": 1,
+  "explanation": "Delete removes the PV resource and the underlying storage asset. Recycle (now deprecated in favor of dynamic provisioning) scrubs the existing volume's data and returns the PV to Available status. Both policies affect the PV, not just the PVC, and Delete is the default for dynamic provisioning.",
+  "source": "Kubernetes docs \u2014 Persistent Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q019",
+  "domain": "Storage",
+  "question": "A cluster has multiple topology zones. Why should a StorageClass use volumeBindingMode: WaitForFirstConsumer?",
+  "choices": [
+   "To allow multiple pods to read from the volume simultaneously",
+   "To prevent users from creating PVCs until a Pod exists",
+   "To delay volume provisioning until a pod is scheduled, ensuring the PV is created in the same zone as the pod",
+   "To automatically delete the PV when the first consumer pod is deleted"
+  ],
+  "answer": 2,
+  "explanation": "WaitForFirstConsumer delays dynamic provisioning and binding until a pod using the PVC is scheduled. This ensures the volume is created in the same topology (e.g., zone or node) where the pod will run. It doesn't prevent PVC creation, affect access modes, or alter reclaim policies.",
+  "source": "Kubernetes docs \u2014 Storage Classes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q020",
+  "domain": "Storage",
+  "question": "You need to increase the size of an existing dynamically provisioned PVC from 10Gi to 20Gi. The StorageClass has allowVolumeExpansion: true. What is the correct procedure?",
+  "choices": [
+   "Edit the PV's spec.capacity.storage field directly",
+   "Delete the PVC and recreate it with the new size",
+   "Edit the StorageClass to set parameters.size: 20Gi",
+   "Edit the PVC's spec.resources.requests.storage field to 20Gi"
+  ],
+  "answer": 3,
+  "explanation": "To expand a volume, you edit the PVC and increase its storage request. The provisioner will then resize the underlying storage and update the PV capacity. Editing the PV directly does not trigger expansion. Deleting the PVC might delete the data. StorageClass parameters don't set sizes.",
+  "source": "Kubernetes docs \u2014 Resizing Persistent Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q021",
+  "domain": "Storage",
+  "question": "An administrator runs kubectl edit pvc data-claim and tries to decrease the storage request from 100Gi to 50Gi. What happens?",
+  "choices": [
+   "The API server rejects the update because volume shrinking is not supported",
+   "The PV is resized to 50Gi but excess data is deleted",
+   "The PVC stays in a Resizing state indefinitely",
+   "The PVC is deleted and recreated at 50Gi automatically"
+  ],
+  "answer": 0,
+  "explanation": "Kubernetes does not support shrinking Persistent Volumes. The API server will reject the request to decrease the storage size in the PVC. Volumes can only be expanded (if allowVolumeExpansion is true), never shrunk. It will not resize, hang, or auto-recreate.",
+  "source": "Kubernetes docs \u2014 Resizing Persistent Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q022",
+  "domain": "Storage",
+  "question": "You need a temporary scratch space for a pod that will be shared between an init container and the main app container. Which volume type should you use?",
+  "choices": [
+   "hostPath",
+   "emptyDir",
+   "local",
+   "A PersistentVolumeClaim"
+  ],
+  "answer": 1,
+  "explanation": "emptyDir creates an ephemeral directory that shares a pod's lifecycle, making it perfect for scratch space or sharing files between containers in the same pod. hostPath ties the pod to a specific node's filesystem. local and PVCs provide persistent storage, which is unnecessary for temporary scratch space.",
+  "source": "Kubernetes docs \u2014 Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q023",
+  "domain": "Storage",
+  "question": "A DaemonSet needs to collect logs located in /var/log on every node in the cluster. Which volume type is required?",
+  "choices": [
+   "emptyDir",
+   "nfs",
+   "hostPath",
+   "projected"
+  ],
+  "answer": 2,
+  "explanation": "A hostPath volume mounts a file or directory from the host node's filesystem into the pod. This is required for system-level DaemonSets (like log collectors or node agents) that need to access node files. emptyDir is pod-scoped. nfs is network storage. projected is for Secrets/ConfigMaps/Tokens.",
+  "source": "Kubernetes docs \u2014 Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q024",
+  "domain": "Storage",
+  "question": "A pod uses an emptyDir volume for high-speed caching and requires it to be backed by RAM instead of the node's disk. Which field is needed?",
+  "choices": [
+   "medium: tmpfs",
+   "backingStore: Memory",
+   "storage: RAM",
+   "medium: Memory"
+  ],
+  "answer": 3,
+  "explanation": "Setting medium: Memory on an emptyDir volume tells Kubernetes to mount a tmpfs (RAM-backed filesystem) instead of using the node's default disk. medium: tmpfs, backingStore, and storage are not valid fields or values for this configuration.",
+  "source": "Kubernetes docs \u2014 Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q025",
+  "domain": "Storage",
+  "question": "An application reads configuration from a file mounted via a ConfigMap volume. You update the ConfigMap. What happens to the mounted file in the running pod?",
+  "choices": [
+   "The file is automatically updated by the kubelet after a short delay",
+   "The pod must be restarted to see the new changes",
+   "The pod crashes and is recreated by its Deployment",
+   "The file updates instantly, but only if the volume uses subPath"
+  ],
+  "answer": 0,
+  "explanation": "When a ConfigMap is mounted as a volume, the kubelet automatically updates the mounted files (usually within a minute) when the ConfigMap changes. Restarting the pod is not required. However, if the mount uses subPath, the file will NOT auto-update (which makes the subPath distractor false).",
+  "source": "Kubernetes docs \u2014 Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q026",
+  "domain": "Storage",
+  "question": "Why might an administrator choose to expose a Secret as a volume rather than as environment variables?",
+  "choices": [
+   "Environment variables encrypt the data twice, causing performance issues",
+   "Environment variables do not auto-update when the Secret changes",
+   "Volume mounts bypass RBAC authorization",
+   "Volume mounts allow the Secret to be shared across namespaces"
+  ],
+  "answer": 1,
+  "explanation": "Secrets mounted as volumes are automatically updated by the kubelet when the Secret changes. Secrets injected as environment variables do NOT auto-update; the pod must be restarted to pick up changes. Secrets are not double-encrypted in env vars, RBAC still applies, and Secrets cannot cross namespaces.",
+  "source": "Kubernetes docs \u2014 Secrets",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q027",
+  "domain": "Storage",
+  "question": "A pod needs to mount two specific files from a single ConfigMap into an existing directory /etc/config/ without overwriting the other files already in that directory. Which property should you use?",
+  "choices": [
+   "readOnly: true",
+   "mountPropagation: HostToContainer",
+   "subPath",
+   "items array on the container"
+  ],
+  "answer": 2,
+  "explanation": "The subPath property allows you to mount a specific key (file) from a volume (like a ConfigMap) into a specific path without obscuring the existing contents of the destination directory. readOnly doesn't prevent overwriting. mountPropagation is for sharing mounts between containers/hosts. items maps keys to paths but will still hide directory contents without subPath.",
+  "source": "Kubernetes docs \u2014 Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q028",
+  "domain": "Storage",
+  "question": "A container defines a volume mount with mountPath: /app/config.json and subPath: app-config.json. What does this configuration achieve?",
+  "choices": [
+   "It creates a directory named app-config.json inside /app",
+   "It mounts the entire volume to /app/config.json",
+   "It ignores the app-config.json file in the volume",
+   "It mounts only the file app-config.json from the volume into the container as /app/config.json"
+  ],
+  "answer": 3,
+  "explanation": "The subPath field specifies a specific file or folder within the referenced volume. Here, it takes only app-config.json from the volume and mounts it exactly at the file path /app/config.json in the container. It does not mount the entire volume, create a directory, or ignore the file.",
+  "source": "Kubernetes docs \u2014 Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q029",
+  "domain": "Storage",
+  "question": "Which section of a Pod specification must reference the PersistentVolumeClaim by name to use it as storage?",
+  "choices": [
+   "The volumes array at the pod level",
+   "The volumeMounts array inside the container definition",
+   "The storageClassName field in the pod spec",
+   "The claimRef field in the container spec"
+  ],
+  "answer": 0,
+  "explanation": "The PVC must be referenced in the pod's volumes array using persistentVolumeClaim.claimName. The container's volumeMounts array references the local volume name defined in the volumes array, not the PVC directly. storageClassName is for PV/PVCs, not pods. claimRef is not a valid container field.",
+  "source": "Kubernetes docs \u2014 Persistent Volumes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q030",
+  "domain": "Storage",
+  "question": "A pod specification includes a volume named data-vol referencing a PVC. What must be added to the container specification to make this volume accessible at /var/www/html?",
+  "choices": [
+   "mountPath: /var/www/html under env",
+   "A volumeMounts entry referencing data-vol with mountPath: /var/www/html",
+   "A symlink from the volumes section to /var/www/html",
+   "volumes.data-vol.path: /var/www/html"
+  ],
+  "answer": 1,
+  "explanation": "To use a volume in a container, you must add a volumeMounts entry inside the container spec. This entry references the volume's name (e.g., data-vol) and defines the mountPath (e.g., /var/www/html) where the storage will appear. Env vars, symlinks, and inline volume paths are incorrect syntaxes.",
+  "source": "Kubernetes docs \u2014 Volumes",
+  "domainKey": "storage"
+ }
 ]

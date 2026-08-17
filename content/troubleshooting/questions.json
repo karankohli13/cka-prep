@@ -1,32 +1,1352 @@
 [
-  {"id":"ts-q001","domain":"Troubleshooting","question":"A pod is stuck in Pending. kubectl describe pod shows the event '0/3 nodes are available: Insufficient cpu'. What is the cause?","choices":["The container image cannot be pulled from the registry","The pod's CPU request exceeds the allocatable CPU on every node","The kubelet on all nodes has crashed","The Service selector does not match the pod labels"],"answer":1,"explanation":"'Insufficient cpu' means no node can satisfy the pod's CPU request, so the scheduler leaves it Pending. Confirm with kubectl describe nodes / kubectl top nodes; fix by lowering requests.cpu or adding capacity. Image pull issues show ImagePullBackOff (not Pending), a dead kubelet makes nodes NotReady, and a selector mismatch is a Service/networking problem.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting Pending Pods"},
-  {"id":"ts-q002","domain":"Troubleshooting","question":"A pod is in CrashLoopBackOff but kubectl describe pod shows no obvious reason. Which command best reveals why it crashed?","choices":["kubectl get pods -o wide","kubectl top pod <pod>","kubectl logs <pod> --previous","kubectl get endpoints <pod>"],"answer":2,"explanation":"--previous shows the logs of the already-crashed container instance, which usually contains the error. The current container may be gone, so plain kubectl logs may show nothing useful. get pods -o wide shows placement, top shows resource usage, and endpoints is for Services.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting CrashLoopBackOff"},
-  {"id":"ts-q003","domain":"Troubleshooting","question":"kubectl describe pod shows 'Last State: Terminated, Reason: OOMKilled, Exit Code: 137'. What happened and how do you fix it?","choices":["The container exceeded its memory limit; raise resources.limits.memory","The image tag was wrong; correct the image","The node ran out of disk; add storage","The liveness probe failed; remove the probe"],"answer":0,"explanation":"OOMKilled with exit code 137 means the container hit its memory limit and was killed by the OOM killer. Fix by raising limits.memory (or fixing a leak). A wrong image gives ImagePullBackOff, disk pressure is a node condition, and probe failures show as Unhealthy events, not OOMKilled.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting OOMKilled"},
-  {"id":"ts-q004","domain":"Troubleshooting","question":"A pod shows ImagePullBackOff. What is the FASTEST way to find the specific reason?","choices":["kubectl logs <pod>","kubectl top pod <pod>","Restart the kubelet on the node","kubectl describe pod <pod> and read the Events section"],"answer":3,"explanation":"kubectl describe pod Events names the exact image and why it failed (not found, unauthorized, no such host). kubectl logs won't help because the container never started. top shows resource usage, and restarting the kubelet won't fix a bad image reference.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting ImagePullBackOff"},
-  {"id":"ts-q005","domain":"Troubleshooting","question":"All pods are Running but the frontend reports 'backend unavailable'. kubectl get endpoints shows the backend Service has no endpoint IPs. What is the most likely cause?","choices":["CoreDNS is down","The nodes are out of memory","The Service selector labels do not match the backend pod labels","The container image tag is wrong"],"answer":2,"explanation":"Empty endpoints means the Service selector matches no ready pods, typically a selector/label mismatch. Align the Service spec.selector with the pod template labels. CoreDNS down would break DNS broadly, OOM would restart pods, and a bad image tag would prevent pods from running.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting Networking Issues"},
-  {"id":"ts-q006","domain":"Troubleshooting","question":"A worker node shows status NotReady. What should you investigate FIRST on that node?","choices":["kubectl logs of the node object","The kubelet via systemctl status kubelet and journalctl -u kubelet","The Service endpoints in kube-system","The Helm release history"],"answer":1,"explanation":"A NotReady node is usually a kubelet, runtime, or networking problem on the node. The kubelet is a systemd service, so check systemctl status kubelet and journalctl -u kubelet. You cannot kubectl logs a node, endpoints relate to Services, and Helm is unrelated to node readiness.","source":"Kubernetes docs — Troubleshoot Clusters and Nodes"},
-  {"id":"ts-q007","domain":"Troubleshooting","question":"On a kubeadm cluster, where are the manifests for the kube-apiserver, etcd, scheduler, and controller-manager?","choices":["/etc/kubernetes/manifests/ on the control plane node","In the default namespace as Deployments","/var/lib/kubelet/config.yaml","In the etcd database only, not on disk"],"answer":0,"explanation":"These run as static pods whose manifests live in /etc/kubernetes/manifests/ on the control plane node. The kubelet watches that directory and recreates the pods when the files change. They are not Deployments and are not stored only in etcd.","source":"Kubernetes docs — Troubleshoot Cluster Components"},
-  {"id":"ts-q008","domain":"Troubleshooting","question":"The kube-apiserver is down and kubectl no longer works. Which tool lets you inspect the apiserver container and its logs directly on the node?","choices":["crictl","kubectl describe","helm","kubeadm token"],"answer":0,"explanation":"crictl talks directly to the container runtime via the CRI socket, so crictl ps and crictl logs work even when the API server (and thus kubectl) is down. helm and kubectl both require the API server, and kubeadm token manages join tokens.","source":"Kubernetes docs — Container Runtime / crictl"},
-  {"id":"ts-q009","domain":"Troubleshooting","question":"You fixed a bad flag in /etc/kubernetes/manifests/kube-apiserver.yaml. What must you do to apply the change?","choices":["Run kubectl apply -f on the manifest","Nothing extra — saving the file makes the kubelet recreate the static pod","Run kubeadm upgrade apply","Manually delete the etcd snapshot"],"answer":1,"explanation":"Static pod manifests are watched by the kubelet; saving the edited file causes the kubelet to automatically recreate the pod. kubectl apply is not used for static pods, kubeadm upgrade is for version upgrades, and deleting etcd data would be destructive.","source":"Kubernetes docs — Troubleshoot Cluster Components"},
-  {"id":"ts-q010","domain":"Troubleshooting","question":"kubectl top nodes returns 'error: Metrics API not available'. What is the correct conclusion?","choices":["All nodes have failed and must be rebuilt","The metrics-server is not installed or not ready","etcd is corrupted","The API server certificate has expired"],"answer":1,"explanation":"kubectl top depends on the Metrics API exposed by the metrics-server, which is not installed by default. Install/verify it. This error is not evidence of node failure, etcd corruption, or certificate expiry (those produce different symptoms).","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes Metrics Server"},
-  {"id":"ts-q011","domain":"Troubleshooting","question":"Which statement correctly distinguishes metrics-server from Prometheus?","choices":["metrics-server stores long-term history; Prometheus only shows live data","They are identical and interchangeable","Prometheus is required for kubectl top to work","metrics-server provides live CPU/memory for kubectl top and HPA with no history; Prometheus is a time-series DB with history, PromQL, and alerting"],"answer":3,"explanation":"metrics-server is lightweight, real-time, and powers kubectl top and the HPA but keeps no history. Prometheus retains time-series history and adds PromQL and alerting. They are not interchangeable, and kubectl top depends on metrics-server, not Prometheus.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes Observability"},
-  {"id":"ts-q012","domain":"Troubleshooting","question":"For a multi-container pod, kubectl logs <pod> returns an error asking you to choose a container. What flag resolves this?","choices":["--previous","--all-namespaces","--tail=0","-c <container>"],"answer":3,"explanation":"-c <container> selects which container's stdout/stderr to read in a multi-container pod. --previous reads the prior crashed instance, --all-namespaces is for listing across namespaces, and --tail limits lines but doesn't pick a container.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes"},
-  {"id":"ts-q013","domain":"Troubleshooting","question":"Which is a real limitation of kubectl logs that motivates centralized logging?","choices":["It requires Prometheus to function","It can only show logs for one pod at a time and loses logs when pods are deleted","It cannot show logs for Running pods","It only works on the control plane node"],"answer":1,"explanation":"kubectl logs is per-pod, has no retention (logs vanish with the pod, aside from --previous for the last instance), and can't search across pods. This motivates Loki/Alloy or EFK. It does not depend on Prometheus, works on Running pods, and works for any node's pods.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes"},
-  {"id":"ts-q014","domain":"Troubleshooting","question":"What is the difference between kubectl cordon and kubectl drain?","choices":["cordon evicts pods; drain only blocks new scheduling","They are aliases for the same action","cordon marks the node unschedulable (existing pods stay); drain cordons AND evicts existing pods","drain deletes the node from the cluster"],"answer":2,"explanation":"cordon only prevents NEW pods from scheduling; existing pods keep running. drain cordons the node and evicts existing pods (respecting PDBs) so it can be maintained. They are not aliases, and drain does not delete the node object.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Upgrading a Kubernetes Cluster"},
-  {"id":"ts-q015","domain":"Troubleshooting","question":"kubectl drain <node> fails complaining about DaemonSet-managed pods. Which flag is typically required?","choices":["--force","--ignore-daemonsets","--grace-period=0","--cascade=orphan"],"answer":1,"explanation":"DaemonSet pods cannot be rescheduled elsewhere, so drain refuses unless you pass --ignore-daemonsets. --force evicts bare pods, --grace-period changes termination timing, and --cascade is a delete option unrelated to drain.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Upgrading a Kubernetes Cluster"},
-  {"id":"ts-q016","domain":"Troubleshooting","question":"What is the correct order for a kubeadm cluster upgrade?","choices":["Control plane first, then worker nodes one at a time","All worker nodes first, then the control plane","Control plane and all workers simultaneously","Worker nodes in any order while the control plane is mid-upgrade"],"answer":0,"explanation":"Upgrade the control plane first because it supports older worker kubelets, then upgrade workers one at a time to keep apps online. Upgrading workers first or all-at-once risks version skew and downtime.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Preparing for a Kubernetes Cluster Upgrade"},
-  {"id":"ts-q017","domain":"Troubleshooting","question":"Which kubeadm command upgrades the CONTROL PLANE, and which upgrades a WORKER node?","choices":["Both use kubeadm upgrade apply","Control plane: kubeadm upgrade node; worker: kubeadm upgrade apply <ver>","Both use kubeadm init","Control plane: kubeadm upgrade apply <ver>; worker: kubeadm upgrade node"],"answer":3,"explanation":"The control plane uses kubeadm upgrade apply v<version>; worker nodes use kubeadm upgrade node. Mixing them up is a common mistake. kubeadm init creates a new cluster, not an upgrade.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Upgrading a Kubernetes Cluster"},
-  {"id":"ts-q018","domain":"Troubleshooting","question":"Before upgrading a production cluster, which step is the most important safety net?","choices":["Delete all old pods","Disable all Services","Back up the etcd database with an etcdctl snapshot","Scale every Deployment to zero"],"answer":2,"explanation":"etcd holds all cluster state, so an etcd snapshot is your restore point if the upgrade fails. Deleting pods, disabling Services, or scaling to zero would cause downtime and provide no recovery benefit.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Preparing for a Kubernetes Cluster Upgrade"},
-  {"id":"ts-q019","domain":"Troubleshooting","question":"What does a PodDisruptionBudget (PDB) protect against during a node drain?","choices":["Involuntary disruptions like hardware failure","Image pull failures","Evicting too many pods at once during voluntary disruptions, breaching minimum availability","Excessive memory usage"],"answer":2,"explanation":"A PDB constrains voluntary disruptions (drain, upgrade, scale-down): the eviction API rejects requests that would drop below minAvailable. It does not protect against involuntary failures, image pulls, or memory usage.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes High Availability Features"},
-  {"id":"ts-q020","domain":"Troubleshooting","question":"During a rolling cluster upgrade, a WORKER node upgrade fails due to a transient network timeout. What is a reasonable action?","choices":["Immediately abort the entire upgrade and roll back the control plane","Troubleshoot and retry, or replace the node, then continue upgrading the remaining workers","Upgrade all remaining workers at once to save time","Delete etcd and reinitialize the cluster"],"answer":1,"explanation":"A failed worker upgrade can be fixed-and-retried or the node replaced; then continue. You only stop hard if the CONTROL PLANE fails. Upgrading all workers at once risks downtime, and deleting etcd is catastrophic.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Preparing for a Kubernetes Cluster Upgrade"},
-  {"id":"ts-q021","domain":"Troubleshooting","question":"In-cluster DNS resolution is failing for many pods. Which component should you check first?","choices":["kube-proxy on the control plane only","The metrics-server","The Helm release","CoreDNS pods in the kube-system namespace"],"answer":3,"explanation":"CoreDNS (pods in kube-system, label k8s-app=kube-dns) provides cluster DNS; widespread resolution failures point there. Check the CoreDNS pods and logs. metrics-server is for metrics and Helm is unrelated to DNS.","source":"Kubernetes docs — Debug Services / DNS"},
-  {"id":"ts-q022","domain":"Troubleshooting","question":"You want to test whether a Service is reachable and resolves by name from inside the cluster. What is a good approach?","choices":["Run a debug pod (e.g., busybox) and use nslookup and wget against the Service FQDN","kubectl top pods","Restart CoreDNS blindly","Edit the Service's ClusterIP manually"],"answer":0,"explanation":"A throwaway debug pod (kubectl run tmp --image=busybox:1.28 --rm -it -- sh) lets you nslookup <svc>.<ns>.svc.cluster.local and wget the Service to isolate DNS vs routing. top shows resource usage, restarting CoreDNS blindly is premature, and ClusterIPs should not be hand-edited.","source":"Kubernetes docs — Debug Services / DNS"},
-  {"id":"ts-q023","domain":"Troubleshooting","question":"A Service has endpoints, the pods are Ready, but clients still can't connect on the expected port. What should you check next?","choices":["That metrics-server is installed","That Helm history has 3 revisions","That the kubelet swap is enabled","That the Service port and targetPort are correct and no NetworkPolicy is blocking traffic"],"answer":3,"explanation":"With healthy endpoints, suspect a port/targetPort mismatch or a NetworkPolicy silently dropping traffic. metrics-server, Helm revisions, and kubelet swap are unrelated to Service connectivity.","source":"Kubernetes docs — Debug Services / DNS"},
-  {"id":"ts-q024","domain":"Troubleshooting","question":"Which best describes the recommended logging contract for applications in Kubernetes?","choices":["Write logs to a file inside the container and read it with kubectl exec","Write logs to stdout/stderr so the kubelet captures them and kubectl logs can read them","Push logs directly to etcd","Disable logging to save disk"],"answer":1,"explanation":"Apps should log to stdout/stderr; the kubelet captures these streams (stored under /var/log/pods) and kubectl logs reads them. Writing to in-container files, pushing to etcd, or disabling logs all break standard observability.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes"},
-  {"id":"ts-q025","domain":"Troubleshooting","question":"A pod is stuck in ContainerCreating for several minutes. kubectl describe pod Events shows 'configmap \"app-config\" not found'. What is the fix?","choices":["Raise the pod's memory limit","Restart the kubelet","Create the missing ConfigMap (or fix the reference) the pod mounts","Increase the number of replicas"],"answer":2,"explanation":"ContainerCreating often stalls on a missing mounted resource (ConfigMap, Secret, or PVC). The Events name the missing ConfigMap, so create it or correct the reference. Memory limits, kubelet restarts, and replica counts don't resolve a missing ConfigMap.","source":"Kubernetes docs — Debug Running Pods"},
-  {"id":"ts-q026","domain":"Troubleshooting","question":"Which three mechanisms work together to enable zero-downtime cluster upgrades and node maintenance?","choices":["Secrets, ConfigMaps, and Volumes","Replicas, PodDisruptionBudgets, and pod anti-affinity","Ingress, NodePort, and LoadBalancer","Taints, tolerations, and finalizers"],"answer":1,"explanation":"Replicas provide redundancy, PDBs prevent too many pods being evicted at once, and pod anti-affinity spreads replicas across nodes. Together they keep apps online during drains/upgrades. The other groups are unrelated configuration/storage/networking primitives.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes High Availability Features"},
-  {"id":"ts-q027","domain":"Troubleshooting","question":"You need to see the last 100 log lines from a crashed previous instance of a single-container pod. Which command is correct?","choices":["kubectl logs <pod> --previous --tail=100","kubectl describe pod <pod> --tail=100","kubectl top pod <pod> --previous","kubectl get logs <pod> --last=100"],"answer":0,"explanation":"kubectl logs supports --previous (the prior crashed instance) combined with --tail=100 (last 100 lines). describe and top do not show log content, and 'kubectl get logs' is not a valid command.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes"},
-  {"id":"ts-q028","domain":"Troubleshooting","question":"A node's Ready condition shows 'Unknown'. What does this most likely mean?","choices":["The node has plenty of resources and is healthy","The control plane has stopped receiving heartbeats from the node's kubelet (network or kubelet issue)","The pods on the node are OOMKilled","The Service selector is wrong"],"answer":1,"explanation":"Ready=Unknown means the node controller hasn't heard from the kubelet within the grace period, typically a kubelet crash or node networking problem. It is not a sign of health, and it is unrelated to pod OOM kills or Service selectors.","source":"Kubernetes docs — Troubleshoot Clusters and Nodes"},
-  {"id":"ts-q029","domain":"Troubleshooting","question":"Which command lists cluster events in chronological order to help spot the most recent failures?","choices":["kubectl get pods -o yaml","kubectl cluster-info dump --quiet","kubectl get events --sort-by=.metadata.creationTimestamp","kubectl top events"],"answer":2,"explanation":"kubectl get events --sort-by=.metadata.creationTimestamp orders events by time so recent FailedScheduling, pull, probe, or eviction messages are easy to find. get pods -o yaml is verbose per-pod, cluster-info dump is for bulk export, and 'top events' is not valid.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes Troubleshooting Workflow"},
-  {"id":"ts-q030","domain":"Troubleshooting","question":"A pod CrashLoopBackOffs; logs --previous shows 'could not connect to redis-svc-typo:6379'. kubectl get svc lists the real service as guestbook-redis. What is the fix?","choices":["Increase the pod's CPU request","Cordon the node running the pod","Add an imagePullSecret","Update the app config so the Redis host points to the correct Service name (guestbook-redis)"],"answer":3,"explanation":"The crash is caused by the app pointing at a non-existent service name; correct the Redis host to the real Service (guestbook-redis). CPU, cordoning, and pull secrets are unrelated to a wrong service hostname.","source":"Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting CrashLoopBackOff"}
+  {
+    "id": "ts-q001",
+    "domain": "Troubleshooting",
+    "question": "A pod is stuck in Pending. kubectl describe pod shows the event '0/3 nodes are available: Insufficient cpu'. What is the cause?",
+    "choices": [
+      "The container image cannot be pulled from the registry",
+      "The pod's CPU request exceeds the allocatable CPU on every node",
+      "The kubelet on all nodes has crashed",
+      "The Service selector does not match the pod labels"
+    ],
+    "answer": 1,
+    "explanation": "'Insufficient cpu' means no node can satisfy the pod's CPU request, so the scheduler leaves it Pending. Confirm with kubectl describe nodes / kubectl top nodes; fix by lowering requests.cpu or adding capacity. Image pull issues show ImagePullBackOff (not Pending), a dead kubelet makes nodes NotReady, and a selector mismatch is a Service/networking problem.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Troubleshooting Pending Pods",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q002",
+    "domain": "Troubleshooting",
+    "question": "A pod is in CrashLoopBackOff but kubectl describe pod shows no obvious reason. Which command best reveals why it crashed?",
+    "choices": [
+      "kubectl get pods -o wide",
+      "kubectl top pod <pod>",
+      "kubectl logs <pod> --previous",
+      "kubectl get endpoints <pod>"
+    ],
+    "answer": 2,
+    "explanation": "--previous shows the logs of the already-crashed container instance, which usually contains the error. The current container may be gone, so plain kubectl logs may show nothing useful. get pods -o wide shows placement, top shows resource usage, and endpoints is for Services.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Troubleshooting CrashLoopBackOff",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q003",
+    "domain": "Troubleshooting",
+    "question": "kubectl describe pod shows 'Last State: Terminated, Reason: OOMKilled, Exit Code: 137'. What happened and how do you fix it?",
+    "choices": [
+      "The container exceeded its memory limit; raise resources.limits.memory",
+      "The image tag was wrong; correct the image",
+      "The node ran out of disk; add storage",
+      "The liveness probe failed; remove the probe"
+    ],
+    "answer": 0,
+    "explanation": "OOMKilled with exit code 137 means the container hit its memory limit and was killed by the OOM killer. Fix by raising limits.memory (or fixing a leak). A wrong image gives ImagePullBackOff, disk pressure is a node condition, and probe failures show as Unhealthy events, not OOMKilled.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Troubleshooting OOMKilled",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q004",
+    "domain": "Troubleshooting",
+    "question": "A pod shows ImagePullBackOff. What is the FASTEST way to find the specific reason?",
+    "choices": [
+      "kubectl logs <pod>",
+      "kubectl top pod <pod>",
+      "Restart the kubelet on the node",
+      "kubectl describe pod <pod> and read the Events section"
+    ],
+    "answer": 3,
+    "explanation": "kubectl describe pod Events names the exact image and why it failed (not found, unauthorized, no such host). kubectl logs won't help because the container never started. top shows resource usage, and restarting the kubelet won't fix a bad image reference.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Troubleshooting ImagePullBackOff",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q005",
+    "domain": "Troubleshooting",
+    "question": "All pods are Running but the frontend reports 'backend unavailable'. kubectl get endpoints shows the backend Service has no endpoint IPs. What is the most likely cause?",
+    "choices": [
+      "CoreDNS is down",
+      "The nodes are out of memory",
+      "The Service selector labels do not match the backend pod labels",
+      "The container image tag is wrong"
+    ],
+    "answer": 2,
+    "explanation": "Empty endpoints means the Service selector matches no ready pods, typically a selector/label mismatch. Align the Service spec.selector with the pod template labels. CoreDNS down would break DNS broadly, OOM would restart pods, and a bad image tag would prevent pods from running.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Troubleshooting Networking Issues",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q006",
+    "domain": "Troubleshooting",
+    "question": "A worker node shows status NotReady. What should you investigate FIRST on that node?",
+    "choices": [
+      "kubectl logs of the node object",
+      "The kubelet via systemctl status kubelet and journalctl -u kubelet",
+      "The Service endpoints in kube-system",
+      "The Helm release history"
+    ],
+    "answer": 1,
+    "explanation": "A NotReady node is usually a kubelet, runtime, or networking problem on the node. The kubelet is a systemd service, so check systemctl status kubelet and journalctl -u kubelet. You cannot kubectl logs a node, endpoints relate to Services, and Helm is unrelated to node readiness.",
+    "source": "Kubernetes docs \u2014 Troubleshoot Clusters and Nodes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q007",
+    "domain": "Troubleshooting",
+    "question": "On a kubeadm cluster, where are the manifests for the kube-apiserver, etcd, scheduler, and controller-manager?",
+    "choices": [
+      "/etc/kubernetes/manifests/ on the control plane node",
+      "In the default namespace as Deployments",
+      "/var/lib/kubelet/config.yaml",
+      "In the etcd database only, not on disk"
+    ],
+    "answer": 0,
+    "explanation": "These run as static pods whose manifests live in /etc/kubernetes/manifests/ on the control plane node. The kubelet watches that directory and recreates the pods when the files change. They are not Deployments and are not stored only in etcd.",
+    "source": "Kubernetes docs \u2014 Troubleshoot Cluster Components",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q008",
+    "domain": "Troubleshooting",
+    "question": "The kube-apiserver is down and kubectl no longer works. Which tool lets you inspect the apiserver container and its logs directly on the node?",
+    "choices": [
+      "crictl",
+      "kubectl describe",
+      "helm",
+      "kubeadm token"
+    ],
+    "answer": 0,
+    "explanation": "crictl talks directly to the container runtime via the CRI socket, so crictl ps and crictl logs work even when the API server (and thus kubectl) is down. helm and kubectl both require the API server, and kubeadm token manages join tokens.",
+    "source": "Kubernetes docs \u2014 Container Runtime / crictl",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q009",
+    "domain": "Troubleshooting",
+    "question": "You fixed a bad flag in /etc/kubernetes/manifests/kube-apiserver.yaml. What must you do to apply the change?",
+    "choices": [
+      "Run kubectl apply -f on the manifest",
+      "Nothing extra \u2014 saving the file makes the kubelet recreate the static pod",
+      "Run kubeadm upgrade apply",
+      "Manually delete the etcd snapshot"
+    ],
+    "answer": 1,
+    "explanation": "Static pod manifests are watched by the kubelet; saving the edited file causes the kubelet to automatically recreate the pod. kubectl apply is not used for static pods, kubeadm upgrade is for version upgrades, and deleting etcd data would be destructive.",
+    "source": "Kubernetes docs \u2014 Troubleshoot Cluster Components",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q010",
+    "domain": "Troubleshooting",
+    "question": "kubectl top nodes returns 'error: Metrics API not available'. What is the correct conclusion?",
+    "choices": [
+      "All nodes have failed and must be rebuilt",
+      "The metrics-server is not installed or not ready",
+      "etcd is corrupted",
+      "The API server certificate has expired"
+    ],
+    "answer": 1,
+    "explanation": "kubectl top depends on the Metrics API exposed by the metrics-server, which is not installed by default. Install/verify it. This error is not evidence of node failure, etcd corruption, or certificate expiry (those produce different symptoms).",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Kubernetes Metrics Server",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q011",
+    "domain": "Troubleshooting",
+    "question": "Which statement correctly distinguishes metrics-server from Prometheus?",
+    "choices": [
+      "metrics-server stores long-term history; Prometheus only shows live data",
+      "They are identical and interchangeable",
+      "Prometheus is required for kubectl top to work",
+      "metrics-server provides live CPU/memory for kubectl top and HPA with no history; Prometheus is a time-series DB with history, PromQL, and alerting"
+    ],
+    "answer": 3,
+    "explanation": "metrics-server is lightweight, real-time, and powers kubectl top and the HPA but keeps no history. Prometheus retains time-series history and adds PromQL and alerting. They are not interchangeable, and kubectl top depends on metrics-server, not Prometheus.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Kubernetes Observability",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q012",
+    "domain": "Troubleshooting",
+    "question": "For a multi-container pod, kubectl logs <pod> returns an error asking you to choose a container. What flag resolves this?",
+    "choices": [
+      "--previous",
+      "--all-namespaces",
+      "--tail=0",
+      "-c <container>"
+    ],
+    "answer": 3,
+    "explanation": "-c <container> selects which container's stdout/stderr to read in a multi-container pod. --previous reads the prior crashed instance, --all-namespaces is for listing across namespaces, and --tail limits lines but doesn't pick a container.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Centralized Logging in Kubernetes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q013",
+    "domain": "Troubleshooting",
+    "question": "Which is a real limitation of kubectl logs that motivates centralized logging?",
+    "choices": [
+      "It requires Prometheus to function",
+      "It can only show logs for one pod at a time and loses logs when pods are deleted",
+      "It cannot show logs for Running pods",
+      "It only works on the control plane node"
+    ],
+    "answer": 1,
+    "explanation": "kubectl logs is per-pod, has no retention (logs vanish with the pod, aside from --previous for the last instance), and can't search across pods. This motivates Loki/Alloy or EFK. It does not depend on Prometheus, works on Running pods, and works for any node's pods.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Centralized Logging in Kubernetes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q014",
+    "domain": "Troubleshooting",
+    "question": "What is the difference between kubectl cordon and kubectl drain?",
+    "choices": [
+      "cordon evicts pods; drain only blocks new scheduling",
+      "They are aliases for the same action",
+      "cordon marks the node unschedulable (existing pods stay); drain cordons AND evicts existing pods",
+      "drain deletes the node from the cluster"
+    ],
+    "answer": 2,
+    "explanation": "cordon only prevents NEW pods from scheduling; existing pods keep running. drain cordons the node and evicts existing pods (respecting PDBs) so it can be maintained. They are not aliases, and drain does not delete the node object.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Upgrading a Kubernetes Cluster",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q015",
+    "domain": "Troubleshooting",
+    "question": "kubectl drain <node> fails complaining about DaemonSet-managed pods. Which flag is typically required?",
+    "choices": [
+      "--force",
+      "--ignore-daemonsets",
+      "--grace-period=0",
+      "--cascade=orphan"
+    ],
+    "answer": 1,
+    "explanation": "DaemonSet pods cannot be rescheduled elsewhere, so drain refuses unless you pass --ignore-daemonsets. --force evicts bare pods, --grace-period changes termination timing, and --cascade is a delete option unrelated to drain.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Upgrading a Kubernetes Cluster",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q016",
+    "domain": "Troubleshooting",
+    "question": "What is the correct order for a kubeadm cluster upgrade?",
+    "choices": [
+      "Control plane first, then worker nodes one at a time",
+      "All worker nodes first, then the control plane",
+      "Control plane and all workers simultaneously",
+      "Worker nodes in any order while the control plane is mid-upgrade"
+    ],
+    "answer": 0,
+    "explanation": "Upgrade the control plane first because it supports older worker kubelets, then upgrade workers one at a time to keep apps online. Upgrading workers first or all-at-once risks version skew and downtime.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Preparing for a Kubernetes Cluster Upgrade",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q017",
+    "domain": "Troubleshooting",
+    "question": "Which kubeadm command upgrades the CONTROL PLANE, and which upgrades a WORKER node?",
+    "choices": [
+      "Both use kubeadm upgrade apply",
+      "Control plane: kubeadm upgrade node; worker: kubeadm upgrade apply <ver>",
+      "Both use kubeadm init",
+      "Control plane: kubeadm upgrade apply <ver>; worker: kubeadm upgrade node"
+    ],
+    "answer": 3,
+    "explanation": "The control plane uses kubeadm upgrade apply v<version>; worker nodes use kubeadm upgrade node. Mixing them up is a common mistake. kubeadm init creates a new cluster, not an upgrade.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Upgrading a Kubernetes Cluster",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q018",
+    "domain": "Troubleshooting",
+    "question": "Before upgrading a production cluster, which step is the most important safety net?",
+    "choices": [
+      "Delete all old pods",
+      "Disable all Services",
+      "Back up the etcd database with an etcdctl snapshot",
+      "Scale every Deployment to zero"
+    ],
+    "answer": 2,
+    "explanation": "etcd holds all cluster state, so an etcd snapshot is your restore point if the upgrade fails. Deleting pods, disabling Services, or scaling to zero would cause downtime and provide no recovery benefit.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Preparing for a Kubernetes Cluster Upgrade",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q019",
+    "domain": "Troubleshooting",
+    "question": "What does a PodDisruptionBudget (PDB) protect against during a node drain?",
+    "choices": [
+      "Involuntary disruptions like hardware failure",
+      "Image pull failures",
+      "Evicting too many pods at once during voluntary disruptions, breaching minimum availability",
+      "Excessive memory usage"
+    ],
+    "answer": 2,
+    "explanation": "A PDB constrains voluntary disruptions (drain, upgrade, scale-down): the eviction API rejects requests that would drop below minAvailable. It does not protect against involuntary failures, image pulls, or memory usage.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Kubernetes High Availability Features",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q020",
+    "domain": "Troubleshooting",
+    "question": "During a rolling cluster upgrade, a WORKER node upgrade fails due to a transient network timeout. What is a reasonable action?",
+    "choices": [
+      "Immediately abort the entire upgrade and roll back the control plane",
+      "Troubleshoot and retry, or replace the node, then continue upgrading the remaining workers",
+      "Upgrade all remaining workers at once to save time",
+      "Delete etcd and reinitialize the cluster"
+    ],
+    "answer": 1,
+    "explanation": "A failed worker upgrade can be fixed-and-retried or the node replaced; then continue. You only stop hard if the CONTROL PLANE fails. Upgrading all workers at once risks downtime, and deleting etcd is catastrophic.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Preparing for a Kubernetes Cluster Upgrade",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q021",
+    "domain": "Troubleshooting",
+    "question": "In-cluster DNS resolution is failing for many pods. Which component should you check first?",
+    "choices": [
+      "kube-proxy on the control plane only",
+      "The metrics-server",
+      "The Helm release",
+      "CoreDNS pods in the kube-system namespace"
+    ],
+    "answer": 3,
+    "explanation": "CoreDNS (pods in kube-system, label k8s-app=kube-dns) provides cluster DNS; widespread resolution failures point there. Check the CoreDNS pods and logs. metrics-server is for metrics and Helm is unrelated to DNS.",
+    "source": "Kubernetes docs \u2014 Debug Services / DNS",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q022",
+    "domain": "Troubleshooting",
+    "question": "You want to test whether a Service is reachable and resolves by name from inside the cluster. What is a good approach?",
+    "choices": [
+      "Run a debug pod (e.g., busybox) and use nslookup and wget against the Service FQDN",
+      "kubectl top pods",
+      "Restart CoreDNS blindly",
+      "Edit the Service's ClusterIP manually"
+    ],
+    "answer": 0,
+    "explanation": "A throwaway debug pod (kubectl run tmp --image=busybox:1.28 --rm -it -- sh) lets you nslookup <svc>.<ns>.svc.cluster.local and wget the Service to isolate DNS vs routing. top shows resource usage, restarting CoreDNS blindly is premature, and ClusterIPs should not be hand-edited.",
+    "source": "Kubernetes docs \u2014 Debug Services / DNS",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q023",
+    "domain": "Troubleshooting",
+    "question": "A Service has endpoints, the pods are Ready, but clients still can't connect on the expected port. What should you check next?",
+    "choices": [
+      "That metrics-server is installed",
+      "That Helm history has 3 revisions",
+      "That the kubelet swap is enabled",
+      "That the Service port and targetPort are correct and no NetworkPolicy is blocking traffic"
+    ],
+    "answer": 3,
+    "explanation": "With healthy endpoints, suspect a port/targetPort mismatch or a NetworkPolicy silently dropping traffic. metrics-server, Helm revisions, and kubelet swap are unrelated to Service connectivity.",
+    "source": "Kubernetes docs \u2014 Debug Services / DNS",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q024",
+    "domain": "Troubleshooting",
+    "question": "Which best describes the recommended logging contract for applications in Kubernetes?",
+    "choices": [
+      "Write logs to a file inside the container and read it with kubectl exec",
+      "Write logs to stdout/stderr so the kubelet captures them and kubectl logs can read them",
+      "Push logs directly to etcd",
+      "Disable logging to save disk"
+    ],
+    "answer": 1,
+    "explanation": "Apps should log to stdout/stderr; the kubelet captures these streams (stored under /var/log/pods) and kubectl logs reads them. Writing to in-container files, pushing to etcd, or disabling logs all break standard observability.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Centralized Logging in Kubernetes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q025",
+    "domain": "Troubleshooting",
+    "question": "A pod is stuck in ContainerCreating for several minutes. kubectl describe pod Events shows 'configmap \"app-config\" not found'. What is the fix?",
+    "choices": [
+      "Raise the pod's memory limit",
+      "Restart the kubelet",
+      "Create the missing ConfigMap (or fix the reference) the pod mounts",
+      "Increase the number of replicas"
+    ],
+    "answer": 2,
+    "explanation": "ContainerCreating often stalls on a missing mounted resource (ConfigMap, Secret, or PVC). The Events name the missing ConfigMap, so create it or correct the reference. Memory limits, kubelet restarts, and replica counts don't resolve a missing ConfigMap.",
+    "source": "Kubernetes docs \u2014 Debug Running Pods",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q026",
+    "domain": "Troubleshooting",
+    "question": "Which three mechanisms work together to enable zero-downtime cluster upgrades and node maintenance?",
+    "choices": [
+      "Secrets, ConfigMaps, and Volumes",
+      "Replicas, PodDisruptionBudgets, and pod anti-affinity",
+      "Ingress, NodePort, and LoadBalancer",
+      "Taints, tolerations, and finalizers"
+    ],
+    "answer": 1,
+    "explanation": "Replicas provide redundancy, PDBs prevent too many pods being evicted at once, and pod anti-affinity spreads replicas across nodes. Together they keep apps online during drains/upgrades. The other groups are unrelated configuration/storage/networking primitives.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Kubernetes High Availability Features",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q027",
+    "domain": "Troubleshooting",
+    "question": "You need to see the last 100 log lines from a crashed previous instance of a single-container pod. Which command is correct?",
+    "choices": [
+      "kubectl logs <pod> --previous --tail=100",
+      "kubectl describe pod <pod> --tail=100",
+      "kubectl top pod <pod> --previous",
+      "kubectl get logs <pod> --last=100"
+    ],
+    "answer": 0,
+    "explanation": "kubectl logs supports --previous (the prior crashed instance) combined with --tail=100 (last 100 lines). describe and top do not show log content, and 'kubectl get logs' is not a valid command.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Centralized Logging in Kubernetes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q028",
+    "domain": "Troubleshooting",
+    "question": "A node's Ready condition shows 'Unknown'. What does this most likely mean?",
+    "choices": [
+      "The node has plenty of resources and is healthy",
+      "The control plane has stopped receiving heartbeats from the node's kubelet (network or kubelet issue)",
+      "The pods on the node are OOMKilled",
+      "The Service selector is wrong"
+    ],
+    "answer": 1,
+    "explanation": "Ready=Unknown means the node controller hasn't heard from the kubelet within the grace period, typically a kubelet crash or node networking problem. It is not a sign of health, and it is unrelated to pod OOM kills or Service selectors.",
+    "source": "Kubernetes docs \u2014 Troubleshoot Clusters and Nodes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q029",
+    "domain": "Troubleshooting",
+    "question": "Which command lists cluster events in chronological order to help spot the most recent failures?",
+    "choices": [
+      "kubectl get pods -o yaml",
+      "kubectl cluster-info dump --quiet",
+      "kubectl get events --sort-by=.metadata.creationTimestamp",
+      "kubectl top events"
+    ],
+    "answer": 2,
+    "explanation": "kubectl get events --sort-by=.metadata.creationTimestamp orders events by time so recent FailedScheduling, pull, probe, or eviction messages are easy to find. get pods -o yaml is verbose per-pod, cluster-info dump is for bulk export, and 'top events' is not valid.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Kubernetes Troubleshooting Workflow",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q030",
+    "domain": "Troubleshooting",
+    "question": "A pod CrashLoopBackOffs; logs --previous shows 'could not connect to redis-svc-typo:6379'. kubectl get svc lists the real service as guestbook-redis. What is the fix?",
+    "choices": [
+      "Increase the pod's CPU request",
+      "Cordon the node running the pod",
+      "Add an imagePullSecret",
+      "Update the app config so the Redis host points to the correct Service name (guestbook-redis)"
+    ],
+    "answer": 3,
+    "explanation": "The crash is caused by the app pointing at a non-existent service name; correct the Redis host to the real Service (guestbook-redis). CPU, cordoning, and pull secrets are unrelated to a wrong service hostname.",
+    "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes \u2014 Troubleshooting CrashLoopBackOff",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q031",
+    "domain": "Troubleshooting",
+    "question": "A Deployment is created but its pods remain Pending. kubectl get events shows '0/4 nodes are available: 4 node(s) didn't match Pod's node affinity/selector'. What is the fix?",
+    "choices": [
+      "Remove the resource limits from the pod",
+      "Add the matching node labels to at least one node",
+      "Delete the pods and recreate them",
+      "Increase the memory requests for the pod"
+    ],
+    "answer": 1,
+    "explanation": "The scheduler cannot place the pods because no node has labels that match the pod's node affinity or nodeSelector. Fix by labeling a node appropriately. Removing limits or recreating pods does not resolve the placement constraint, and raising requests would only worsen scheduling issues.",
+    "source": "Kubernetes docs - Scheduling",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q032",
+    "domain": "Troubleshooting",
+    "question": "A pod remains Pending. Events show '0/2 nodes are available: 2 node(s) had taint {node-role.kubernetes.io/control-plane: }, that the pod didn't tolerate'. What is the cause?",
+    "choices": [
+      "The pod lacks a toleration for the control-plane taint",
+      "The pod has requested too much CPU",
+      "The nodes have run out of memory",
+      "The kube-scheduler has crashed"
+    ],
+    "answer": 0,
+    "explanation": "The pod is Pending because it does not have the required toleration for the nodes' taints. Either add the toleration to the pod spec, or remove the taint from the node. It is not caused by CPU/memory pressure or scheduler failure.",
+    "source": "Kubernetes docs - Taints and Tolerations",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q033",
+    "domain": "Troubleshooting",
+    "question": "You create a pod but it is Pending. describe pod shows 'no nodes available to schedule pods'. get nodes shows all nodes are Ready, but no pods will schedule. What might be missing?",
+    "choices": [
+      "kube-scheduler is not running",
+      "The pods need an ImagePullSecret",
+      "CoreDNS is unavailable",
+      "The nodes are missing the Ready condition"
+    ],
+    "answer": 0,
+    "explanation": "If nodes are ready but no pods are scheduled (and there are no event logs about resource/taint mismatch), the kube-scheduler component may be down. An ImagePullSecret issue results in ImagePullBackOff, and CoreDNS doesn't affect pod scheduling.",
+    "source": "Kubernetes docs - Troubleshooting",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q034",
+    "domain": "Troubleshooting",
+    "question": "A pod is stuck in Pending. Event logs say 'unbound immediate PersistentVolumeClaims'. What should you check?",
+    "choices": [
+      "The pod's nodeSelector",
+      "The status of the requested PVC and StorageClass",
+      "The container's memory request",
+      "The kube-apiserver certificates"
+    ],
+    "answer": 1,
+    "explanation": "The scheduler waits for the pod's PersistentVolumeClaims to be bound before placing it on a node. Check if the PVC is Pending, and whether the StorageClass or PV exists. Node selectors, memory requests, and API certificates are unrelated to this specific volume event.",
+    "source": "Kubernetes docs - Persistent Volumes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q035",
+    "domain": "Troubleshooting",
+    "question": "A newly deployed web app pod immediately enters CrashLoopBackOff. kubectl logs <pod> shows 'bind: permission denied'. What is the likely cause?",
+    "choices": [
+      "The container runtime crashed",
+      "The pod tried to bind a privileged port (e.g., 80) without the right securityContext",
+      "The image was compiled for a different CPU architecture",
+      "The node is out of IP addresses"
+    ],
+    "answer": 1,
+    "explanation": "Binding to a privileged port (<1024) requires specific capabilities (like NET_BIND_SERVICE) or running as root. Without them, the app crashes on startup. Runtime crashes, architecture mismatch, and IP exhaustion show different errors (like exec format error or networking failures).",
+    "source": "Kubernetes docs - Security Context",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q036",
+    "domain": "Troubleshooting",
+    "question": "An app keeps restarting (CrashLoopBackOff). kubectl logs shows 'Error: missing required environment variable DB_HOST'. What is the fix?",
+    "choices": [
+      "Restart the kubelet on the node",
+      "Define the DB_HOST environment variable in the pod spec or a referenced ConfigMap/Secret",
+      "Change the image to a newer version",
+      "Increase the pod's CPU limit"
+    ],
+    "answer": 1,
+    "explanation": "The application is crashing because it expects a configuration value that wasn't provided. You must supply the DB_HOST variable via the env, envFrom, or Secret/ConfigMap fields. Kubelet restarts, image upgrades, or CPU limits will not supply missing environment variables.",
+    "source": "Kubernetes docs - Environment Variables",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q037",
+    "domain": "Troubleshooting",
+    "question": "A Java application pod starts, runs for 15 seconds, and then CrashLoopBackOffs. describe pod shows 'Liveness probe failed: HTTP probe failed with statuscode: 500'. What is the issue?",
+    "choices": [
+      "The image cannot be downloaded",
+      "The liveness probe endpoint is returning an error, causing the kubelet to kill the container",
+      "The node lacks sufficient memory for Java",
+      "The pod is missing a readiness probe"
+    ],
+    "answer": 1,
+    "explanation": "The kubelet kills the container because the liveness probe repeatedly fails (HTTP 500). To fix this, investigate why the application's health endpoint returns an error, or correct the probe configuration. Image pulls, node memory, or readiness probes don't cause liveness terminations.",
+    "source": "Kubernetes docs - Pod Lifecycle",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q038",
+    "domain": "Troubleshooting",
+    "question": "A pod displays ImagePullBackOff. kubectl describe pod shows 'rpc error: code = Unknown desc = Error response from daemon: manifest for nginx:9.9.9 not found'. What is the fix?",
+    "choices": [
+      "Update the container image to a valid tag that exists in the registry",
+      "Add a valid ImagePullSecret",
+      "Restart the container runtime on the node",
+      "Scale the Deployment up to trigger a new pull"
+    ],
+    "answer": 0,
+    "explanation": "The error clearly states the specific tag (nginx:9.9.9) does not exist in the registry. Correcting the tag in the pod spec will resolve it. Adding a secret won't help a non-existent tag, and restarting the runtime or scaling up will just repeat the error.",
+    "source": "Kubernetes docs - Images",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q039",
+    "domain": "Troubleshooting",
+    "question": "A pod stays in ImagePullBackOff. describe pod shows 'pull access denied, repository does not exist or may require docker login'. What is most likely missing?",
+    "choices": [
+      "A toleration for the master node",
+      "An ImagePullSecret defined in the pod spec or attached to the ServiceAccount",
+      "Sufficient CPU resources",
+      "A NetworkPolicy allowing egress to the registry"
+    ],
+    "answer": 1,
+    "explanation": "Private registries require authentication. You must provide an ImagePullSecret with the credentials. Tolerations, CPU, and NetworkPolicies (unless specifically blocking egress, which usually shows a timeout instead of access denied) do not solve authentication issues.",
+    "source": "Kubernetes docs - Images",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q040",
+    "domain": "Troubleshooting",
+    "question": "A pod is stuck in ContainerCreating. describe pod shows 'MountVolume.SetUp failed for volume \"secret-volume\" : secret \"my-secret\" not found'. What happens next?",
+    "choices": [
+      "The pod is permanently deleted",
+      "The kubelet retries mounting until the Secret is created",
+      "The pod schedules on a different node",
+      "The node becomes NotReady"
+    ],
+    "answer": 1,
+    "explanation": "The kubelet will continue to attempt to mount the volume. Once you create 'my-secret', the kubelet will successfully mount it and the pod will start. The pod won't be deleted or rescheduled, and the node stays Ready.",
+    "source": "Kubernetes docs - Volumes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q041",
+    "domain": "Troubleshooting",
+    "question": "Which issue causes a pod to be stuck in ContainerCreating state?",
+    "choices": [
+      "The container process exits with code 1",
+      "The kubelet cannot attach a referenced PersistentVolumeClaim",
+      "The node is out of CPU",
+      "The liveness probe fails"
+    ],
+    "answer": 1,
+    "explanation": "ContainerCreating often blocks on storage or configuration volumes (PVC, ConfigMap, Secret) that cannot be mounted. Process exits cause CrashLoopBackOff, CPU limits cause Pending, and probe failures cause restarts.",
+    "source": "Kubernetes docs - Troubleshooting",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q042",
+    "domain": "Troubleshooting",
+    "question": "A pod fails to start, showing CreateContainerConfigError. describe pod shows 'couldn't find key db-password in Secret app-secrets'. How do you resolve this?",
+    "choices": [
+      "Recreate the pod with higher privileges",
+      "Update the app-secrets Secret to include the db-password key",
+      "Delete the pod's PersistentVolume",
+      "Change the image to one that doesn't need passwords"
+    ],
+    "answer": 1,
+    "explanation": "CreateContainerConfigError occurs when the pod references a specific key in a Secret or ConfigMap (via env) that doesn't exist. Update the Secret to add the missing key. Privileges, volumes, or image changes don't address the specific missing key.",
+    "source": "Kubernetes docs - Secrets",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q043",
+    "domain": "Troubleshooting",
+    "question": "A Deployment has pods failing with CreateContainerConfigError. The error mentions a missing ConfigMap. What happens when you create the ConfigMap?",
+    "choices": [
+      "The pods automatically start running on the next kubelet sync loop",
+      "You must manually delete the failing pods to trigger a restart",
+      "The node must be rebooted",
+      "The Deployment must be scaled to 0 and back up"
+    ],
+    "answer": 0,
+    "explanation": "The kubelet continuously retries to start containers in this error state. Once the referenced ConfigMap is created, the next sync loop will detect it and successfully start the containers without manual intervention.",
+    "source": "Kubernetes docs - ConfigMaps",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q044",
+    "domain": "Troubleshooting",
+    "question": "A node has a status of NotReady. You SSH into the node and run systemctl status kubelet. It is stopped. Which command will try to start it and enable it on boot?",
+    "choices": [
+      "systemctl start kubelet && systemctl enable kubelet",
+      "kubeadm init phase kubelet",
+      "kubectl uncordon <node>",
+      "systemctl restart containerd"
+    ],
+    "answer": 0,
+    "explanation": "To manage the kubelet systemd service directly, use systemctl start and systemctl enable. kubeadm init is for cluster creation, uncordon only affects scheduling, and containerd is a separate service.",
+    "source": "Kubernetes docs - Troubleshooting Clusters",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q045",
+    "domain": "Troubleshooting",
+    "question": "A worker node is NotReady. journalctl -u kubelet shows 'Failed to connect to apiserver: dial tcp 10.0.0.1:6443: connect: connection refused'. What is the likely cause?",
+    "choices": [
+      "The node's container runtime is stopped",
+      "The node cannot reach the control plane API server over the network",
+      "The kubelet certificate has expired",
+      "The pod CIDR is exhausted"
+    ],
+    "answer": 1,
+    "explanation": "Connection refused indicates a network issue between the worker and the control plane API server, or the API server is down. A stopped runtime or expired certificates generate different error messages, and CIDR exhaustion relates to IP allocation.",
+    "source": "Kubernetes docs - Troubleshooting Clusters",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q046",
+    "domain": "Troubleshooting",
+    "question": "A node is NotReady. The kubelet logs show 'container runtime is down'. Which service should you inspect on the node?",
+    "choices": [
+      "kube-proxy",
+      "etcd",
+      "containerd (or another CRI runtime)",
+      "kube-apiserver"
+    ],
+    "answer": 2,
+    "explanation": "The kubelet depends on a Container Runtime Interface (CRI) runtime like containerd or CRI-O. If it's down, check systemctl status containerd. kube-proxy handles networking, etcd stores state, and the API server runs on the control plane.",
+    "source": "Kubernetes docs - Container Runtimes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q047",
+    "domain": "Troubleshooting",
+    "question": "kubectl get nodes shows a node with a 'DiskPressure' condition. What is a direct consequence of this condition?",
+    "choices": [
+      "The node is immediately deleted from the cluster",
+      "The kubelet begins evicting pods to reclaim disk space",
+      "CoreDNS is restarted",
+      "All pods on the node are OOMKilled"
+    ],
+    "answer": 1,
+    "explanation": "When a node experiences DiskPressure, the kubelet starts evicting pods to free up ephemeral storage or image disk space. It does not delete the node, restart CoreDNS, or trigger OOMKills (which are memory-specific).",
+    "source": "Kubernetes docs - Node-pressure Eviction",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q048",
+    "domain": "Troubleshooting",
+    "question": "A node exhibits MemoryPressure. How does the kubelet decide which pods to evict first?",
+    "choices": [
+      "It evicts the oldest pods first",
+      "It evicts pods that exceed their memory requests, prioritizing BestEffort pods",
+      "It evicts pods from the kube-system namespace",
+      "It evicts StatefulSet pods first"
+    ],
+    "answer": 1,
+    "explanation": "The kubelet prioritizes evicting pods based on their QoS class (BestEffort first, then Burstable using more than requested, then Guaranteed). It avoids evicting critical system pods unless absolutely necessary.",
+    "source": "Kubernetes docs - Node-pressure Eviction",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q049",
+    "domain": "Troubleshooting",
+    "question": "A node repeatedly reports PIDPressure. What is the most appropriate action to mitigate this?",
+    "choices": [
+      "Add more physical RAM to the node",
+      "Increase the node's disk size",
+      "Configure pod PID limits using SupportNodePidsLimit in kubelet config",
+      "Reinstall the container runtime"
+    ],
+    "answer": 2,
+    "explanation": "PIDPressure occurs when the node runs out of process IDs. Limiting the number of PIDs a pod can consume via kubelet config prevents a single pod from exhausting the node's PID space. RAM or disk upgrades do not fix PID exhaustion.",
+    "source": "Kubernetes docs - PID Limiting",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q050",
+    "domain": "Troubleshooting",
+    "question": "You modify /var/lib/kubelet/config.yaml on a worker node. What must you do for the changes to take effect?",
+    "choices": [
+      "systemctl restart kubelet",
+      "kubectl apply -f config.yaml",
+      "kubeadm upgrade node",
+      "Restart the API server"
+    ],
+    "answer": 0,
+    "explanation": "The kubelet reads its configuration file on startup. You must restart the kubelet service via systemd for changes to apply. kubectl apply is for cluster resources, and kubeadm upgrade is for version changes.",
+    "source": "Kubernetes docs - Kubelet Configuration",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q051",
+    "domain": "Troubleshooting",
+    "question": "The kubelet fails to start. journalctl -u kubelet shows 'x509: certificate has expired or is not yet valid'. What should you check?",
+    "choices": [
+      "The container runtime's socket path",
+      "The node's system clock and the kubelet's client certificates",
+      "The ServiceAccount tokens for the pods",
+      "The CoreDNS configuration"
+    ],
+    "answer": 1,
+    "explanation": "Certificate validity depends on the system clock. If the time is wrong, or if the certificate actually expired (and auto-rotation failed), the kubelet cannot authenticate to the API server. Socket paths, tokens, and CoreDNS do not cause x509 errors.",
+    "source": "Kubernetes docs - Certificate Rotation",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q052",
+    "domain": "Troubleshooting",
+    "question": "journalctl -u kubelet shows 'failed to run Kubelet: misconfiguration: kubelet cgroup driver: \"cgroupfs\" is different from docker cgroup driver: \"systemd\"'. What is the fix?",
+    "choices": [
+      "Update the node's kernel version",
+      "Configure the kubelet to use the 'systemd' cgroup driver to match the container runtime",
+      "Uninstall systemd from the node",
+      "Reinstall kube-proxy"
+    ],
+    "answer": 1,
+    "explanation": "The kubelet and the container runtime must use the exact same cgroup driver. Since the runtime uses systemd, update the kubelet config to use 'systemd'. Uninstalling systemd or reinstalling kube-proxy is incorrect.",
+    "source": "Kubernetes docs - Container Runtimes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q053",
+    "domain": "Troubleshooting",
+    "question": "The kubelet is crashing. Logs show 'Failed to listen and serve on 0.0.0.0:10250: bind: address already in use'. What is the cause?",
+    "choices": [
+      "The API server is trying to connect too many times",
+      "Another process is already bound to port 10250 on the node",
+      "The node has no IP address assigned",
+      "The kubelet is configured to use the wrong port"
+    ],
+    "answer": 1,
+    "explanation": "The 'address already in use' error means another process (perhaps an orphaned kubelet process or a conflicting service) is holding the kubelet's listening port (10250). Identify and terminate the conflicting process.",
+    "source": "Kubernetes docs - Kubelet Ports",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q054",
+    "domain": "Troubleshooting",
+    "question": "kubectl commands suddenly time out. On the control plane, crictl ps shows the kube-apiserver container is missing. Where should you check for errors?",
+    "choices": [
+      "/var/log/pods/kube-system_kube-apiserver-*/... or docker/crictl logs of the stopped container",
+      "The kubelet journalctl logs to see why the static pod was removed/failed",
+      "Both A and B",
+      "The etcd database directly"
+    ],
+    "answer": 2,
+    "explanation": "If the apiserver static pod fails, the kubelet manages it. Checking the kubelet's systemd logs explains why the pod was stopped, and checking the container logs (via crictl or /var/log/pods) shows the apiserver's internal crash reason.",
+    "source": "Kubernetes docs - Troubleshoot Cluster Components",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q055",
+    "domain": "Troubleshooting",
+    "question": "The kube-apiserver pod is CrashLooping. Logs show 'error: open /etc/kubernetes/pki/apiserver.crt: no such file or directory'. What caused this?",
+    "choices": [
+      "The control plane node ran out of disk space",
+      "The api-server static pod manifest is missing a volumeMount for the PKI directory, or the file was deleted",
+      "The kubelet certificate expired",
+      "etcd is corrupted"
+    ],
+    "answer": 1,
+    "explanation": "The API server needs its TLS certificates to start. If the file is missing, either it was accidentally deleted from the node's disk, or the static pod manifest lacks the correct hostPath volume mount. This is not a disk space or etcd issue.",
+    "source": "Kubernetes docs - PKI Certificates",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q056",
+    "domain": "Troubleshooting",
+    "question": "The API server log shows 'context deadline exceeded' when trying to connect to etcd on port 2379. What is the next logical troubleshooting step?",
+    "choices": [
+      "Restart the worker nodes",
+      "Check the status and logs of the etcd static pod on the control plane",
+      "Delete the API server manifest",
+      "Upgrade the cluster to the next minor version"
+    ],
+    "answer": 1,
+    "explanation": "The API server cannot communicate with etcd. The immediate next step is to investigate etcd's health, logs, and network connectivity on the control plane. Restarting workers or deleting manifests will not resolve etcd connectivity.",
+    "source": "Kubernetes docs - Operating etcd",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q057",
+    "domain": "Troubleshooting",
+    "question": "No new pods are being scheduled. The kube-scheduler pod is CrashLooping. Its logs show 'unknown flag: --port'. What is the fix?",
+    "choices": [
+      "Update the scheduler manifest to use the correct flag (e.g., --secure-port)",
+      "Add an Ingress for the scheduler",
+      "Restart CoreDNS",
+      "Scale the scheduler to 3 replicas"
+    ],
+    "answer": 0,
+    "explanation": "In recent Kubernetes versions, insecure flags like --port were removed in favor of --secure-port. Removing or fixing the invalid flag in the static pod manifest (/etc/kubernetes/manifests/kube-scheduler.yaml) resolves the crash.",
+    "source": "Kubernetes docs - Kube-scheduler",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q058",
+    "domain": "Troubleshooting",
+    "question": "You edit /etc/kubernetes/manifests/kube-scheduler.yaml and make a YAML syntax error. What happens?",
+    "choices": [
+      "The kube-apiserver crashes",
+      "The kubelet ignores the file and the old scheduler keeps running",
+      "The kubelet removes the existing scheduler pod and cannot start the new one, leaving the cluster without a scheduler",
+      "The API server rejects the file and prints an error to stdout"
+    ],
+    "answer": 2,
+    "explanation": "The kubelet constantly watches the manifest directory. If a file becomes invalid YAML, the kubelet tears down the existing pod but fails to parse the new one, breaking the component until the syntax is fixed.",
+    "source": "Kubernetes docs - Static Pods",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q059",
+    "domain": "Troubleshooting",
+    "question": "Deployments are not creating Replicasets, and node evictions are not happening. Which component is likely failing?",
+    "choices": [
+      "kube-scheduler",
+      "kube-proxy",
+      "kube-controller-manager",
+      "etcd"
+    ],
+    "answer": 2,
+    "explanation": "The kube-controller-manager runs core control loops, including the deployment controller and node controller. If it is down, Deployments won't create ReplicaSets and unhealthy nodes won't trigger evictions. The scheduler only handles pod placement.",
+    "source": "Kubernetes docs - Concepts / Components",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q060",
+    "domain": "Troubleshooting",
+    "question": "The kube-controller-manager logs show 'error starting controllers: failed to get service account private key: open /etc/kubernetes/pki/sa.key: no such file or directory'. How do you fix this?",
+    "choices": [
+      "Generate the missing service account signing keys using kubeadm or OpenSSL",
+      "Create a new ServiceAccount in the default namespace",
+      "Disable RBAC in the API server",
+      "Change the controller manager to run on a worker node"
+    ],
+    "answer": 0,
+    "explanation": "The controller manager requires a private key to sign ServiceAccount tokens. If it's missing, you must generate or restore the sa.key and sa.pub files on the control plane node. Creating a Kubernetes ServiceAccount object does not fix missing PKI files.",
+    "source": "Kubernetes docs - PKI Certificates",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q061",
+    "domain": "Troubleshooting",
+    "question": "An etcd pod is CrashLooping with 'database space exceeded'. How do you restore etcd to a healthy state?",
+    "choices": [
+      "Delete the etcd manifest and reinstall Kubernetes",
+      "Use etcdctl to compact the database and defragment, or restore from a snapshot",
+      "Increase the CPU request for the etcd pod",
+      "Reboot the control plane node"
+    ],
+    "answer": 1,
+    "explanation": "When etcd hits its storage quota (default 2GB), it raises a space exceeded alarm and stops accepting writes. You must use etcdctl compact, defrag, and disarm the alarm to recover space. CPU requests or reboots won't fix the database size.",
+    "source": "Kubernetes docs - Operating etcd",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q062",
+    "domain": "Troubleshooting",
+    "question": "How do you check the health of the etcd cluster members?",
+    "choices": [
+      "kubectl get etcd",
+      "etcdctl endpoint health --endpoints=... --cacert=... --cert=... --key=...",
+      "systemctl status etcd",
+      "kubeadm verify etcd"
+    ],
+    "answer": 1,
+    "explanation": "Use etcdctl with the endpoint health command and the appropriate TLS certificates to query the health of the etcd members. There is no 'kubectl get etcd' command for the core database, and in kubeadm, etcd runs as a pod, not a systemd service.",
+    "source": "Kubernetes docs - Operating etcd",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q063",
+    "domain": "Troubleshooting",
+    "question": "DNS resolution is slow or intermittently failing. The CoreDNS pods are Running. Which command helps check if CoreDNS is rejecting queries due to load?",
+    "choices": [
+      "kubectl logs -n kube-system -l k8s-app=kube-dns",
+      "kubectl top nodes",
+      "kubectl describe pod -n default",
+      "crictl rm -a"
+    ],
+    "answer": 0,
+    "explanation": "Checking the logs of the CoreDNS pods will reveal errors, timeouts, or reload failures. If CoreDNS is overwhelmed or misconfigured, the logs provide the exact diagnostic information. Top nodes or describing default pods won't show DNS internals.",
+    "source": "Kubernetes docs - Debug Services / DNS",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q064",
+    "domain": "Troubleshooting",
+    "question": "You edited the 'coredns' ConfigMap to add a custom forwarder, but it's not working. What is the likely reason?",
+    "choices": [
+      "CoreDNS does not support ConfigMaps",
+      "You need to restart the kube-apiserver",
+      "You have a syntax error in the Corefile, causing CoreDNS to ignore the reload",
+      "ConfigMaps cannot be edited once created"
+    ],
+    "answer": 2,
+    "explanation": "CoreDNS automatically reloads its Corefile plugin when the ConfigMap changes. However, if the new configuration has a syntax error, the reload fails (visible in the CoreDNS pod logs), and the old config is kept.",
+    "source": "Kubernetes docs - Customizing DNS Service",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q065",
+    "domain": "Troubleshooting",
+    "question": "A pod cannot resolve external DNS names (e.g., google.com) but can resolve internal Service names. What is the most likely cause?",
+    "choices": [
+      "The pod's DNS policy is set to Default instead of ClusterFirst",
+      "CoreDNS's forward plugin is misconfigured or unable to reach the upstream DNS servers",
+      "The kube-apiserver is down",
+      "The Service doesn't have any endpoints"
+    ],
+    "answer": 1,
+    "explanation": "If internal names resolve but external names fail, CoreDNS is working but cannot forward requests to the upstream resolver. Check the Corefile's forward plugin and node egress connectivity. A DNS policy of Default would break internal names, not external.",
+    "source": "Kubernetes docs - Debug Services / DNS",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q066",
+    "domain": "Troubleshooting",
+    "question": "A ClusterIP Service routes to pods, but connections sometimes hang. You notice some pods in the Deployment are unready. Why might traffic be hitting unready pods?",
+    "choices": [
+      "The Service type is wrong",
+      "A misconfigured NetworkPolicy is allowing traffic",
+      "The Service uses publishNotReadyAddresses: true, bypassing the readiness probe",
+      "kube-proxy has crashed on the node"
+    ],
+    "answer": 2,
+    "explanation": "By default, Services only route to Ready pods. If publishNotReadyAddresses is true, the Endpoints controller adds pods to the Service even if they are failing their readiness probes, causing dropped connections.",
+    "source": "Kubernetes docs - Services",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q067",
+    "domain": "Troubleshooting",
+    "question": "You create a Service with targetPort: 8080. The pods are listening on port 80. What happens when you curl the Service IP?",
+    "choices": [
+      "The connection is refused or times out",
+      "The Service automatically translates port 8080 to 80",
+      "The pod crashes with an OOM error",
+      "The kubelet changes the pod's listening port to 8080"
+    ],
+    "answer": 0,
+    "explanation": "The Service targetPort must match the port the application is actually listening on. Since the app listens on 80 and the Service sends traffic to 8080, the connection is refused. No automatic translation occurs at the container level.",
+    "source": "Kubernetes docs - Debug Services",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q068",
+    "domain": "Troubleshooting",
+    "question": "Two pods on different nodes cannot ping each other's pod IP addresses. Which component is responsible for cross-node pod routing?",
+    "choices": [
+      "kube-scheduler",
+      "CoreDNS",
+      "The CNI (Container Network Interface) plugin",
+      "etcd"
+    ],
+    "answer": 2,
+    "explanation": "The CNI plugin (e.g., Calico, Flannel, Cilium) implements the pod network and ensures cross-node pod-to-pod routing. If this fails, investigate the CNI daemonsets and node routing tables. CoreDNS handles names, not IPs.",
+    "source": "Kubernetes docs - Cluster Networking",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q069",
+    "domain": "Troubleshooting",
+    "question": "A CNI plugin is deployed, but new pods stay in ContainerCreating. The kubelet logs say 'networkPlugin cni failed to set up pod: failed to find plugin \"calico\" in path'. What is the fix?",
+    "choices": [
+      "Update the node's hostname",
+      "Ensure the CNI binary is installed in the correct directory (typically /opt/cni/bin) on the node",
+      "Restart the API server",
+      "Delete the pod's volume"
+    ],
+    "answer": 1,
+    "explanation": "The kubelet looks for the CNI executable binaries in a specific directory (/opt/cni/bin by default). If missing, the CNI daemonset may have failed to install them. Reinstall or fix the CNI daemonset. Hostnames and API servers are unrelated.",
+    "source": "Kubernetes docs - Network Plugins",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q070",
+    "domain": "Troubleshooting",
+    "question": "Pods in the 'app' namespace cannot reach the database in the 'db' namespace, but they can reach the internet. What is the most likely cause?",
+    "choices": [
+      "CoreDNS is down",
+      "A NetworkPolicy in either the 'app' or 'db' namespace is blocking the cross-namespace traffic",
+      "The nodes are on different subnets",
+      "The kube-proxy has crashed"
+    ],
+    "answer": 1,
+    "explanation": "If internet access works but specific internal paths fail, a NetworkPolicy is likely isolating the namespaces. Verify policies using kubectl describe networkpolicy. If CoreDNS or kube-proxy were down, all networking/DNS would likely fail.",
+    "source": "Kubernetes docs - Network Policies",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q071",
+    "domain": "Troubleshooting",
+    "question": "An Ingress object is created, but the address field remains empty and routing doesn't work. What is a common reason for this?",
+    "choices": [
+      "The Ingress does not specify an ingressClassName and no default Ingress controller exists",
+      "The backend Service is of type NodePort",
+      "The Ingress rules specify HTTPS instead of HTTP",
+      "The kubelet is stopped on a worker node"
+    ],
+    "answer": 0,
+    "explanation": "An Ingress resource requires an Ingress controller (like NGINX or Traefik) to implement it. If the ingressClassName is missing or the controller isn't running, the Ingress is ignored and never gets an IP address.",
+    "source": "Kubernetes docs - Ingress",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q072",
+    "domain": "Troubleshooting",
+    "question": "You curl an Ingress endpoint and receive an HTTP 502 Bad Gateway error. The Ingress controller logs show 'connect() failed (111: Connection refused) while connecting to upstream'. What should you check?",
+    "choices": [
+      "That the Ingress controller has the right TLS certificate",
+      "That the backend Service endpoints exist and the application pods are listening on the targetPort",
+      "That the node has sufficient memory",
+      "That the CoreDNS pods are running"
+    ],
+    "answer": 1,
+    "explanation": "A 502 error from the Ingress controller means it received the request but couldn't proxy it to the backend pod. This usually means the pod is down, the targetPort is wrong, or the Service has no endpoints.",
+    "source": "Kubernetes docs - Ingress",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q073",
+    "domain": "Troubleshooting",
+    "question": "A PersistentVolumeClaim is stuck in Pending. kubectl describe pvc shows 'waiting for a volume to be created, either by external provisioner or manually'. What is missing?",
+    "choices": [
+      "A matching StorageClass or the external provisioner is not running",
+      "The pod requesting the PVC hasn't been created yet",
+      "The node lacks a storage drive",
+      "The PVC requested too little storage"
+    ],
+    "answer": 0,
+    "explanation": "Dynamic provisioning requires a valid StorageClass and its associated provisioner (CSI driver) to be running. If it's waiting, the provisioner is either missing, misconfigured, or the StorageClass name is wrong.",
+    "source": "Kubernetes docs - Persistent Volumes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q074",
+    "domain": "Troubleshooting",
+    "question": "A PVC is Pending with the event 'WaitForFirstConsumer'. What does this mean?",
+    "choices": [
+      "The storage provisioner has crashed",
+      "The StorageClass uses volumeBindingMode: WaitForFirstConsumer, meaning the PV won't be created until a pod uses the PVC",
+      "The PVC is corrupted",
+      "The node is out of disk space"
+    ],
+    "answer": 1,
+    "explanation": "WaitForFirstConsumer delays PV binding and provisioning until a pod using the PVC is scheduled. This ensures the PV is created in the same zone/topology as the pod. It is normal behavior, not an error.",
+    "source": "Kubernetes docs - Storage Classes",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q075",
+    "domain": "Troubleshooting",
+    "question": "A developer gets a '403 Forbidden' error when trying to run kubectl get secrets. How can you verify exactly what actions their user is allowed to perform?",
+    "choices": [
+      "Check the kubelet logs",
+      "Run kubectl auth can-i --list --as=<username>",
+      "Restart the API server",
+      "Look at the etcd database"
+    ],
+    "answer": 1,
+    "explanation": "The 'kubectl auth can-i' command tests RBAC permissions. Using '--list --as=<username>' shows all permissions granted to that user. API server logs provide audit trails, but 'can-i' is the direct diagnostic tool.",
+    "source": "Kubernetes docs - Authorization",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q076",
+    "domain": "Troubleshooting",
+    "question": "A ServiceAccount has a RoleBinding to a Role that allows 'get' on 'pods'. A pod using this ServiceAccount gets 403 Forbidden when trying to list pods. Why?",
+    "choices": [
+      "The Role must be applied to the 'kube-system' namespace",
+      "The Role allows 'get' but the application is trying to 'list' pods",
+      "The node is missing network connectivity",
+      "ServiceAccounts cannot use Roles, only ClusterRoles"
+    ],
+    "answer": 1,
+    "explanation": "RBAC distinguishes between 'get' (retrieve one object by name) and 'list' (retrieve a collection of objects). If the Role only grants 'get', an API call to 'list' will be denied. ServiceAccounts absolutely can use Roles.",
+    "source": "Kubernetes docs - RBAC",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q077",
+    "domain": "Troubleshooting",
+    "question": "A user is bound to a ClusterRole that grants admin access, but they still get 403 Forbidden on resources in the 'prod' namespace. What could cause this?",
+    "choices": [
+      "The cluster uses a webhook authorization mode that explicitly denies the user access",
+      "ClusterRoles do not apply to namespaces",
+      "The user's kubeconfig is expired",
+      "The node is cordoned"
+    ],
+    "answer": 0,
+    "explanation": "Kubernetes evaluates authorization modules in order. If an external webhook authorization module (or a specific deny policy in OPA/Gatekeeper if applicable to the scenario, though webhook is the native mechanism) rejects the request, it is denied despite RBAC. Note: ClusterRoles DO apply across all namespaces.",
+    "source": "Kubernetes docs - Authorization",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q078",
+    "domain": "Troubleshooting",
+    "question": "During a kubeadm upgrade, 'kubeadm upgrade plan' fails saying 'version skew policy violated'. What does this mean?",
+    "choices": [
+      "You are attempting to skip a minor version (e.g., v1.28 directly to v1.30)",
+      "The nodes have too much disk pressure",
+      "The CNI plugin is outdated",
+      "The etcd database needs compaction"
+    ],
+    "answer": 0,
+    "explanation": "Kubernetes requires upgrading one minor version at a time (v1.28 to v1.29, then v1.29 to v1.30). Skipping minor versions violates the version skew policy and kubeadm will block the upgrade.",
+    "source": "Kubernetes docs - Version Skew Policy",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q079",
+    "domain": "Troubleshooting",
+    "question": "After apt-get upgrade on a worker node, the kubelet starts CrashLooping and pods are evicted. What likely happened?",
+    "choices": [
+      "The worker node was cordoned",
+      "An unattended system update upgraded the kubelet package beyond the control plane's version, violating version skew",
+      "CoreDNS was restarted",
+      "The cluster was deleted"
+    ],
+    "answer": 1,
+    "explanation": "Kubelet versions cannot be newer than the kube-apiserver. If an OS package manager automatically upgrades the kubelet to a newer version than the control plane, it breaks the cluster. This is why kubelet/kubeadm packages should be held/pinned.",
+    "source": "Kubernetes docs - Version Skew Policy",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q080",
+    "domain": "Troubleshooting",
+    "question": "A pod has three containers: app, sidecar, and proxy. Which command views the logs of the sidecar container?",
+    "choices": [
+      "kubectl logs <pod> --container=sidecar",
+      "kubectl logs <pod> --sidecar",
+      "kubectl logs sidecar",
+      "kubectl logs <pod> -all-containers"
+    ],
+    "answer": 0,
+    "explanation": "Use the -c or --container flag to specify the container name within a multi-container pod. Without it, kubectl will either default to the first container or prompt you to specify one.",
+    "source": "Kubernetes docs - Logging",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q081",
+    "domain": "Troubleshooting",
+    "question": "You want to stream logs live from an application pod as they are written. Which flag is required?",
+    "choices": [
+      "-f or --follow",
+      "--stream",
+      "--live",
+      "-w or --watch"
+    ],
+    "answer": 0,
+    "explanation": "The -f or --follow flag streams logs continuously. -w or --watch is used with get commands (e.g., kubectl get pods -w) to watch for resource state changes, not for log streams.",
+    "source": "Kubernetes docs - Logging",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q082",
+    "domain": "Troubleshooting",
+    "question": "kubectl top pods shows no output and returns an error. You verify metrics-server is running. What might be misconfigured?",
+    "choices": [
+      "metrics-server cannot communicate with the kubelet on port 10250 due to network rules or certificate issues",
+      "The pods have no resource limits set",
+      "CoreDNS is down",
+      "The nodes are OutOfDisk"
+    ],
+    "answer": 0,
+    "explanation": "metrics-server scrapes metrics from each node's kubelet API (port 10250). If there is a network block or TLS verification failure (common in test clusters), metrics-server fails to gather data, breaking top.",
+    "source": "Kubernetes docs - Metrics Server",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q083",
+    "domain": "Troubleshooting",
+    "question": "How do you view the resource usage (CPU/Memory) of a specific node named 'worker-1'?",
+    "choices": [
+      "kubectl describe node worker-1",
+      "kubectl top node worker-1",
+      "kubectl get metrics worker-1",
+      "kubectl get node worker-1 -o usage"
+    ],
+    "answer": 1,
+    "explanation": "The command 'kubectl top node <nodename>' displays current CPU and memory usage, provided the metrics-server is running. Describe shows capacity and allocatable, but not real-time usage.",
+    "source": "Kubernetes docs - Monitoring",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q084",
+    "domain": "Troubleshooting",
+    "question": "You need to see cluster events to figure out why a pod was evicted, but the pod was deleted 2 hours ago. Why might kubectl get events not show the eviction?",
+    "choices": [
+      "Events are only visible to cluster admins",
+      "Events are deleted when the associated pod is deleted",
+      "Kubernetes only retains events for 1 hour by default (TTL)",
+      "Events are not generated for evictions"
+    ],
+    "answer": 2,
+    "explanation": "Kubernetes events have a default Time-To-Live (TTL) of 1 hour. After that, they are purged from etcd to save space. If you need historical events, you must export them to an external logging system.",
+    "source": "Kubernetes docs - Events",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q085",
+    "domain": "Troubleshooting",
+    "question": "Which command filters events specifically to show only warnings?",
+    "choices": [
+      "kubectl get events --field-selector type=Warning",
+      "kubectl get events --grep=Warning",
+      "kubectl get events --warning-only",
+      "kubectl get events -o warning"
+    ],
+    "answer": 0,
+    "explanation": "Use --field-selector type=Warning to filter events natively via the API server. This is highly efficient compared to using client-side grep, and the other flags do not exist.",
+    "source": "Kubernetes docs - Events",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q086",
+    "domain": "Troubleshooting",
+    "question": "A frontend pod can't talk to a backend pod via Service IP. Ping fails. DNS resolves correctly. What is the most likely multi-step debugging conclusion?",
+    "choices": [
+      "The backend image is missing",
+      "DNS is working, but network routing (CNI) or a NetworkPolicy is blocking the traffic",
+      "The Service doesn't exist",
+      "The frontend pod lacks CPU resources"
+    ],
+    "answer": 1,
+    "explanation": "If DNS resolves the Service IP, CoreDNS is fine. If pinging the IP fails (and the backend is listening), the issue lies at the IP layer: either a NetworkPolicy is dropping the packets, or the CNI is misconfigured.",
+    "source": "Kubernetes docs - Troubleshooting Networking",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q087",
+    "domain": "Troubleshooting",
+    "question": "You get a 503 Service Unavailable from an Ingress. The Ingress correctly maps to a Service. The Service maps to pods. What should you check next?",
+    "choices": [
+      "Check if the Ingress controller is installed",
+      "Check if the pods are in the 'Ready' state and passing readiness probes",
+      "Check if the nodes have disk pressure",
+      "Check if the Corefile is valid"
+    ],
+    "answer": 1,
+    "explanation": "A 503 from the Ingress often means it has no active backend endpoints to route to. Verify that the backend pods are actually Ready; if they are failing readiness probes, they are removed from the Service endpoints.",
+    "source": "Kubernetes docs - Ingress Troubleshooting",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q088",
+    "domain": "Troubleshooting",
+    "question": "A Deployment is scaled to 3, but only 1 pod is Running. The others are Pending. The Running pod is consuming 90% of a node's CPU. Why are the others Pending?",
+    "choices": [
+      "The other pods hit an ImagePullBackOff",
+      "The cluster has insufficient CPU capacity to schedule the remaining pods based on their requests",
+      "The Deployment is misconfigured",
+      "The API server is rejecting the pods"
+    ],
+    "answer": 1,
+    "explanation": "Pending due to CPU means the scheduler cannot find a node with enough unreserved CPU capacity to satisfy the pods' requested CPU limits. If the first pod (or other workloads) consumes the node's capacity, others remain Pending.",
+    "source": "Kubernetes docs - Scheduling",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q089",
+    "domain": "Troubleshooting",
+    "question": "The API server is completely unresponsive, so kubectl fails. You SSH to the control plane. How can you find out if the etcd container is running?",
+    "choices": [
+      "Run systemctl status etcd",
+      "Run crictl ps | grep etcd",
+      "Run docker ps | grep etcd",
+      "Run kubeadm check etcd"
+    ],
+    "answer": 1,
+    "explanation": "When kubectl is down, use crictl to interface directly with the CRI (containerd/CRI-O) to check if the etcd container is running. etcd is a static pod, not a systemd service, and docker is deprecated in modern Kubernetes.",
+    "source": "Kubernetes docs - Debugging Control Plane",
+    "domainKey": "troubleshooting"
+  },
+  {
+    "id": "ts-q090",
+    "domain": "Troubleshooting",
+    "question": "Using crictl, you see a container keeps exiting with status code 137. What does this mean?",
+    "choices": [
+      "The container was terminated by the OOM killer or received SIGKILL",
+      "The container's command was not found",
+      "The container successfully completed its task",
+      "The container lacked permissions to bind a port"
+    ],
+    "answer": 0,
+    "explanation": "Exit code 137 (128 + 9) indicates the process was killed with SIGKILL (signal 9), which is almost always the kernel's OOM (Out Of Memory) killer terminating it because it exceeded its memory limit.",
+    "source": "Kubernetes docs - Container Exit Codes",
+    "domainKey": "troubleshooting"
+  }
 ]
