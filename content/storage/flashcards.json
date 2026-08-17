@@ -1,0 +1,146 @@
+[
+  {
+    "id": "st-001",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "What is a PersistentVolume (PV)?",
+    "back": "A piece of storage in the cluster treated as a cluster resource (like a node or CPU). It is provisioned by an administrator (static) or by a StorageClass (dynamic), and its lifecycle is independent of any pod. Implemented via plugins for backends like NFS, iSCSI, GCE PD, or AWS EBS.",
+    "source": "Storage for CKA — Introduction to Kubernetes Storage"
+  },
+  {
+    "id": "st-002",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "What is a PersistentVolumeClaim (PVC)?",
+    "back": "A request for storage by a user or application (e.g., \"I need 5Gi of ReadWriteOnce storage\") without needing to know the underlying infrastructure. Kubernetes matches it to a suitable PV and binds them 1-to-1.",
+    "source": "Storage for CKA — Persistent Volumes and Claims"
+  },
+  {
+    "id": "st-003",
+    "domain": "Storage",
+    "type": "concept",
+    "front": "Why is container storage ephemeral, and how do PV/PVCs solve it?",
+    "back": "Containers are ephemeral: when a pod is deleted, crashes, or is rescheduled, anything in the container's writeable layer is lost. PVs/PVCs decouple storage from the pod lifecycle, so data survives pod deletion, rescheduling, and node failure — required for stateful apps like databases.",
+    "source": "Storage for CKA — Introduction to Kubernetes Storage"
+  },
+  {
+    "id": "st-004",
+    "domain": "Storage",
+    "type": "concept",
+    "front": "How does a PVC bind to a PV, and what cardinality does binding have?",
+    "back": "The control plane acts as a matchmaker: it reads the PVC's requirements (size, access mode, storage class) and finds or provisions a matching PV, then binds them. Binding is a strict 1-to-1 mapping between one PV and one PVC.",
+    "source": "Storage for CKA — Persistent Volumes and Claims"
+  },
+  {
+    "id": "st-005",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "What are the four PV phases?",
+    "back": "Available (free, unbound), Bound (matched and in use by a PVC), Released (the PVC was deleted but the PV is not yet reclaimed/reusable), and Failed (the volume encountered an error).",
+    "source": "Storage for CKA — Persistent Volumes and Claims"
+  },
+  {
+    "id": "st-006",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "What does ReadWriteOnce (RWO) actually allow?",
+    "back": "The volume can be mounted read-write by a single NODE at a time. Multiple pods on that same node can share it simultaneously; pods on a different node cannot mount it. It's the most common and widely supported mode.",
+    "source": "Storage for CKA — Volume Types and Access Modes"
+  },
+  {
+    "id": "st-007",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "What do ReadOnlyMany (ROX) and ReadWriteMany (RWX) mean?",
+    "back": "ReadOnlyMany: mounted read-only by many nodes at once (good for shared static content/config). ReadWriteMany: mounted read-write by many nodes simultaneously; most flexible but requires a backend that supports it, like NFS or a distributed filesystem.",
+    "source": "Storage for CKA — Volume Types and Access Modes"
+  },
+  {
+    "id": "st-008",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "What is the ReadWriteOncePod (RWOP) access mode?",
+    "back": "A stricter mode than RWO: the volume can be mounted read-write by a single POD only (not just a single node). Useful when you must guarantee exclusive single-pod access.",
+    "source": "Kubernetes docs — Access Modes"
+  },
+  {
+    "id": "st-009",
+    "domain": "Storage",
+    "type": "concept",
+    "front": "Why might a pod be stuck in ContainerCreating with a FailedMount event on an RWO volume?",
+    "back": "Because RWO restricts the volume to a single node. If a pod is scheduled on a different node than the one already mounting the RWO volume, the mount fails. A ReadWriteMany volume/backend would let pods on different nodes mount it simultaneously.",
+    "source": "Storage for CKA — Volume Access Modes (demo)"
+  },
+  {
+    "id": "st-010",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "Name the three reclaim policies and their behavior.",
+    "back": "Retain: PV is not deleted when the PVC is deleted; goes Released, data preserved, manual cleanup required. Delete: PV object and the underlying storage asset are deleted with the PVC (data gone). Recycle: deprecated; did an rm -rf to reuse the volume.",
+    "source": "Storage for CKA — Volume Reclaim Policies"
+  },
+  {
+    "id": "st-011",
+    "domain": "Storage",
+    "type": "concept",
+    "front": "What are the default reclaim policies for static PVs vs. dynamically provisioned PVs?",
+    "back": "Static PVs default to Retain (safest). Dynamically provisioned PVs (via a StorageClass) default to Delete, so deleting the PVC also removes the PV and the underlying storage.",
+    "source": "Storage for CKA — Storage Classes in Kubernetes"
+  },
+  {
+    "id": "st-012",
+    "domain": "Storage",
+    "type": "definition",
+    "front": "What is a StorageClass and what is its most important field?",
+    "back": "A cluster-level resource that defines a class/tier of storage and acts as a template/factory for creating PVs on demand. Its most important field is the provisioner, which tells Kubernetes which volume plugin/CSI driver to use to create PVs.",
+    "source": "Storage for CKA — Storage Classes in Kubernetes"
+  },
+  {
+    "id": "st-013",
+    "domain": "Storage",
+    "type": "concept",
+    "front": "What is dynamic provisioning and how is it triggered?",
+    "back": "Automated creation of a PV on the fly. A user creates a PVC referencing a StorageClass; Kubernetes looks up the class, invokes its provisioner to create a brand-new PV matching the request, and automatically binds it to the PVC — no admin needs to pre-create the PV.",
+    "source": "Storage for CKA — Storage Classes in Kubernetes"
+  },
+  {
+    "id": "st-014",
+    "domain": "Storage",
+    "type": "concept",
+    "front": "Difference between volumeBindingMode Immediate and WaitForFirstConsumer?",
+    "back": "Immediate: the PV is provisioned/bound as soon as the PVC is created, even with no pod. WaitForFirstConsumer: provisioning is delayed until a pod using the PVC is scheduled — the PVC stays Pending until then. WaitForFirstConsumer avoids unused volumes and creates the volume on the pod's node (topology-aware).",
+    "source": "Storage for CKA — WaitForFirstConsumer Binding"
+  },
+  {
+    "id": "st-015",
+    "domain": "Storage",
+    "type": "concept",
+    "front": "What does allowVolumeExpansion do on a StorageClass?",
+    "back": "When set to true, users can increase the size of an existing PersistentVolumeClaim, and the storage provisioner updates the underlying PersistentVolume accordingly.",
+    "source": "Storage for CKA — Storage Classes in Kubernetes"
+  },
+  {
+    "id": "st-016",
+    "domain": "Storage",
+    "type": "application",
+    "front": "How do you configure a PVC for STATIC provisioning that binds to a specific pre-created PV?",
+    "back": "Set storageClassName: \"\" (empty string) on both the PV and the PVC to disable dynamic provisioning, and match the access mode and a requests.storage size that the PV can satisfy. Verify with kubectl get pv/pvc that both show Bound.",
+    "source": "Storage for CKA — Example Exam Question 1 (Static Provisioning)"
+  },
+  {
+    "id": "st-017",
+    "domain": "Storage",
+    "type": "application",
+    "front": "How do you create a PVC that uses the cluster's default StorageClass for dynamic provisioning?",
+    "back": "Omit storageClassName entirely from the PVC spec. Kubernetes uses the StorageClass marked (default) in kubectl get sc, dynamically provisions a PV, and binds it. Confirm with kubectl get pvc showing Bound.",
+    "source": "Storage for CKA — Example Exam Question 2 (Dynamic Provisioning)"
+  },
+  {
+    "id": "st-018",
+    "domain": "Storage",
+    "type": "application",
+    "front": "On the exam, how do you quickly generate a pod manifest and keep a busybox pod running to test a mount?",
+    "back": "Use export do=\"--dry-run=client -o yaml\" then k run data-pod --image=busybox $do > pod.yaml, edit to add the PVC volume and mountPath, and give busybox a long-running command (e.g., command: [\"/bin/sh\"], args: [\"-c\",\"sleep 3600\"]) so it doesn't crash. Apply with k apply -f pod.yaml.",
+    "source": "Storage for CKA — Exam Tips / Example Exam Questions"
+  }
+]

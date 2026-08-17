@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcards · CKA Study Hub</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23326ce5' d='M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z'/%3E%3C/svg%3E">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 32 32"><path fill="#326ce5" d="M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z"/><path fill="#fff" d="M16 9l5 2.6v5.2c0 3-2.2 4.7-5 5.2-2.8-.5-5-2.2-5-5.2v-5.2z" opacity=".9"/></svg>
+      CKA Study Hub
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="flashcards.html" class="active">Flashcards</a>
+      <a href="guide.html">Study Guide</a>
+      <a href="practice.html">Practice</a>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <h1 class="page-title">Flashcards</h1>
+  <p class="lead">Tap a card to flip. Filter by domain and card type, then shuffle for a fresh run.</p>
+
+  <div class="panel">
+    <div style="margin-bottom:12px">
+      <div class="muted" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Domain</div>
+      <div class="chip-row" id="domain-filters"></div>
+    </div>
+    <div>
+      <div class="muted" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px">Card type</div>
+      <div class="chip-row" id="type-filters">
+        <span class="chip on" data-type="all">All</span>
+        <span class="chip" data-type="definition">Definition</span>
+        <span class="chip" data-type="concept">Concept</span>
+        <span class="chip" data-type="application">Application</span>
+      </div>
+    </div>
+    <div class="btn-row mt">
+      <button class="btn secondary" id="shuffle-btn">🔀 Shuffle</button>
+      <span class="fc-counter" id="counter" style="align-self:center">—</span>
+    </div>
+  </div>
+
+  <div class="fc-stage">
+    <div class="flashcard" id="card" role="button" tabindex="0" aria-label="Flashcard, click to flip">
+      <div class="fc-face fc-front">
+        <div class="fc-meta" id="front-meta"></div>
+        <div class="fc-q" id="front-q">Loading…</div>
+        <div class="fc-hint">Click / tap to flip · <span class="kbd">Space</span></div>
+      </div>
+      <div class="fc-face fc-back">
+        <div class="fc-meta" id="back-meta"></div>
+        <div class="fc-a" id="back-a"></div>
+        <div class="fc-src" id="back-src"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fc-controls">
+    <button class="btn ghost" id="prev-btn">← Prev</button>
+    <span class="fc-counter" id="counter2">—</span>
+    <button class="btn ghost" id="next-btn">Next →</button>
+  </div>
+  <p class="muted center mt" style="font-size:13px">Keys: <span class="kbd">←</span> <span class="kbd">→</span> navigate · <span class="kbd">Space</span> flip</p>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+let ALL = [], deck = [], idx = 0, flipped = false;
+let domFilter = 'all', typeFilter = 'all';
+const DLABEL = {};
+
+const el = id => document.getElementById(id);
+
+function applyFilters() {
+  deck = ALL.filter(c =>
+    (domFilter === 'all' || c.domainKey === domFilter) &&
+    (typeFilter === 'all' || c.type === typeFilter));
+  deck = CKA.shuffle(deck);
+  idx = 0; flipped = false;
+  render();
+}
+
+function render() {
+  const card = el('card');
+  card.classList.remove('flipped'); flipped = false;
+  if (!deck.length) {
+    el('front-q').textContent = 'No cards match these filters.';
+    el('front-meta').innerHTML = ''; el('back-a').innerHTML = '';
+    el('counter').textContent = el('counter2').textContent = '0 / 0';
+    return;
+  }
+  const c = deck[idx];
+  el('front-meta').innerHTML =
+    `<span class="chip" style="cursor:default"><span class="dot ${'d'+'-'+c.domainKey}"></span>${c.domain}</span>` +
+    `<span class="badge type-${c.type}">${c.type}</span>`;
+  el('back-meta').innerHTML = el('front-meta').innerHTML;
+  el('front-q').innerHTML = CKA.inline(c.front);
+  el('back-a').innerHTML = CKA.inline(c.back);
+  el('back-src').textContent = c.source || '';
+  el('counter').textContent = el('counter2').textContent = `${idx + 1} / ${deck.length}`;
+}
+
+function flip() { flipped = !flipped; el('card').classList.toggle('flipped', flipped); }
+function next() { if (deck.length) { idx = (idx + 1) % deck.length; render(); } }
+function prev() { if (deck.length) { idx = (idx - 1 + deck.length) % deck.length; render(); } }
+
+(async function () {
+  ALL = await CKA.loadJSON('data/flashcards.json');
+  const meta = await CKA.loadJSON('data/meta.json');
+  const df = el('domain-filters');
+  const allChip = document.createElement('span');
+  allChip.className = 'chip on'; allChip.dataset.dom = 'all'; allChip.textContent = `All (${ALL.length})`;
+  df.appendChild(allChip);
+  meta.domains.forEach(d => {
+    DLABEL[d.key] = d.label;
+    const n = ALL.filter(c => c.domainKey === d.key).length;
+    const s = document.createElement('span');
+    s.className = 'chip'; s.dataset.dom = d.key;
+    s.innerHTML = `<span class="dot ${'d-'+d.key}"></span>${d.label} (${n})`;
+    df.appendChild(s);
+  });
+
+  df.addEventListener('click', e => {
+    const chip = e.target.closest('.chip'); if (!chip) return;
+    df.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    chip.classList.add('on'); domFilter = chip.dataset.dom; applyFilters();
+  });
+  el('type-filters').addEventListener('click', e => {
+    const chip = e.target.closest('.chip'); if (!chip) return;
+    el('type-filters').querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    chip.classList.add('on'); typeFilter = chip.dataset.type; applyFilters();
+  });
+
+  el('card').addEventListener('click', flip);
+  el('card').addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); } });
+  el('next-btn').addEventListener('click', next);
+  el('prev-btn').addEventListener('click', prev);
+  el('shuffle-btn').addEventListener('click', applyFilters);
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowRight') next();
+    else if (e.key === 'ArrowLeft') prev();
+    else if (e.key === ' ') { e.preventDefault(); flip(); }
+  });
+
+  applyFilters();
+})();
+</script>
+</body>
+</html>

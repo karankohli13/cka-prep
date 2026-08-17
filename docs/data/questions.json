@@ -1,0 +1,1607 @@
+[
+ {
+  "id": "st-q001",
+  "domain": "Storage",
+  "question": "A PVC requests a ReadWriteOnce volume. Pod A is running on node-1 and successfully mounts it. Pod B is scheduled on node-2 and tries to mount the same PVC. What happens?",
+  "choices": [
+   "Pod B mounts the volume read-only automatically",
+   "Pod B stays in ContainerCreating with a FailedMount event",
+   "Both pods are evicted because RWO allows only one pod total",
+   "Kubernetes converts the volume to ReadWriteMany"
+  ],
+  "answer": 1,
+  "explanation": "ReadWriteOnce binds the volume to a single NODE. Pod B on a different node cannot mount it and gets stuck in ContainerCreating with a FailedMount event. It is not auto-downgraded to read-only, the volume is not converted to RWX, and RWO does allow multiple pods on the SAME node (so 'one pod total' is wrong).",
+  "source": "Storage for CKA — Volume Access Modes (demo)",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q002",
+  "domain": "Storage",
+  "question": "You delete a PVC whose PV uses persistentVolumeReclaimPolicy: Retain. What is the resulting state of the PV?",
+  "choices": [
+   "The PV and its underlying disk are deleted",
+   "The PV returns to Available and rebinds automatically",
+   "The PV enters Released and the data is preserved, requiring manual cleanup",
+   "The PV enters Failed"
+  ],
+  "answer": 2,
+  "explanation": "Retain keeps the PV after the PVC is deleted; it moves to the Released phase with the data untouched, and an admin must manually clean it up before reuse. Delete (not Retain) would remove the PV and disk. Retain does not auto-rebind, and Released is not the same as Failed.",
+  "source": "Storage for CKA — Volume Reclaim Policies",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q003",
+  "domain": "Storage",
+  "question": "Which field in a StorageClass determines which plugin/driver Kubernetes uses to create PersistentVolumes?",
+  "choices": [
+   "provisioner",
+   "volumeBindingMode",
+   "reclaimPolicy",
+   "accessModes"
+  ],
+  "answer": 0,
+  "explanation": "provisioner is the key field that tells Kubernetes which volume plugin/CSI driver to invoke when creating PVs. volumeBindingMode controls WHEN binding happens, reclaimPolicy controls what happens on PVC deletion, and accessModes is not a StorageClass field (it lives on PVs/PVCs).",
+  "source": "Storage for CKA — Storage Classes in Kubernetes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q004",
+  "domain": "Storage",
+  "question": "A PVC referencing a StorageClass with volumeBindingMode: WaitForFirstConsumer stays in Pending, and kubectl get pv returns no resources. What is the correct action?",
+  "choices": [
+   "Manually create a matching PV",
+   "Change the PVC access mode to ReadWriteMany",
+   "Create a pod that mounts the PVC to trigger provisioning",
+   "Delete and recreate the StorageClass"
+  ],
+  "answer": 2,
+  "explanation": "WaitForFirstConsumer delays PV provisioning until a pod that uses the PVC is scheduled. Creating a consuming pod triggers binding and the PV appears. Manually creating a PV defeats dynamic provisioning, the access mode is unrelated, and recreating the StorageClass won't help.",
+  "source": "Storage for CKA — WaitForFirstConsumer Binding",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q005",
+  "domain": "Storage",
+  "question": "You must create a PVC that binds to a specific pre-existing static PV and must NOT trigger dynamic provisioning. What should you set?",
+  "choices": [
+   "storageClassName to the name of the default StorageClass",
+   "Omit storageClassName entirely",
+   "storageClassName: \"\" (empty string) on the PVC (and PV)",
+   "volumeBindingMode: Immediate"
+  ],
+  "answer": 2,
+  "explanation": "An empty string storageClassName (\"\") disables dynamic provisioning so the PVC binds to a matching static PV. Omitting storageClassName uses the DEFAULT StorageClass (dynamic provisioning). Naming the default class also triggers dynamic provisioning. volumeBindingMode is a StorageClass field, not a PVC field.",
+  "source": "Storage for CKA — Example Exam Question 1 (Static Provisioning)",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q006",
+  "domain": "Storage",
+  "question": "What is the default reclaim policy for a PersistentVolume that is dynamically provisioned by a StorageClass?",
+  "choices": [
+   "Retain",
+   "Recycle",
+   "Delete",
+   "Released"
+  ],
+  "answer": 2,
+  "explanation": "Dynamically provisioned PVs default to Delete, so deleting the PVC also removes the PV and the underlying storage. Retain is the default for manually-created static PVs. Recycle is deprecated. Released is a PV phase, not a reclaim policy.",
+  "source": "Storage for CKA — Storage Classes in Kubernetes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q007",
+  "domain": "Storage",
+  "question": "A developer creates a PVC with no storageClassName field set. Which StorageClass is used?",
+  "choices": [
+   "No class — the PVC stays Pending forever",
+   "The cluster's default StorageClass, marked (default) in kubectl get sc",
+   "The first StorageClass alphabetically",
+   "A class named 'standard' regardless of cluster config"
+  ],
+  "answer": 1,
+  "explanation": "Omitting storageClassName makes Kubernetes use the cluster's default StorageClass (the one shown as (default) in kubectl get sc). It is not alphabetical, not hardcoded to 'standard' (that name varies by cluster), and it does not stay Pending as long as a default class exists.",
+  "source": "Storage for CKA — Dynamic Volume Provisioning (Immediate Binding)",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q008",
+  "domain": "Storage",
+  "question": "Which statement about ReadWriteMany (RWX) is correct?",
+  "choices": [
+   "It is the default access mode for all volume types",
+   "It lets a single pod mount the volume read-write",
+   "It allows many nodes to mount the volume read-write simultaneously and requires a supporting backend like NFS",
+   "It allows many nodes to mount the volume read-only only"
+  ],
+  "answer": 2,
+  "explanation": "RWX allows many nodes to mount the volume read-write at the same time, but only with a backend that supports it (e.g., NFS or a distributed filesystem). There is no universal default access mode. ReadWriteOncePod is the single-pod mode, and ReadOnlyMany (not RWX) is the read-only-many mode.",
+  "source": "Storage for CKA — Volume Types and Access Modes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q009",
+  "domain": "Storage",
+  "question": "You create a busybox pod that mounts a PVC, but it immediately enters CrashLoopBackOff. The PVC is Bound. What is the most likely fix?",
+  "choices": [
+   "Add a long-running command such as sleep 3600 to the container",
+   "Change the reclaim policy to Retain",
+   "Switch the access mode to ReadWriteMany",
+   "Recreate the PVC without a storageClassName"
+  ],
+  "answer": 0,
+  "explanation": "A busybox container with no command runs nothing and exits, causing CrashLoopBackOff. Giving it a long-running command (e.g., /bin/sh -c 'sleep 3600') keeps it running. The PVC is already Bound, so reclaim policy, access mode, and storageClassName are not the problem.",
+  "source": "Storage for CKA — Example Exam Question 2 (Dynamic Provisioning)",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q010",
+  "domain": "Storage",
+  "question": "A cluster admin wants users to be able to grow an existing PVC's size after creation. Which StorageClass setting enables this?",
+  "choices": [
+   "volumeBindingMode: Immediate",
+   "allowVolumeExpansion: true",
+   "reclaimPolicy: Retain",
+   "accessModes: [ReadWriteMany]"
+  ],
+  "answer": 1,
+  "explanation": "allowVolumeExpansion: true lets users increase an existing PVC's size, and the provisioner resizes the underlying PV. volumeBindingMode controls binding timing, reclaimPolicy controls deletion behavior, and accessModes is not a StorageClass field.",
+  "source": "Storage for CKA — Storage Classes in Kubernetes",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q011",
+  "domain": "Storage",
+  "question": "Which of these correctly describes the difference between a plain Volume and a PersistentVolume?",
+  "choices": [
+   "A plain Volume persists across node failures; a PV does not",
+   "A plain Volume's lifecycle is tied to the pod; a PV's lifecycle is independent of any pod",
+   "Both are deleted when the pod is deleted",
+   "A PV can only be used by stateless apps"
+  ],
+  "answer": 1,
+  "explanation": "A plain Volume is a directory whose lifecycle is tied to the pod, so it is destroyed with the pod. A PV exists independently of pods and survives pod deletion/rescheduling. A plain Volume does NOT survive node failure, and PVs are specifically for stateful apps.",
+  "source": "Storage for CKA — Introduction to Kubernetes Storage",
+  "domainKey": "storage"
+ },
+ {
+  "id": "st-q012",
+  "domain": "Storage",
+  "question": "After binding a PVC named my-pvc in namespace module1 to a PV named my-pv, which command output confirms the binding from the PV side?",
+  "choices": [
+   "kubectl get pv shows STATUS Available and an empty CLAIM",
+   "kubectl get pv shows STATUS Bound and CLAIM module1/my-pvc",
+   "kubectl get pvc shows STATUS Released",
+   "kubectl describe sc shows the PVC name"
+  ],
+  "answer": 1,
+  "explanation": "A successfully bound PV shows STATUS Bound and its CLAIM column lists namespace/pvc-name (module1/my-pvc). Available with empty CLAIM means it is not yet bound. Released means the PVC was deleted. describe sc shows StorageClass config, not PVC bindings.",
+  "source": "Storage for CKA — Create a PV and PVC (demo)",
+  "domainKey": "storage"
+ },
+ {
+  "id": "ws-q001",
+  "domain": "Workloads & Scheduling",
+  "question": "You need to run one log-collection pod on every node, and have it automatically appear on any node added to the cluster. Which controller should you use?",
+  "choices": [
+   "Deployment",
+   "StatefulSet",
+   "DaemonSet",
+   "Job"
+  ],
+  "answer": 2,
+  "explanation": "A DaemonSet ensures one pod runs on every node and automatically schedules a pod onto newly added nodes — ideal for log collectors and monitoring agents. A Deployment/StatefulSet run a fixed replica count not tied to node count; a Job runs to completion and stops.",
+  "source": "Workloads and Scheduling for CKA — Choosing the Right Workload Controller",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q002",
+  "domain": "Workloads & Scheduling",
+  "question": "Which controller is best suited for a database that requires a stable identity and persistent storage per pod?",
+  "choices": [
+   "StatefulSet",
+   "ReplicaSet",
+   "Deployment",
+   "DaemonSet"
+  ],
+  "answer": 0,
+  "explanation": "A StatefulSet gives each pod a stable, unique identity (e.g. db-0) plus persistent storage and ordered operations. Deployments and ReplicaSets treat pods as interchangeable; a DaemonSet pins one pod per node.",
+  "source": "Workloads and Scheduling for CKA — Choosing the Right Workload Controller",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q003",
+  "domain": "Workloads & Scheduling",
+  "question": "A Job is defined with completions: 6 and parallelism: 2. What happens?",
+  "choices": [
+   "The Job runs pods until 6 complete successfully, at most 2 at a time",
+   "6 pods all run at once until 2 succeed",
+   "2 pods run, and the Job succeeds after either one completes",
+   "6 pods run forever, restarting on success"
+  ],
+  "answer": 0,
+  "explanation": "completions is the number of required successful runs (6) and parallelism caps concurrent pods (2), so it runs in batches of two until six succeed. Jobs stop once completions are met; they do not run forever.",
+  "source": "Workloads and Scheduling for CKA — Demo: Managing Batch Workloads",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q004",
+  "domain": "Workloads & Scheduling",
+  "question": "Which action will trigger a new rollout (new ReplicaSet) for a Deployment?",
+  "choices": [
+   "Changing the replicas count from 3 to 5",
+   "Updating the container image in the pod template",
+   "Adding a label to the Deployment's metadata",
+   "Editing the Deployment's revisionHistoryLimit"
+  ],
+  "answer": 1,
+  "explanation": "Only changes to the pod template (such as the container image) create a new ReplicaSet and trigger a rollout. Changing replicas just scales; metadata labels and revisionHistoryLimit are deployment-spec fields that don't roll the pods.",
+  "source": "Managing Kubernetes Controllers and Deployments — Updating a Deployment",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q005",
+  "domain": "Workloads & Scheduling",
+  "question": "In a RollingUpdate, what does maxSurge control?",
+  "choices": [
+   "The maximum pods that can be unavailable during the update",
+   "The number of old ReplicaSets retained for rollback",
+   "The maximum extra pods allowed above the desired replica count during the update",
+   "How long Kubernetes waits before marking the rollout failed"
+  ],
+  "answer": 2,
+  "explanation": "maxSurge limits how many pods may run above the desired count while updating (default 25%). maxUnavailable limits pods offline; revisionHistoryLimit controls retained ReplicaSets; progressDeadlineSeconds governs failure timing.",
+  "source": "Managing Kubernetes Controllers and Deployments — Controlling Updates with UpdateStrategy",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q006",
+  "domain": "Workloads & Scheduling",
+  "question": "A rollout to a bad image left the deployment broken. You need to return to the known-good revision 2. Which command does this?",
+  "choices": [
+   "kubectl rollout status deployment app --revision=2",
+   "kubectl rollout history deployment app --revision=2",
+   "kubectl rollout undo deployment app --to-revision=2",
+   "kubectl scale deployment app --replicas=2"
+  ],
+  "answer": 2,
+  "explanation": "kubectl rollout undo --to-revision=2 scales down the current ReplicaSet and scales the revision-2 ReplicaSet back up. rollout history --revision=2 only inspects it; rollout status checks progress; scale changes replica count.",
+  "source": "Managing Kubernetes Controllers and Deployments — Pausing and Rolling Back Deployments",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q007",
+  "domain": "Workloads & Scheduling",
+  "question": "Why should you define a readiness probe when using a RollingUpdate strategy?",
+  "choices": [
+   "It speeds up the rollout by skipping unhealthy pods",
+   "It is required for Kubernetes to create a ReplicaSet",
+   "It lets the deployment stop the rollout if new pods aren't ready, protecting the running version",
+   "It encrypts the pod's configuration during the update"
+  ],
+  "answer": 2,
+  "explanation": "With a readiness probe, the deployment halts a rollout when too many new pods fail readiness (would breach maxUnavailable), keeping the previous version serving traffic. Without it, a pod is 'ready' at start and a broken rollout proceeds.",
+  "source": "Managing Kubernetes Controllers and Deployments — Successfully Controlling Deployment Rollouts",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q008",
+  "domain": "Workloads & Scheduling",
+  "question": "You update a ConfigMap mounted as environment variables and want the running pods to use the new values. What must you do?",
+  "choices": [
+   "Nothing — env vars hot reload automatically",
+   "Restart the pods, because env vars do not hot reload",
+   "Convert the ConfigMap to a Secret",
+   "Delete and recreate the ConfigMap with --reload"
+  ],
+  "answer": 1,
+  "explanation": "Environment variables do not hot reload; you must restart the pods (e.g. kubectl rollout restart) to pick up new values. Volume-mounted directories do support hot reloading, but env injection does not.",
+  "source": "Workloads and Scheduling for CKA — Decoupling Configuration",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q009",
+  "domain": "Workloads & Scheduling",
+  "question": "Which statement about Kubernetes Secrets is correct?",
+  "choices": [
+   "Secret values are AES-encrypted in the manifest by default",
+   "Secret values are only Base64-encoded, which obscures but does not secure them",
+   "Secrets cannot be injected as environment variables",
+   "Anyone authorized to create a pod is automatically blocked from reading namespace Secrets"
+  ],
+  "answer": 1,
+  "explanation": "Secrets are Base64-encoded (easily decoded), not encrypted by default; enable etcd encryption at rest for real protection. They can be injected as env vars or volumes, and anyone who can create a pod in a namespace can read its Secrets.",
+  "source": "Workloads and Scheduling for CKA — Managing Secrets",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q010",
+  "domain": "Workloads & Scheduling",
+  "question": "Your HPA shows TARGETS as <unknown>/50% and is not scaling. What is the most likely cause?",
+  "choices": [
+   "The deployment has too many replicas",
+   "maxReplicas is set too low",
+   "The HPA stabilization window is too short",
+   "The metrics server is unavailable or the pods lack resource requests"
+  ],
+  "answer": 3,
+  "explanation": "HPA needs the metrics server running and resource requests defined on the target pods to compute usage; <unknown> means metrics aren't available. Replica counts, maxReplicas, and the stabilization window don't cause <unknown> metrics.",
+  "source": "Workloads and Scheduling for CKA — Demo: Configuring HPA",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q011",
+  "domain": "Workloads & Scheduling",
+  "question": "A container repeatedly fails its livenessProbe. What does Kubernetes do?",
+  "choices": [
+   "Restarts the container according to the pod's restart policy",
+   "Removes the pod's IP from the Service endpoints",
+   "Marks the node NotReady",
+   "Evicts every pod on the node"
+  ],
+  "answer": 0,
+  "explanation": "A failing livenessProbe causes the kubelet to restart the container per the restart policy. Removing the pod IP from Service endpoints is the readinessProbe behavior; liveness does not affect node status or evict other pods.",
+  "source": "Managing the Kubernetes API Server and Pods — Defining Pod Health",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q012",
+  "domain": "Workloads & Scheduling",
+  "question": "A pod has requests and limits set so that CPU and memory requests exactly equal their limits. Which QoS class is assigned?",
+  "choices": [
+   "BestEffort",
+   "Burstable",
+   "Guaranteed",
+   "Priority"
+  ],
+  "answer": 2,
+  "explanation": "Guaranteed QoS is assigned when requests equal limits for both CPU and memory — these pods are protected longest under resource pressure. Burstable is requests < limits; BestEffort is no requests/limits; Priority is not a QoS class.",
+  "source": "Workloads and Scheduling for CKA — Configuring Pod Admission",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q013",
+  "domain": "Workloads & Scheduling",
+  "question": "A container exceeds its configured memory limit. What happens?",
+  "choices": [
+   "Its memory request is automatically increased",
+   "The pod is rescheduled to another node",
+   "The kernel terminates it and it shows OOMKilled",
+   "It is throttled and slowed down"
+  ],
+  "answer": 2,
+  "explanation": "Exceeding the memory limit causes the kernel to kill the process, giving an OOMKilled status. Throttling is what happens when a container exceeds its CPU limit, not its memory limit.",
+  "source": "Workloads and Scheduling for CKA — Demo: Defining Resource Limits",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q014",
+  "domain": "Workloads & Scheduling",
+  "question": "You add nodeSelector: disk=ssd to a pod, but no node has that label. What is the result?",
+  "choices": [
+   "The pod schedules on a random node",
+   "The pod stays in Pending state",
+   "The scheduler creates the label automatically",
+   "The pod schedules on the control plane"
+  ],
+  "answer": 1,
+  "explanation": "nodeSelector is a hard requirement; with no matching node the pod remains Pending. Check kubectl get events / describe pod for a 'didn't match node selector' message. The scheduler never invents labels or ignores the selector.",
+  "source": "Workloads and Scheduling for CKA — Demo: Node Selection",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q015",
+  "domain": "Workloads & Scheduling",
+  "question": "You want three replicas of an app spread so no two run on the same node for high availability. Which mechanism achieves this?",
+  "choices": [
+   "nodeSelector",
+   "A taint with NoExecute",
+   "A Pod Disruption Budget",
+   "Pod anti-affinity"
+  ],
+  "answer": 3,
+  "explanation": "Pod anti-affinity (with topologyKey kubernetes.io/hostname) tells the scheduler not to co-locate replicas with the same label on a node, spreading them for HA. nodeSelector pins to labels; taints repel pods; a PDB guards against voluntary disruptions, not placement.",
+  "source": "Workloads and Scheduling for CKA — Demo: Pod Anti-affinity",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q016",
+  "domain": "Workloads & Scheduling",
+  "question": "You create a static pod by placing a manifest in /etc/kubernetes/manifests. Which statement is true?",
+  "choices": [
+   "You can delete it with kubectl delete pod",
+   "It is managed by the kubelet, and you remove it by deleting the manifest file",
+   "It is invisible from kubectl get pods",
+   "It is scheduled by the kube-scheduler like any other pod"
+  ],
+  "answer": 1,
+  "explanation": "Static pods are managed by the kubelet, not the API server; to remove one you delete its manifest from the staticPodPath. The kubelet creates a read-only mirror pod so it IS visible via kubectl, but kubectl delete won't remove it and the scheduler isn't involved.",
+  "source": "Managing the Kubernetes API Server and Pods — Introducing and Working Static Pods",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "ws-q017",
+  "domain": "Workloads & Scheduling",
+  "question": "kubectl drain on a node fails with a message that eviction would violate a Pod Disruption Budget. What is a valid way to proceed?",
+  "choices": [
+   "Delete the PDB's namespace",
+   "Scale the deployment up so the minAvailable floor is still met after eviction",
+   "Use kubectl cordon instead, which ignores PDBs",
+   "Set the pod's restartPolicy to Never"
+  ],
+  "answer": 1,
+  "explanation": "A PDB blocks evictions that would drop below its floor; scaling up the deployment so enough replicas remain lets the drain proceed. cordon only marks the node unschedulable (it doesn't evict or bypass PDBs), and restartPolicy is unrelated.",
+  "source": "Workloads and Scheduling for CKA — Demo: Protect Pods with PDBs",
+  "domainKey": "workloads"
+ },
+ {
+  "id": "sn-q001",
+  "domain": "Services & Networking",
+  "question": "Which statement is a requirement of the Kubernetes networking model?",
+  "choices": [
+   "Pods reach each other using NAT-translated addresses",
+   "All Pods can communicate with all other Pods on all nodes without NAT, using real Pod IPs",
+   "Only Pods on the same node can communicate directly",
+   "Pods must use the node's IP address to communicate"
+  ],
+  "answer": 1,
+  "explanation": "The model requires all Pods to reach all Pods on every node using their real IPs with no NAT. NAT is explicitly disallowed; cross-node communication is required; Pods use their own real IPs, not the node's.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Kubernetes Network Model",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q002",
+  "domain": "Services & Networking",
+  "question": "Two containers run in the same Pod. How do they communicate with each other?",
+  "choices": [
+   "Over localhost on different ports",
+   "Via the Pod's ClusterIP service",
+   "Each container gets its own Pod IP and they route between them",
+   "Through the node's bridge interface using separate IPs"
+  ],
+  "answer": 0,
+  "explanation": "Containers in a Pod share one network namespace and one IP, so they reach each other over localhost on different ports. They do not have separate IPs and do not need a Service to talk to each other.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Pod Networking Internals",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q003",
+  "domain": "Services & Networking",
+  "question": "What is the purpose of the pause (infrastructure) container in a Pod?",
+  "choices": [
+   "It runs the main application workload",
+   "It load balances traffic to the Pod",
+   "It enforces NetworkPolicy rules for the Pod",
+   "It sets up and holds the Pod's network namespace so app containers can restart without losing the network stack"
+  ],
+  "answer": 3,
+  "explanation": "The pause container starts first, creates the network namespace, and owns it for the Pod's lifecycle, so application containers can restart without re-IPing the Pod. It does not run the app, load balance, or enforce policy.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Pod Networking Internals",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q004",
+  "domain": "Services & Networking",
+  "question": "Which component is responsible for implementing the Kubernetes networking model (interfaces, IP addressing, bridges/tunnels)?",
+  "choices": [
+   "kube-proxy",
+   "The CNI plugin",
+   "CoreDNS",
+   "The kubelet's cgroup driver"
+  ],
+  "answer": 1,
+  "explanation": "Kubernetes defines the model but abstracts implementation to the CNI plugin (Calico, Cilium, etc.). kube-proxy implements Services, CoreDNS provides DNS, and the cgroup driver is unrelated to networking.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — CNI",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q005",
+  "domain": "Services & Networking",
+  "question": "Which component implements Services on each node and runs as a DaemonSet?",
+  "choices": [
+   "kube-proxy",
+   "kubelet",
+   "CoreDNS",
+   "etcd"
+  ],
+  "answer": 0,
+  "explanation": "kube-proxy implements Services (default iptables mode) and runs as a Pod via a DaemonSet, one per node. CoreDNS is DNS, kubelet manages Pods, etcd is the datastore.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Service Networking Internals",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q006",
+  "domain": "Services & Networking",
+  "question": "In a Service spec, which field specifies the port the application listens on inside the container?",
+  "choices": [
+   "port",
+   "targetPort",
+   "nodePort",
+   "clusterIP"
+  ],
+  "answer": 1,
+  "explanation": "targetPort is the container/app port. port is the Service's own listening port for clients, nodePort is the port exposed on each node, and clusterIP is the virtual IP.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Defining Deployments and Services",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q007",
+  "domain": "Services & Networking",
+  "question": "What is the default Service type if none is specified?",
+  "choices": [
+   "NodePort",
+   "LoadBalancer",
+   "ClusterIP",
+   "ExternalName"
+  ],
+  "answer": 2,
+  "explanation": "ClusterIP is the default and is internal-only. The other types must be explicitly requested.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — ClusterIP Internals",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q008",
+  "domain": "Services & Networking",
+  "question": "What is the default port range for a NodePort service?",
+  "choices": [
+   "1024–4999",
+   "8000–9000",
+   "30000–32767",
+   "40000–49151"
+  ],
+  "answer": 2,
+  "explanation": "NodePort uses 30000–32767 by default. A port can be auto-assigned from this range or set statically within it.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — NodePort Internals",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q009",
+  "domain": "Services & Networking",
+  "question": "When you create a Service of type LoadBalancer, which other service resources are also created?",
+  "choices": [
+   "Only a ClusterIP",
+   "Only a NodePort",
+   "A NodePort and a ClusterIP",
+   "An ExternalName and a ClusterIP"
+  ],
+  "answer": 2,
+  "explanation": "LoadBalancer builds on the lower types: it also gets a NodePort and a ClusterIP. The cloud LB sends traffic to the NodePort, which forwards to the ClusterIP, which reaches Pods.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — LoadBalancer Internals",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q010",
+  "domain": "Services & Networking",
+  "question": "A Service must reference a service running outside the cluster by DNS name without proxying traffic. Which type fits?",
+  "choices": [
+   "Headless service",
+   "ExternalName",
+   "NodePort",
+   "LoadBalancer"
+  ],
+  "answer": 1,
+  "explanation": "ExternalName creates a CNAME to an external DNS name with no selector and no proxying. A headless service returns Pod IPs; NodePort/LoadBalancer expose in-cluster Pods.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Other Types of Services",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q011",
+  "domain": "Services & Networking",
+  "question": "How do you define a headless service, and what does DNS return for it?",
+  "choices": [
+   "Set type: ExternalName; DNS returns a CNAME",
+   "Set type: NodePort; DNS returns the node IPs",
+   "Omit the selector; DNS returns the ClusterIP",
+   "Set clusterIP: None; DNS returns the matching Pod IPs"
+  ],
+  "answer": 3,
+  "explanation": "A headless service has clusterIP: None. With selectors, DNS returns all matching Pod IPs so the client chooses. This is common with StatefulSets and databases.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Other Types of Services",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q012",
+  "domain": "Services & Networking",
+  "question": "A ClusterIP Service shows zero endpoints. What is the most likely cause?",
+  "choices": [
+   "The Service selector does not match any running, ready Pod's labels",
+   "The cluster has no LoadBalancer integration",
+   "CoreDNS is not running",
+   "The nodePort is outside 30000–32767"
+  ],
+  "answer": 0,
+  "explanation": "Endpoints are created from Pods whose labels match the Service selector. No matching/ready Pods means no endpoints. LoadBalancer integration, CoreDNS, and nodePort range are unrelated to empty ClusterIP endpoints.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Understanding Services",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q013",
+  "domain": "Services & Networking",
+  "question": "What is the fully qualified DNS name of a Service named web in namespace prod?",
+  "choices": [
+   "web.prod.pod.cluster.local",
+   "prod.web.svc.cluster.local",
+   "web.prod.svc.cluster.local",
+   "web.svc.prod.cluster.local"
+  ],
+  "answer": 2,
+  "explanation": "The Service FQDN pattern is service.namespace.svc.cluster.local, so web.prod.svc.cluster.local. The 'pod' segment is used for Pod records; the segment order in the other options is wrong.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Cluster DNS Records",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q014",
+  "domain": "Services & Networking",
+  "question": "Where is CoreDNS configured in a default Kubernetes cluster?",
+  "choices": [
+   "A ConfigMap named coredns in the kube-system namespace",
+   "A Secret named coredns in the default namespace",
+   "The /etc/kubernetes/coredns.conf file on each node",
+   "A CRD named CoreDNSConfig"
+  ],
+  "answer": 0,
+  "explanation": "CoreDNS reads a ConfigMap named coredns in kube-system, mounted as the Corefile at /etc/coredns. It is not a Secret, a node file, or a CRD.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Cluster DNS",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q015",
+  "domain": "Services & Networking",
+  "question": "What is the default dnsPolicy for a Pod, and what does setting dnsPolicy: None require?",
+  "choices": [
+   "Default is None; None requires nothing extra",
+   "Default is ClusterFirst; None requires a dnsConfig block defining nameservers/searches",
+   "Default is Default; None disables DNS entirely",
+   "Default is ClusterFirstWithHostNet; None inherits the node's resolver"
+  ],
+  "answer": 1,
+  "explanation": "ClusterFirst is the default (cluster domain to cluster DNS, rest to node DNS). dnsPolicy: None ignores cluster DNS and requires a dnsConfig. The literal value 'Default' means inherit from the node and is not the actual default.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Custom Pod DNS Configuration",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q016",
+  "domain": "Services & Networking",
+  "question": "Why is DNS preferred over environment variables for service discovery?",
+  "choices": [
+   "Env vars only work for LoadBalancer services",
+   "Env vars are injected only for Services that existed at Pod startup, so later Services require recreating the Pod; DNS updates dynamically",
+   "DNS is faster than env vars at the kernel level",
+   "Env vars cannot store IP addresses"
+  ],
+  "answer": 1,
+  "explanation": "Service env vars are a snapshot at Pod startup; a Service created afterward won't appear until the Pod is recreated. DNS resolves dynamically without restarting Pods. The other claims are false.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Service Discovery",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q017",
+  "domain": "Services & Networking",
+  "question": "Which statement correctly distinguishes an Ingress resource from an Ingress controller?",
+  "choices": [
+   "The Ingress resource defines the rules; the Ingress controller is the reverse proxy that implements them and must be deployed separately",
+   "The Ingress resource routes traffic; the controller only stores rules",
+   "Both are deployed automatically with every cluster",
+   "The Ingress controller defines hosts/paths; the resource forwards packets"
+  ],
+  "answer": 0,
+  "explanation": "The Ingress resource holds the rules (hosts, paths, TLS); the controller is the actual reverse proxy that reads them and routes traffic, and it must be installed (clusters don't ship one). The other options invert or misstate these roles.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Ingress Architecture",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q018",
+  "domain": "Services & Networking",
+  "question": "An Ingress rule uses pathType: Exact with path /blue. Which request matches?",
+  "choices": [
+   "/Blue",
+   "/blue/1",
+   "/blue",
+   "/blueprint"
+  ],
+  "answer": 2,
+  "explanation": "Exact requires an exact, case-sensitive match. Only /blue matches. /Blue differs by case, and /blue/1 and /blueprint are different paths (those would only match under Prefix for /blue).",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Path-Based Routing",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q019",
+  "domain": "Services & Networking",
+  "question": "Which is a valid reason to use Ingress instead of a Layer-4 LoadBalancer service?",
+  "choices": [
+   "Ingress can load balance UDP traffic by IP and port",
+   "Ingress works at Layer 7, enabling host- and path-based routing while fronting many services on one IP",
+   "Ingress always provisions a dedicated public IP per service",
+   "Ingress cannot terminate TLS"
+  ],
+  "answer": 1,
+  "explanation": "Ingress is Layer 7 (HTTP), supporting name-based vhosts and path routing and exposing many services behind one IP. LoadBalancer services are Layer 4 (one service per IP/port). Ingress can terminate TLS, and it is used for HTTP, not arbitrary UDP.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Why Use Ingress Rather Than Load Balancers",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q020",
+  "domain": "Services & Networking",
+  "question": "In the Gateway API, which resource defines protocol-specific routing rules and attaches to a Gateway?",
+  "choices": [
+   "GatewayClass",
+   "HTTPRoute",
+   "IngressClass",
+   "Service"
+  ],
+  "answer": 1,
+  "explanation": "HTTPRoute (and TCPRoute, GRPCRoute, etc.) defines routing rules and attaches to a Gateway via parentRefs. GatewayClass defines the controller-backed class, IngressClass belongs to the older Ingress API, and a Service is a backend target.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — Ingress Architecture (Kubernetes docs)",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q021",
+  "domain": "Services & Networking",
+  "question": "How does a NetworkPolicy behave once it selects a Pod for the Ingress direction?",
+  "choices": [
+   "It allows all ingress traffic to that Pod",
+   "Ingress becomes default-deny for that Pod, and only explicitly allowed traffic is permitted",
+   "It blocks all egress as well, automatically",
+   "It has no effect unless every namespace has a policy"
+  ],
+  "answer": 1,
+  "explanation": "Selecting a Pod for a direction flips that direction to default-deny; only traffic matched by the policy's rules is allowed. It does not affect egress unless Egress is in policyTypes, and policies are additive across namespaces.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — CNI (Kubernetes docs)",
+  "domainKey": "services"
+ },
+ {
+  "id": "sn-q022",
+  "domain": "Services & Networking",
+  "question": "A NetworkPolicy object exists but appears to have no effect. What is a likely reason?",
+  "choices": [
+   "NetworkPolicies only apply to LoadBalancer services",
+   "The policy must be created in kube-system to take effect",
+   "The cluster's CNI plugin does not support NetworkPolicy enforcement",
+   "NetworkPolicies require a Gateway to be deployed"
+  ],
+  "answer": 2,
+  "explanation": "NetworkPolicy enforcement depends on a supporting CNI (Calico, Cilium, etc.); with a non-enforcing CNI, policies are created but ignored. Policies apply to Pods (not just LoadBalancer services), work in any namespace, and have nothing to do with Gateways.",
+  "source": "Configuring and Managing Kubernetes Networking, Services, and Ingress — CNI (Kubernetes docs)",
+  "domainKey": "services"
+ },
+ {
+  "id": "ca-q001",
+  "domain": "Cluster Architecture",
+  "question": "Which control plane component is the single entry point that validates all requests and persists state to etcd?",
+  "choices": [
+   "kube-scheduler",
+   "kube-apiserver",
+   "kube-controller-manager",
+   "kubelet"
+  ],
+  "answer": 1,
+  "explanation": "The kube-apiserver is the only front door — every kubectl command, internal call, and webhook flows through it, and it persists state to etcd. The scheduler only places pods, the controller-manager runs reconciliation loops, and the kubelet is a node agent; none of these are the cluster's entry point or talk to etcd directly.",
+  "source": "Kubernetes Foundations — Understanding Kubernetes architecture",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q002",
+  "domain": "Cluster Architecture",
+  "question": "In which directory does the kubelet watch for the static pod manifests of the control plane components?",
+  "choices": [
+   "/etc/kubernetes/manifests",
+   "/etc/kubernetes/pki",
+   "/var/lib/kubelet/manifests",
+   "/etc/containerd"
+  ],
+  "answer": 0,
+  "explanation": "The kubelet watches /etc/kubernetes/manifests and starts any static pods defined there (kube-apiserver.yaml, etcd.yaml, kube-controller-manager.yaml, kube-scheduler.yaml). /etc/kubernetes/pki holds certificates, /etc/containerd holds the runtime config, and /var/lib/kubelet/manifests is not the kubeadm default path.",
+  "source": "Installing Clusters with kubeadm — What kubeadm init creates",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q003",
+  "domain": "Cluster Architecture",
+  "question": "A pod fails to receive an IP address and the node reports NetworkPluginNotReady. Which extension interface is responsible?",
+  "choices": [
+   "CRI",
+   "CSI",
+   "CRD",
+   "CNI"
+  ],
+  "answer": 3,
+  "explanation": "The CNI (Container Network Interface) gives pods their IPs and configures pod-to-pod routing; a missing or broken CNI causes NetworkPluginNotReady and NotReady nodes. CRI is the runtime interface (container won't start), CSI is storage (PV pending), and CRD is an API extension mechanism, not a networking interface.",
+  "source": "Kubernetes Foundations — Kubernetes extension interfaces",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q004",
+  "domain": "Cluster Architecture",
+  "question": "You are preparing an Ubuntu host for kubeadm. Why must net.bridge.bridge-nf-call-iptables be set to 1?",
+  "choices": [
+   "To enable swap accounting for the scheduler",
+   "To make bridged Layer-2 traffic visible to iptables so kube-proxy and CNI rules work",
+   "To allow containerd to use OverlayFS image layers",
+   "To open port 6443 for the API server"
+  ],
+  "answer": 1,
+  "explanation": "This sysctl makes bridged L2 traffic visible to iptables/netfilter, which kube-proxy and CNI plug-ins rely on; it's a hard kubeadm requirement and defaults to 0 on stock Ubuntu. Swap is handled by swapoff, OverlayFS is enabled by the overlay kernel module, and port 6443 is unrelated to this sysctl.",
+  "source": "Installing Clusters with kubeadm — Kernel modules and sysctl",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q005",
+  "domain": "Cluster Architecture",
+  "question": "After a clean kubeadm init, containerd and the kubelet appear to start but pods crash-loop and logs are misleading. What is the most likely root cause?",
+  "choices": [
+   "The pod-network-CIDR is too small",
+   "Swap was left enabled",
+   "The cgroup driver mismatch — SystemdCgroup is not set to true in containerd",
+   "The API server certificate expired"
+  ],
+  "answer": 2,
+  "explanation": "containerd ships with SystemdCgroup = false but the kubelet uses the systemd cgroup driver; a mismatch makes pods crash-loop while logs point at the wrong layer. A small CIDR or enabled swap produce different, more obvious failures, and a fresh cluster's certs are valid.",
+  "source": "Installing Clusters with kubeadm — containerd and the CRI",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q006",
+  "domain": "Cluster Architecture",
+  "question": "Which kubeadm init flag is the most common silent cause of broken cross-node pod communication?",
+  "choices": [
+   "--upload-certs",
+   "--apiserver-advertise-address",
+   "--pod-network-cidr not matching the CNI's expected range",
+   "--kubernetes-version"
+  ],
+  "answer": 2,
+  "explanation": "If --pod-network-cidr doesn't match what the CNI expects (e.g., Calico's 192.168.0.0/16), pods get IPs but can't route across nodes — a silent timeout with no clean error. --upload-certs handles cert distribution, --apiserver-advertise-address sets the bind interface, and --kubernetes-version pins the version; none cause this silent routing failure.",
+  "source": "Installing Clusters with kubeadm — kubeadm init flags that matter",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q007",
+  "domain": "Cluster Architecture",
+  "question": "Immediately after kubeadm init (before installing a CNI), what is the expected state of the nodes and CoreDNS?",
+  "choices": [
+   "All nodes Ready, CoreDNS Running",
+   "Nodes NotReady and CoreDNS Pending — this is correct, not a failure",
+   "Nodes Ready but CoreDNS CrashLoopBackOff",
+   "The API server is down until the CNI is installed"
+  ],
+  "answer": 1,
+  "explanation": "The kubelet won't mark a node Ready until a CNI can assign pod IPs, and CoreDNS needs a pod IP to start, so NotReady nodes and Pending CoreDNS are expected. The control plane static pods use host networking and run fine; installing the CNI flips nodes to Ready in ~30 seconds. Misreading this as a failure wastes exam time.",
+  "source": "Installing Clusters with kubeadm — From init to ready",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q008",
+  "domain": "Cluster Architecture",
+  "question": "How does kubeadm join provide two-way verification when a worker joins the cluster?",
+  "choices": [
+   "The worker and API server exchange SSH keys",
+   "Username and password over HTTPS",
+   "The kubelet certificate is manually copied to every node",
+   "A bootstrap token authenticates the worker, and the CA cert hash lets the worker verify the API server"
+  ],
+  "answer": 3,
+  "explanation": "The short-lived bootstrap token proves the worker is allowed to join, while --discovery-token-ca-cert-hash (SHA-256 of the CA cert) lets the worker confirm it's talking to the genuine control plane, preventing a man-in-the-middle. There are no SSH keys or passwords in this flow, and the kubelet cert is auto-generated via CSR, not hand-copied.",
+  "source": "Installing Clusters with kubeadm — Bootstrap tokens and join workflow",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q009",
+  "domain": "Cluster Architecture",
+  "question": "You lost the join command printed by kubeadm init. Which command regenerates a complete, ready-to-paste join command?",
+  "choices": [
+   "kubeadm token create --print-join-command",
+   "kubeadm init phase bootstrap-token",
+   "kubeadm certs renew all",
+   "kubectl get bootstraptokens"
+  ],
+  "answer": 0,
+  "explanation": "kubeadm token create --print-join-command emits a full join command with a fresh token and the correct CA cert hash. The other options don't produce a ready-to-use join command: 'certs renew' rotates certificates, and there's no kubectl resource that prints the assembled join string.",
+  "source": "Installing Clusters with kubeadm — Managing kubeconfig",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q010",
+  "domain": "Cluster Architecture",
+  "question": "A Kubernetes context bundles which three elements?",
+  "choices": [
+   "Node, pod, namespace",
+   "API version, kind, metadata",
+   "Cluster, user, and default namespace",
+   "CA cert, token, kubeconfig path"
+  ],
+  "answer": 2,
+  "explanation": "A context is a named tuple of a cluster (API endpoint + CA), a user (identity/credentials), and a default namespace. The other options describe pod manifest fields or arbitrary pieces; they are not the definition of a context.",
+  "source": "Kubernetes Foundations — Context management",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q011",
+  "domain": "Cluster Architecture",
+  "question": "Why is 'kubectl config use-context' a safe first command for every exam task even if the cluster is unreachable?",
+  "choices": [
+   "It only reads and writes your local kubeconfig file, not the cluster",
+   "It restarts the API server",
+   "It validates RBAC permissions remotely",
+   "It refreshes the bootstrap token"
+  ],
+  "answer": 0,
+  "explanation": "kubectl config commands operate purely on the local ~/.kube/config file and don't contact the API server, so they succeed regardless of cluster state — making them the ideal first step after each question to avoid running work against the wrong cluster.",
+  "source": "Kubernetes Foundations — When to use YAML instead of imperative",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q012",
+  "domain": "Cluster Architecture",
+  "question": "A task requires granting a user read access to pods only within the 'frontend' namespace. Which combination should you use?",
+  "choices": [
+   "ClusterRole + ClusterRoleBinding",
+   "Role + RoleBinding in the frontend namespace",
+   "ClusterRole + RoleBinding bound cluster-wide",
+   "Pod Security Admission"
+  ],
+  "answer": 1,
+  "explanation": "Because the task names a specific namespace and a namespaced resource (pods), a Role plus a RoleBinding in the frontend namespace is correct. A ClusterRoleBinding would grant access cluster-wide, and Pod Security Admission governs pod security context, not RBAC permissions.",
+  "source": "CKA Advanced Cluster Configuration — The foundation of RBAC",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q013",
+  "domain": "Cluster Architecture",
+  "question": "What happens when a subject has no RBAC binding that grants a requested action?",
+  "choices": [
+   "The API server returns 403 Forbidden because RBAC is additive with no deny rules",
+   "A deny rule must explicitly block it",
+   "The action is allowed by default",
+   "The request is queued until a binding is created"
+  ],
+  "answer": 0,
+  "explanation": "Kubernetes RBAC is purely additive — there are no deny rules. With no matching binding, the default answer is 403 Forbidden (secure by default). It is never allow-by-default, and there is no queuing behavior.",
+  "source": "CKA Advanced Cluster Configuration — The foundation of RBAC",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q014",
+  "domain": "Cluster Architecture",
+  "question": "Which command verifies whether the service account 'kube-explorer' in the default namespace can delete pods?",
+  "choices": [
+   "kubectl get clusterrolebinding kube-explorer",
+   "kubectl auth can-i delete pods --as=system:serviceaccount:default:kube-explorer",
+   "kubectl describe sa kube-explorer",
+   "kubectl auth reconcile"
+  ],
+  "answer": 1,
+  "explanation": "kubectl auth can-i with the --as impersonation flag and the full service account principal (system:serviceaccount:<ns>:<name>) asks the API server (via a SubjectAccessReview) whether that action is permitted. Describing the SA or listing bindings shows configuration but doesn't evaluate the effective allow/deny decision.",
+  "source": "CKA Advanced Cluster Configuration — Checking API access with can-i",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q015",
+  "domain": "Cluster Architecture",
+  "question": "You need to bind a reusable set of permissions defined cluster-wide, but limit them to a single namespace. What is the correct approach?",
+  "choices": [
+   "Create a Role that copies the ClusterRole's rules",
+   "Bind the ClusterRole using a RoleBinding in that namespace",
+   "Use a ClusterRoleBinding and add a namespace field",
+   "Aggregate the ClusterRole into the admin role"
+  ],
+  "answer": 1,
+  "explanation": "Binding a ClusterRole with a RoleBinding scopes those permissions to just the namespace where the RoleBinding lives — the DRY hybrid pattern. A ClusterRoleBinding can't be namespace-scoped (the field is ignored), copying rules defeats reuse, and aggregation merges roles rather than scoping them.",
+  "source": "CKA Advanced Cluster Configuration — Cluster-wide permissions",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q016",
+  "domain": "Cluster Architecture",
+  "question": "Which kubectl verbosity level best reveals the raw HTTP request, headers, bearer token, and response body for RBAC debugging?",
+  "choices": [
+   "-v=2",
+   "-v=4",
+   "-v=6",
+   "-v=8"
+  ],
+  "answer": 3,
+  "explanation": "-v=8 prints the curl-equivalent request including headers (the authorization bearer token) and a truncated response body — ideal for RBAC and auth debugging. (Use -v=9 for the full untruncated body.) -v=6 shows the URL and HTTP status code, while levels 2 and 4 are standard operational logs without the HTTP wire detail.",
+  "source": "CKA Advanced Cluster Configuration — Accessing resources with kubectl -v",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q017",
+  "domain": "Cluster Architecture",
+  "question": "For a highly available control plane, why are odd numbers of etcd members (3, 5, 7) recommended?",
+  "choices": [
+   "They reduce disk usage",
+   "Even numbers are not supported by Raft",
+   "They prevent split-brain and maximize fault tolerance because quorum needs a majority",
+   "They allow faster image pulls"
+  ],
+  "answer": 2,
+  "explanation": "etcd's Raft protocol requires a majority (quorum = N/2 + 1) to make decisions; odd numbers avoid split-brain and give the best fault tolerance per node. A 3-node cluster survives losing 1; a 2-node cluster is worse than 1 because losing either node loses quorum. The other options are unrelated to consensus.",
+  "source": "CKA Advanced Cluster Configuration — Introduction to high availability",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q018",
+  "domain": "Cluster Architecture",
+  "question": "In a stacked-etcd HA topology, where does etcd run?",
+  "choices": [
+   "On dedicated external hosts separate from the API servers",
+   "As a local static pod on each control plane node, managed by kubeadm",
+   "Inside the kube-proxy DaemonSet",
+   "As a Deployment in the kube-system namespace"
+  ],
+  "answer": 1,
+  "explanation": "In the stacked topology each control plane node runs its own etcd as a local static pod, and kubeadm manages etcd membership as nodes join — simpler and cheaper for medium clusters. External etcd runs on dedicated hosts. etcd is never part of kube-proxy, and the control plane components are static pods, not Deployments.",
+  "source": "CKA Advanced Cluster Configuration — Introduction to high availability",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q019",
+  "domain": "Cluster Architecture",
+  "question": "Which set of credentials must accompany an 'etcdctl snapshot save' command?",
+  "choices": [
+   "--cacert, --cert, and --key with the endpoint",
+   "--username and --password",
+   "An admin.conf kubeconfig",
+   "A bootstrap token"
+  ],
+  "answer": 0,
+  "explanation": "etcd requires full TLS authentication, so the snapshot command must pass --cacert (validates etcd's identity), --cert (proves your admin rights), and --key (authenticates the session), plus the endpoint (https://127.0.0.1:2379). etcdctl talks to etcd directly, not through kubeconfig, usernames, or bootstrap tokens.",
+  "source": "CKA Advanced Cluster Configuration — Disaster recovery",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q020",
+  "domain": "Cluster Architecture",
+  "question": "When restoring an etcd snapshot, why must you restore to a NEW data directory rather than the live one?",
+  "choices": [
+   "To save disk space",
+   "Because overwriting the active directory while etcd is running corrupts the transaction tables",
+   "The live directory is read-only",
+   "etcdctl cannot read the live directory"
+  ],
+  "answer": 1,
+  "explanation": "Restoring into the running database's active directory while the API server is still writing corrupts the transaction/page tables. The correct workflow restores to a new empty directory (e.g., /var/lib/etcd-restored), then repoints etcd.yaml's hostPath to it. Disk space and read-only attributes are not the reason.",
+  "source": "CKA Advanced Cluster Configuration — Disaster recovery",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q021",
+  "domain": "Cluster Architecture",
+  "question": "What is the correct order for upgrading a kubeadm cluster?",
+  "choices": [
+   "Worker nodes first, then the control plane",
+   "All nodes simultaneously",
+   "Control plane first, then worker nodes, one minor version at a time",
+   "Skip directly to the newest available version"
+  ],
+  "answer": 2,
+  "explanation": "You upgrade the control plane first (kubeadm upgrade plan/apply), then each worker (kubeadm upgrade node), advancing one minor version at a time and never skipping versions. Upgrading workers first or jumping multiple versions violates the version-skew policy and breaks the cluster.",
+  "source": "Kubernetes docs — Upgrading kubeadm clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q022",
+  "domain": "Cluster Architecture",
+  "question": "Before upgrading the kubelet on a node during a cluster upgrade, which command should you run, and what does --ignore-daemonsets do?",
+  "choices": [
+   "kubectl cordon; it deletes DaemonSet pods",
+   "kubectl drain --ignore-daemonsets; it allows the drain to proceed because DaemonSet pods can't be evicted",
+   "kubectl delete node; it removes the node from etcd",
+   "kubectl taint node; it blocks all pods including system pods"
+  ],
+  "answer": 1,
+  "explanation": "You drain the node to safely evict workloads and cordon it; --ignore-daemonsets is required because DaemonSet-managed pods can't be evicted and would otherwise block the drain. cordon alone doesn't evict, deleting the node is destructive, and tainting isn't the upgrade procedure.",
+  "source": "Kubernetes docs — Upgrading kubeadm clusters",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q023",
+  "domain": "Cluster Architecture",
+  "question": "In Helm, what is the distinction between a chart and a release?",
+  "choices": [
+   "A chart is the running instance; a release is the package",
+   "They are synonyms",
+   "A release is a repository of charts",
+   "A chart is the package (templates + values); a release is a specific running instance of that chart"
+  ],
+  "answer": 3,
+  "explanation": "A chart is the package — Chart.yaml metadata, templates, and values.yaml. A release is a specific deployed instance of that chart in a cluster; Helm tracks release history so you can 'helm rollback'. The terms are not interchangeable, and a release is not a repository.",
+  "source": "CKA Advanced Cluster Configuration — Templating with Helm",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q024",
+  "domain": "Cluster Architecture",
+  "question": "How do you apply a Kustomize overlay directly with kubectl?",
+  "choices": [
+   "kubectl apply -f overlays/dev",
+   "kubectl apply -k overlays/dev",
+   "helm install overlays/dev",
+   "kubectl kustomize apply overlays/dev"
+  ],
+  "answer": 1,
+  "explanation": "Kustomize is built into kubectl via the -k flag: 'kubectl apply -k overlays/dev' builds and applies in one step (use 'kubectl kustomize overlays/dev' to preview the rendered YAML). -f applies a single file without overlay processing, helm is a different tool, and 'kubectl kustomize apply' is not valid syntax.",
+  "source": "CKA Advanced Cluster Configuration — Layering with Kustomize",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q025",
+  "domain": "Cluster Architecture",
+  "question": "Running 'kubectl get certificates' returns an error that the resource type isn't found. After installing the cert-manager operator manifest, what changes?",
+  "choices": [
+   "Nothing — certificates are a built-in resource",
+   "The operator registers CRDs so the API recognizes 'certificates', and a controller runs the reconciliation loop",
+   "kube-proxy starts managing certificates",
+   "The API server must be restarted manually to load the new type"
+  ],
+  "answer": 1,
+  "explanation": "Installing the operator manifest registers CustomResourceDefinitions (adding the 'certificates' type to the API) and deploys the controller that watches them and runs the control loop. 'certificates' is not built in, kube-proxy is unrelated, and the API server picks up new CRDs dynamically without a manual restart.",
+  "source": "CKA Advanced Cluster Configuration — CRDs and the operator pattern",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ca-q026",
+  "domain": "Cluster Architecture",
+  "question": "Which command quickly generates a syntactically correct deployment manifest without creating anything in the cluster?",
+  "choices": [
+   "kubectl create deployment web --image=nginx --dry-run=client -o yaml",
+   "kubectl apply -f deployment.yaml",
+   "kubectl run web --image=nginx",
+   "kubectl edit deployment web"
+  ],
+  "answer": 0,
+  "explanation": "--dry-run=client -o yaml builds the manifest locally and prints valid YAML without contacting the API server, giving a correct starting template to redirect to a file and edit. 'apply' requires an existing file, 'run' creates a live bare pod, and 'edit' modifies an existing resource.",
+  "source": "Working with Your Cluster — Working with Manifests and dry-run",
+  "domainKey": "cluster"
+ },
+ {
+  "id": "ts-q001",
+  "domain": "Troubleshooting",
+  "question": "A pod is stuck in Pending. kubectl describe pod shows the event '0/3 nodes are available: Insufficient cpu'. What is the cause?",
+  "choices": [
+   "The container image cannot be pulled from the registry",
+   "The pod's CPU request exceeds the allocatable CPU on every node",
+   "The kubelet on all nodes has crashed",
+   "The Service selector does not match the pod labels"
+  ],
+  "answer": 1,
+  "explanation": "'Insufficient cpu' means no node can satisfy the pod's CPU request, so the scheduler leaves it Pending. Confirm with kubectl describe nodes / kubectl top nodes; fix by lowering requests.cpu or adding capacity. Image pull issues show ImagePullBackOff (not Pending), a dead kubelet makes nodes NotReady, and a selector mismatch is a Service/networking problem.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting Pending Pods",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q002",
+  "domain": "Troubleshooting",
+  "question": "A pod is in CrashLoopBackOff but kubectl describe pod shows no obvious reason. Which command best reveals why it crashed?",
+  "choices": [
+   "kubectl get pods -o wide",
+   "kubectl top pod <pod>",
+   "kubectl logs <pod> --previous",
+   "kubectl get endpoints <pod>"
+  ],
+  "answer": 2,
+  "explanation": "--previous shows the logs of the already-crashed container instance, which usually contains the error. The current container may be gone, so plain kubectl logs may show nothing useful. get pods -o wide shows placement, top shows resource usage, and endpoints is for Services.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting CrashLoopBackOff",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q003",
+  "domain": "Troubleshooting",
+  "question": "kubectl describe pod shows 'Last State: Terminated, Reason: OOMKilled, Exit Code: 137'. What happened and how do you fix it?",
+  "choices": [
+   "The container exceeded its memory limit; raise resources.limits.memory",
+   "The image tag was wrong; correct the image",
+   "The node ran out of disk; add storage",
+   "The liveness probe failed; remove the probe"
+  ],
+  "answer": 0,
+  "explanation": "OOMKilled with exit code 137 means the container hit its memory limit and was killed by the OOM killer. Fix by raising limits.memory (or fixing a leak). A wrong image gives ImagePullBackOff, disk pressure is a node condition, and probe failures show as Unhealthy events, not OOMKilled.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting OOMKilled",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q004",
+  "domain": "Troubleshooting",
+  "question": "A pod shows ImagePullBackOff. What is the FASTEST way to find the specific reason?",
+  "choices": [
+   "kubectl logs <pod>",
+   "kubectl top pod <pod>",
+   "Restart the kubelet on the node",
+   "kubectl describe pod <pod> and read the Events section"
+  ],
+  "answer": 3,
+  "explanation": "kubectl describe pod Events names the exact image and why it failed (not found, unauthorized, no such host). kubectl logs won't help because the container never started. top shows resource usage, and restarting the kubelet won't fix a bad image reference.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting ImagePullBackOff",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q005",
+  "domain": "Troubleshooting",
+  "question": "All pods are Running but the frontend reports 'backend unavailable'. kubectl get endpoints shows the backend Service has no endpoint IPs. What is the most likely cause?",
+  "choices": [
+   "CoreDNS is down",
+   "The nodes are out of memory",
+   "The Service selector labels do not match the backend pod labels",
+   "The container image tag is wrong"
+  ],
+  "answer": 2,
+  "explanation": "Empty endpoints means the Service selector matches no ready pods, typically a selector/label mismatch. Align the Service spec.selector with the pod template labels. CoreDNS down would break DNS broadly, OOM would restart pods, and a bad image tag would prevent pods from running.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting Networking Issues",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q006",
+  "domain": "Troubleshooting",
+  "question": "A worker node shows status NotReady. What should you investigate FIRST on that node?",
+  "choices": [
+   "kubectl logs of the node object",
+   "The kubelet via systemctl status kubelet and journalctl -u kubelet",
+   "The Service endpoints in kube-system",
+   "The Helm release history"
+  ],
+  "answer": 1,
+  "explanation": "A NotReady node is usually a kubelet, runtime, or networking problem on the node. The kubelet is a systemd service, so check systemctl status kubelet and journalctl -u kubelet. You cannot kubectl logs a node, endpoints relate to Services, and Helm is unrelated to node readiness.",
+  "source": "Kubernetes docs — Troubleshoot Clusters and Nodes",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q007",
+  "domain": "Troubleshooting",
+  "question": "On a kubeadm cluster, where are the manifests for the kube-apiserver, etcd, scheduler, and controller-manager?",
+  "choices": [
+   "/etc/kubernetes/manifests/ on the control plane node",
+   "In the default namespace as Deployments",
+   "/var/lib/kubelet/config.yaml",
+   "In the etcd database only, not on disk"
+  ],
+  "answer": 0,
+  "explanation": "These run as static pods whose manifests live in /etc/kubernetes/manifests/ on the control plane node. The kubelet watches that directory and recreates the pods when the files change. They are not Deployments and are not stored only in etcd.",
+  "source": "Kubernetes docs — Troubleshoot Cluster Components",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q008",
+  "domain": "Troubleshooting",
+  "question": "The kube-apiserver is down and kubectl no longer works. Which tool lets you inspect the apiserver container and its logs directly on the node?",
+  "choices": [
+   "crictl",
+   "kubectl describe",
+   "helm",
+   "kubeadm token"
+  ],
+  "answer": 0,
+  "explanation": "crictl talks directly to the container runtime via the CRI socket, so crictl ps and crictl logs work even when the API server (and thus kubectl) is down. helm and kubectl both require the API server, and kubeadm token manages join tokens.",
+  "source": "Kubernetes docs — Container Runtime / crictl",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q009",
+  "domain": "Troubleshooting",
+  "question": "You fixed a bad flag in /etc/kubernetes/manifests/kube-apiserver.yaml. What must you do to apply the change?",
+  "choices": [
+   "Run kubectl apply -f on the manifest",
+   "Nothing extra — saving the file makes the kubelet recreate the static pod",
+   "Run kubeadm upgrade apply",
+   "Manually delete the etcd snapshot"
+  ],
+  "answer": 1,
+  "explanation": "Static pod manifests are watched by the kubelet; saving the edited file causes the kubelet to automatically recreate the pod. kubectl apply is not used for static pods, kubeadm upgrade is for version upgrades, and deleting etcd data would be destructive.",
+  "source": "Kubernetes docs — Troubleshoot Cluster Components",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q010",
+  "domain": "Troubleshooting",
+  "question": "kubectl top nodes returns 'error: Metrics API not available'. What is the correct conclusion?",
+  "choices": [
+   "All nodes have failed and must be rebuilt",
+   "The metrics-server is not installed or not ready",
+   "etcd is corrupted",
+   "The API server certificate has expired"
+  ],
+  "answer": 1,
+  "explanation": "kubectl top depends on the Metrics API exposed by the metrics-server, which is not installed by default. Install/verify it. This error is not evidence of node failure, etcd corruption, or certificate expiry (those produce different symptoms).",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes Metrics Server",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q011",
+  "domain": "Troubleshooting",
+  "question": "Which statement correctly distinguishes metrics-server from Prometheus?",
+  "choices": [
+   "metrics-server stores long-term history; Prometheus only shows live data",
+   "They are identical and interchangeable",
+   "Prometheus is required for kubectl top to work",
+   "metrics-server provides live CPU/memory for kubectl top and HPA with no history; Prometheus is a time-series DB with history, PromQL, and alerting"
+  ],
+  "answer": 3,
+  "explanation": "metrics-server is lightweight, real-time, and powers kubectl top and the HPA but keeps no history. Prometheus retains time-series history and adds PromQL and alerting. They are not interchangeable, and kubectl top depends on metrics-server, not Prometheus.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes Observability",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q012",
+  "domain": "Troubleshooting",
+  "question": "For a multi-container pod, kubectl logs <pod> returns an error asking you to choose a container. What flag resolves this?",
+  "choices": [
+   "--previous",
+   "--all-namespaces",
+   "--tail=0",
+   "-c <container>"
+  ],
+  "answer": 3,
+  "explanation": "-c <container> selects which container's stdout/stderr to read in a multi-container pod. --previous reads the prior crashed instance, --all-namespaces is for listing across namespaces, and --tail limits lines but doesn't pick a container.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q013",
+  "domain": "Troubleshooting",
+  "question": "Which is a real limitation of kubectl logs that motivates centralized logging?",
+  "choices": [
+   "It requires Prometheus to function",
+   "It can only show logs for one pod at a time and loses logs when pods are deleted",
+   "It cannot show logs for Running pods",
+   "It only works on the control plane node"
+  ],
+  "answer": 1,
+  "explanation": "kubectl logs is per-pod, has no retention (logs vanish with the pod, aside from --previous for the last instance), and can't search across pods. This motivates Loki/Alloy or EFK. It does not depend on Prometheus, works on Running pods, and works for any node's pods.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q014",
+  "domain": "Troubleshooting",
+  "question": "What is the difference between kubectl cordon and kubectl drain?",
+  "choices": [
+   "cordon evicts pods; drain only blocks new scheduling",
+   "They are aliases for the same action",
+   "cordon marks the node unschedulable (existing pods stay); drain cordons AND evicts existing pods",
+   "drain deletes the node from the cluster"
+  ],
+  "answer": 2,
+  "explanation": "cordon only prevents NEW pods from scheduling; existing pods keep running. drain cordons the node and evicts existing pods (respecting PDBs) so it can be maintained. They are not aliases, and drain does not delete the node object.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Upgrading a Kubernetes Cluster",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q015",
+  "domain": "Troubleshooting",
+  "question": "kubectl drain <node> fails complaining about DaemonSet-managed pods. Which flag is typically required?",
+  "choices": [
+   "--force",
+   "--ignore-daemonsets",
+   "--grace-period=0",
+   "--cascade=orphan"
+  ],
+  "answer": 1,
+  "explanation": "DaemonSet pods cannot be rescheduled elsewhere, so drain refuses unless you pass --ignore-daemonsets. --force evicts bare pods, --grace-period changes termination timing, and --cascade is a delete option unrelated to drain.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Upgrading a Kubernetes Cluster",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q016",
+  "domain": "Troubleshooting",
+  "question": "What is the correct order for a kubeadm cluster upgrade?",
+  "choices": [
+   "Control plane first, then worker nodes one at a time",
+   "All worker nodes first, then the control plane",
+   "Control plane and all workers simultaneously",
+   "Worker nodes in any order while the control plane is mid-upgrade"
+  ],
+  "answer": 0,
+  "explanation": "Upgrade the control plane first because it supports older worker kubelets, then upgrade workers one at a time to keep apps online. Upgrading workers first or all-at-once risks version skew and downtime.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Preparing for a Kubernetes Cluster Upgrade",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q017",
+  "domain": "Troubleshooting",
+  "question": "Which kubeadm command upgrades the CONTROL PLANE, and which upgrades a WORKER node?",
+  "choices": [
+   "Both use kubeadm upgrade apply",
+   "Control plane: kubeadm upgrade node; worker: kubeadm upgrade apply <ver>",
+   "Both use kubeadm init",
+   "Control plane: kubeadm upgrade apply <ver>; worker: kubeadm upgrade node"
+  ],
+  "answer": 3,
+  "explanation": "The control plane uses kubeadm upgrade apply v<version>; worker nodes use kubeadm upgrade node. Mixing them up is a common mistake. kubeadm init creates a new cluster, not an upgrade.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Upgrading a Kubernetes Cluster",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q018",
+  "domain": "Troubleshooting",
+  "question": "Before upgrading a production cluster, which step is the most important safety net?",
+  "choices": [
+   "Delete all old pods",
+   "Disable all Services",
+   "Back up the etcd database with an etcdctl snapshot",
+   "Scale every Deployment to zero"
+  ],
+  "answer": 2,
+  "explanation": "etcd holds all cluster state, so an etcd snapshot is your restore point if the upgrade fails. Deleting pods, disabling Services, or scaling to zero would cause downtime and provide no recovery benefit.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Preparing for a Kubernetes Cluster Upgrade",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q019",
+  "domain": "Troubleshooting",
+  "question": "What does a PodDisruptionBudget (PDB) protect against during a node drain?",
+  "choices": [
+   "Involuntary disruptions like hardware failure",
+   "Image pull failures",
+   "Evicting too many pods at once during voluntary disruptions, breaching minimum availability",
+   "Excessive memory usage"
+  ],
+  "answer": 2,
+  "explanation": "A PDB constrains voluntary disruptions (drain, upgrade, scale-down): the eviction API rejects requests that would drop below minAvailable. It does not protect against involuntary failures, image pulls, or memory usage.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes High Availability Features",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q020",
+  "domain": "Troubleshooting",
+  "question": "During a rolling cluster upgrade, a WORKER node upgrade fails due to a transient network timeout. What is a reasonable action?",
+  "choices": [
+   "Immediately abort the entire upgrade and roll back the control plane",
+   "Troubleshoot and retry, or replace the node, then continue upgrading the remaining workers",
+   "Upgrade all remaining workers at once to save time",
+   "Delete etcd and reinitialize the cluster"
+  ],
+  "answer": 1,
+  "explanation": "A failed worker upgrade can be fixed-and-retried or the node replaced; then continue. You only stop hard if the CONTROL PLANE fails. Upgrading all workers at once risks downtime, and deleting etcd is catastrophic.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Preparing for a Kubernetes Cluster Upgrade",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q021",
+  "domain": "Troubleshooting",
+  "question": "In-cluster DNS resolution is failing for many pods. Which component should you check first?",
+  "choices": [
+   "kube-proxy on the control plane only",
+   "The metrics-server",
+   "The Helm release",
+   "CoreDNS pods in the kube-system namespace"
+  ],
+  "answer": 3,
+  "explanation": "CoreDNS (pods in kube-system, label k8s-app=kube-dns) provides cluster DNS; widespread resolution failures point there. Check the CoreDNS pods and logs. metrics-server is for metrics and Helm is unrelated to DNS.",
+  "source": "Kubernetes docs — Debug Services / DNS",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q022",
+  "domain": "Troubleshooting",
+  "question": "You want to test whether a Service is reachable and resolves by name from inside the cluster. What is a good approach?",
+  "choices": [
+   "Run a debug pod (e.g., busybox) and use nslookup and wget against the Service FQDN",
+   "kubectl top pods",
+   "Restart CoreDNS blindly",
+   "Edit the Service's ClusterIP manually"
+  ],
+  "answer": 0,
+  "explanation": "A throwaway debug pod (kubectl run tmp --image=busybox:1.28 --rm -it -- sh) lets you nslookup <svc>.<ns>.svc.cluster.local and wget the Service to isolate DNS vs routing. top shows resource usage, restarting CoreDNS blindly is premature, and ClusterIPs should not be hand-edited.",
+  "source": "Kubernetes docs — Debug Services / DNS",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q023",
+  "domain": "Troubleshooting",
+  "question": "A Service has endpoints, the pods are Ready, but clients still can't connect on the expected port. What should you check next?",
+  "choices": [
+   "That metrics-server is installed",
+   "That Helm history has 3 revisions",
+   "That the kubelet swap is enabled",
+   "That the Service port and targetPort are correct and no NetworkPolicy is blocking traffic"
+  ],
+  "answer": 3,
+  "explanation": "With healthy endpoints, suspect a port/targetPort mismatch or a NetworkPolicy silently dropping traffic. metrics-server, Helm revisions, and kubelet swap are unrelated to Service connectivity.",
+  "source": "Kubernetes docs — Debug Services / DNS",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q024",
+  "domain": "Troubleshooting",
+  "question": "Which best describes the recommended logging contract for applications in Kubernetes?",
+  "choices": [
+   "Write logs to a file inside the container and read it with kubectl exec",
+   "Write logs to stdout/stderr so the kubelet captures them and kubectl logs can read them",
+   "Push logs directly to etcd",
+   "Disable logging to save disk"
+  ],
+  "answer": 1,
+  "explanation": "Apps should log to stdout/stderr; the kubelet captures these streams (stored under /var/log/pods) and kubectl logs reads them. Writing to in-container files, pushing to etcd, or disabling logs all break standard observability.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q025",
+  "domain": "Troubleshooting",
+  "question": "A pod is stuck in ContainerCreating for several minutes. kubectl describe pod Events shows 'configmap \"app-config\" not found'. What is the fix?",
+  "choices": [
+   "Raise the pod's memory limit",
+   "Restart the kubelet",
+   "Create the missing ConfigMap (or fix the reference) the pod mounts",
+   "Increase the number of replicas"
+  ],
+  "answer": 2,
+  "explanation": "ContainerCreating often stalls on a missing mounted resource (ConfigMap, Secret, or PVC). The Events name the missing ConfigMap, so create it or correct the reference. Memory limits, kubelet restarts, and replica counts don't resolve a missing ConfigMap.",
+  "source": "Kubernetes docs — Debug Running Pods",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q026",
+  "domain": "Troubleshooting",
+  "question": "Which three mechanisms work together to enable zero-downtime cluster upgrades and node maintenance?",
+  "choices": [
+   "Secrets, ConfigMaps, and Volumes",
+   "Replicas, PodDisruptionBudgets, and pod anti-affinity",
+   "Ingress, NodePort, and LoadBalancer",
+   "Taints, tolerations, and finalizers"
+  ],
+  "answer": 1,
+  "explanation": "Replicas provide redundancy, PDBs prevent too many pods being evicted at once, and pod anti-affinity spreads replicas across nodes. Together they keep apps online during drains/upgrades. The other groups are unrelated configuration/storage/networking primitives.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes High Availability Features",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q027",
+  "domain": "Troubleshooting",
+  "question": "You need to see the last 100 log lines from a crashed previous instance of a single-container pod. Which command is correct?",
+  "choices": [
+   "kubectl logs <pod> --previous --tail=100",
+   "kubectl describe pod <pod> --tail=100",
+   "kubectl top pod <pod> --previous",
+   "kubectl get logs <pod> --last=100"
+  ],
+  "answer": 0,
+  "explanation": "kubectl logs supports --previous (the prior crashed instance) combined with --tail=100 (last 100 lines). describe and top do not show log content, and 'kubectl get logs' is not a valid command.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Centralized Logging in Kubernetes",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q028",
+  "domain": "Troubleshooting",
+  "question": "A node's Ready condition shows 'Unknown'. What does this most likely mean?",
+  "choices": [
+   "The node has plenty of resources and is healthy",
+   "The control plane has stopped receiving heartbeats from the node's kubelet (network or kubelet issue)",
+   "The pods on the node are OOMKilled",
+   "The Service selector is wrong"
+  ],
+  "answer": 1,
+  "explanation": "Ready=Unknown means the node controller hasn't heard from the kubelet within the grace period, typically a kubelet crash or node networking problem. It is not a sign of health, and it is unrelated to pod OOM kills or Service selectors.",
+  "source": "Kubernetes docs — Troubleshoot Clusters and Nodes",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q029",
+  "domain": "Troubleshooting",
+  "question": "Which command lists cluster events in chronological order to help spot the most recent failures?",
+  "choices": [
+   "kubectl get pods -o yaml",
+   "kubectl cluster-info dump --quiet",
+   "kubectl get events --sort-by=.metadata.creationTimestamp",
+   "kubectl top events"
+  ],
+  "answer": 2,
+  "explanation": "kubectl get events --sort-by=.metadata.creationTimestamp orders events by time so recent FailedScheduling, pull, probe, or eviction messages are easy to find. get pods -o yaml is verbose per-pod, cluster-info dump is for bulk export, and 'top events' is not valid.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Kubernetes Troubleshooting Workflow",
+  "domainKey": "troubleshooting"
+ },
+ {
+  "id": "ts-q030",
+  "domain": "Troubleshooting",
+  "question": "A pod CrashLoopBackOffs; logs --previous shows 'could not connect to redis-svc-typo:6379'. kubectl get svc lists the real service as guestbook-redis. What is the fix?",
+  "choices": [
+   "Increase the pod's CPU request",
+   "Cordon the node running the pod",
+   "Add an imagePullSecret",
+   "Update the app config so the Redis host points to the correct Service name (guestbook-redis)"
+  ],
+  "answer": 3,
+  "explanation": "The crash is caused by the app pointing at a non-existent service name; correct the Redis host to the real Service (guestbook-redis). CPU, cordoning, and pull secrets are unrelated to a wrong service hostname.",
+  "source": "Maintaining, Monitoring, and Troubleshooting Kubernetes — Troubleshooting CrashLoopBackOff",
+  "domainKey": "troubleshooting"
+ }
+]

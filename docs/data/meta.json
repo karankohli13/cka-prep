@@ -1,0 +1,31 @@
+{
+  "domains": [
+    {
+      "key": "storage",
+      "label": "Storage",
+      "weight": 10
+    },
+    {
+      "key": "workloads",
+      "label": "Workloads & Scheduling",
+      "weight": 15
+    },
+    {
+      "key": "services",
+      "label": "Services & Networking",
+      "weight": 20
+    },
+    {
+      "key": "cluster",
+      "label": "Cluster Architecture",
+      "weight": 25
+    },
+    {
+      "key": "troubleshooting",
+      "label": "Troubleshooting",
+      "weight": 30
+    }
+  ],
+  "totalCards": 170,
+  "totalQuestions": 107
+}

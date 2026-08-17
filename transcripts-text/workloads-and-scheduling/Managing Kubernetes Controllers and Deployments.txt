@@ -1,0 +1,2522 @@
+Managing Kubernetes Controllers and
+Deployments
+Course Overview
+Course Overview
+Hi everyone. My name is Anthony Nocentino, enterprise architect and founder of
+Centino Systems. Welcome to my course, Managing Kubernetes Controllers and
+Deployments. Are you a systems administrator or developer that needs to deploy
+workloads in Kubernetes clusters? If you do, then this is the course for you. In this
+course, we'll start our journey with an introduction to Kubernetes controllers. We'll
+learn what controllers are and how they maintain the desired state for our
+applications. Then we'll dive straight in and learn about the deployment
+controller, the primary way to deploy applications in Kubernetes. We'll start off
+with an introduction and the basics of using deployments, and then we'll dive
+deep and learn how we can use deployments to maintain our applications. We'll
+learn techniques on how to update, roll back, and scale our deployments in
+Kubernetes. And to wrap it up, we'll look closely at some additional controllers in
+Kubernetes, the DaemonSet job, CronJob, and StatefulSet. We'll learn what
+scenarios we would want to use these controllers in, and how to create,
+update, and manage applications deployed using these controllers. By the end of
+this course, you'll have what it takes to roll out, maintain, and scale production
+workloads in Kubernetes. Before beginning this course, you should be familiar
+with the Linux operating system and administering it at the command line. You
+should have a firm understanding of TCP/IP-based networking and
+also understand the fundamental concepts of containers. You'll also need to
+know the core concepts of Kubernetes, like what a cluster is and how to interact
+with your cluster at the command line. I hope you'll join me on this journey to
+learn how to deploy and manage workloads in Kubernetes in the course,
+Managing Kubernetes Controllers and Deployments.
+Using Controllers to Deploy Applications and
+Deployment Basics
+Introduction, Course and Module Overview
+Hello. This is Anthony Nocentino with Centino Systems. Welcome to my course,
+Managing Kubernetes Controllers and Deployments. In this module, we're going
+to kick it off with a course introduction and then dive straight into the content
+with an overview of controllers and then get started looking at the primary way to
+deploy applications in Kubernetes with a deployment. Let's kick it off with a
+course overview. In this molecule, we'll start our journey into looking at
+controllers. We'll learn what controllers are, how they maintain the desired state
+for our applications, and how they can be used to deploy applications in
+Kubernetes. Then, we'll dive straight in and learn about the basic elements of
+the deployment controller. This is the primary way to deploy applications in
+Kubernetes. Then, in the next module, we'll look much more closely at the
+deployment controller, and we'll see how we can use it to maintain
+applications. We'll learn techniques on how to update, rollback, and scale our
+deployments in Kubernetes. And then finally, in the last module, we'll look closely
+at two additional controllers, the DaemonSet and the Job. We'll learn what
+scenarios we'd want to use these in and how to create, update, and manage
+applications deployed using these controllers. In this module, we will begin with
+understanding the need for controllers in Kubernetes and how they're used to
+deploy applications and maintain application state. We will look at the internals of
+the controller manager and how it implements watch loops to determine the
+status of the controller and control Pod deployments, keeping our applications in
+the desired state. Next, we will introduce the core controllers, which are
+Deployments, StatefulSets, DaemonSets, and Jobs. Then, we'll move into a basic
+introduction of the Deployment controller, learning how to deploy applications in
+Kubernetes. And finally, we will look at ReplicaSets, learning how they're used to
+manage Pods and their state in our clusters.
+Kubernetes Principals, the Controller Manager, and
+Introduction to Controllers
+Let's start off with the defining principles of Kubernetes, and first up is a desired
+state with the declarative configuration. We define our application's deployment
+state in code, defining what we want to deploy, and Kubernetes will make that
+happen for us, pulling the specified container images and starting them up in
+Pods. We write code describing this, and Kubernetes does the work to bring our
+cluster into the desired state. Next up is controllers. Controllers are used to keep
+your application or your deployment in the desired state, and this is the core
+focus of this course. Controllers will monitor the current state of the cluster and, if
+needed, make changes to get the cluster into the desired state. And then finally,
+the API server. The API server is the core information hub inside of Kubernetes
+This is where administrators interact with Kubernetes and where other parts of
+the cluster, such as controllers, interact with the cluster to understand the
+current state and to make changes to that state when needed. Looking more
+closely at the control plane node, we see the API server, the cluster store, the
+scheduler, and the controller manager. The controller manager function is
+implemented and runs on the control plane node. It interacts with the API server
+to ensure that we maintain the desired state that we define in our cluster. The
+controller manager has the job of implementing the lifecycle function of
+controllers, and we'll look at the different types of controllers and the resources
+that they control throughout this module and the remainder of the
+course. Looking more closely at the controller manager, there's two different
+controller managers that'll support workloads and the desired state of your
+applications in your cluster. And first up is the kube-controller-manager. The
+kube-controller-manager is responsible for running the core controllers and
+keeping the cluster in the desired state using control loops, which run on the
+control plane node. And there's only one kube-controller-manager per
+cluster. Many controllers run inside of the controller manager process, and here's
+where you'll find the control loops executing and supported things like
+deployments, replica sets, and service endpoints and other various controllers
+used to support your workloads in your Kubernetes clusters. The second type of
+controller manager is the cloud-controller-manager. These cloud-specific
+controllers or control loops were originally implemented inside of the kube-
+controller-manager, but this functionality was abstracted into cloud-specific
+controller managers, enabling cloud providers to build controllers specific to their
+resources in their environments. Moving this functionality into a dedicated
+controller manager has allowed cloud vendors to evolve their code
+independently from the core Kubernetes code and at their own pace. The cloud-
+controller-manager runs controllers to interact with the underlying cloud
+provider resources, so things like load balancers, network routes, and volume
+controllers, essentially the physical infrastructure inside of your cloud provider. So
+now that we know the controller manager runs controllers sometimes called
+control loops on the control plane node, what exactly does a controller do? A
+controller watches the state of the cluster through the API server and makes
+changes to move the current state of the cluster into the desired state. And so,
+for example, if I tell Kubernetes to instantiate a controller that runs four Pods on
+a particular container image at all times in my cluster, well, Kubernetes will ensure
+that four Pods are running at all times in the cluster if possible. Controllers use a
+watch mechanism to be notified of changes to the resources that they're
+monitoring, but also periodically poll for updated information when needed. We
+introduced the watch functionality in my course, Managing the Kubernetes API
+Server and Pods. Now, any operation that's needed to move the cluster into the
+desired state will be generated by the controller and submitted to the API
+server. The API server will handle the request and, if needed, persists the change
+to etcd, moving the cluster from the current state to the desired state. Now it's
+time to look more closely at the controllers that are available for us to build
+workloads inside of Kubernetes, and we're going to organize those into two
+buckets for today, controllers that control Pods and controllers that control
+other resources inside of our Kubernetes clusters. Now, as for the controllers that
+manage Pods, well, first up, is the ReplicaSet. The ReplicaSet deploys and
+maintains a defined number of Pods from a Pod template. A Pod template is a
+definition of what container image you want to run and its configuration. A
+deployment allows for declarative updates of Pods and ReplicaSets, enabling you
+to move between versions of container images and easily scale and manage your
+applications. This is the core way to deploy applications inside of Kubernetes, and
+we will spend a large portion of this course discussing creating, updating, and
+managing deployments. The DaemonSet ensures that all or some nodes in a
+cluster run a Pod. A primary example is the kube proxy for networking services
+inside of your cluster. It's deployed as a DaemonSet and runs on each node in
+your cluster. Other example workloads include log collectors and monitoring
+agents. The StatefulSet allows for stateful applications to be managed by a
+controller providing unique network names, persistent storage, and ordered
+operations for scaling and also rolling updates. Now, the controllers so far
+introduced start up a workload and run those workloads continuously remaining
+in that running state. A Job is slightly different. A Job creates one or more Pods
+and ensures that a defined number of them successfully terminate. This is
+commonly used to instantiate and run batch workloads inside of your cluster. And
+then finally, the CronJob. The CronJob creates and manages jobs based on a
+defined schedule. This is the same type of job that we just introduced. Now, let's
+look at some other controller types available to us inside of Kubernetes. First up is
+the Node controller. The Node controller has the responsibility for monitoring the
+state of the nodes in a cluster. Are they up? Are they down? What's the status of
+the resources available on the nodes? Then, there's the Service controller, which
+manages the creation and deletion of load balancers from infrastructure. Not
+quite what you think in terms of managing services, but it manages the load
+balancer itself rather than the service. Then there's the Endpoint controller, which
+updates and manages service endpoints for Pods and services based on the
+label selectors defined, basically which Pod IPs belong to which services defined
+in the cluster. Now, there are many more controllers available to you inside of
+Kubernetes, the Namespace controller, Route controller, Cloud controller,
+PersistentVolume controller, and so on. But these are the core ones that we're
+going to use to build applications inside our Kubernetes clusters throughout this
+course and likely the core ones that you'll be using to build the core workloads
+inside of your cluster.
+Lab Environment Review
+Before we kick off our first demonstration in this course, let's review the lab
+environment. We initially constructed this lab in the course
+Kubernetes Installation and Configuration Fundamentals. Now our virtual
+machines are going to be the same. They're going to be Ubuntu 22.04, VMware
+Fusion VMs with 2 vCPUs, 2 GB of RAM, and 100 GB of disk space with the swap
+disabled, as required by the kubelet. For this lab, you can use any underlying
+hypervisor that you want. I just so happen to be using VMware Fusion. Now, to
+take DNS out of the equation in our lab, I have hostnames set for each server and
+specified in a host file on each of the virtual machines in the lab. As for the virtual
+machines that make up the lab, we're going to have one control plane node, c1-
+cp1, where we'll be driving all of our demonstrations from. We'll SSH into c1-cp1
+and use kubectl locally on that server. In addition to the control plane node, we're
+going to have three nodes in our lab, c1-node1, c1-node2, and c1-node3, and
+they're all going to be statically IP addressed with the addresses shown here on
+the screen. Now, if you need help constructing this lab, head over to my
+course, Kubernetes Installation and Configuration Fundamentals, and you'll get
+bootstrapped with this configuration, I also want to call out that c1-cp1 used to be
+called c1-master1 in this series of courses. We have since renamed it to c1-cp1
+to keep up with current terminology in Kubernetes. So if you see c1-master1 in a
+demo, know that it's functionally the same as c1-cp1.
+Demo: Examining System Pods and Their Controllers
+All right, so let's get into our first demo, and we're going to look at some
+controllers that you probably already have up and running inside of your
+cluster. We're going to examine your system Pods and the controllers that
+support them. So here we are logged into c1-master1, which is the master node in
+the cluster that we built that we're using in this series of courses on Kubernetes
+at Pluralsight. Now, the first thing we're going to do is we're going to examine
+some system Pods and their supporting controllers, and I want to start off kind of
+from a discovery standpoint and ask Kubernetes, well, give me all of the
+resources that you have available in the kube-system namespace. And to do that,
+we use kubectl get --namespace kube-system all. And so here we go down the
+line 10. Let's go ahead and run that code together. Now on the output here, we
+see a collection of different resources that are up and running in our cluster. And
+so let's go ahead and start at the top here. We see a collection of Pods
+supporting various types of system functionality in our cluster. We see things like
+the API server, the controller manager, and the kube-proxy. If we go down a little
+bit further, we can see a collection of services that are up and running. We see
+kube-dns and calico-typha. In our daemonaets, we see calico-node and kube-
+proxy and some deployments that are up and running as well. We see a calico-
+typha deployment and also a coredns deployment. And below those, we see the
+replicasets that make up those deployments. So let's go ahead and get back to
+the top here and go down a little bit further and look more closely at an
+individual resource that's up and running. So here we see that we want to look
+more closely at a deployment for coredns, and so we can ask Kubernetes for a
+little bit more information. We can say kubectl get --namespace kube-system
+deployments coredns. I run that code there, and we can see that there is the
+output of the current status of our deployment. So our coredns deployment
+requires that two Pods are up, and there are. There are two Pods that are up and
+ready. Now that's going to be defined in the code that describes what we want
+Kubernetes to do, in this case the coredns deployment requires that two Pods be
+up and running, and that certainly is the case here. If we go down a little bit
+further, we can do the same thing, but for DaemonSets this time. And so we can
+ask Kubernetes, hey, kubectl get from the namespace kube-system the
+information about the various DaemonSets that are available. So here we see we
+have two different DaemonSets that are up and running, one for calico-node and
+one for kube-proxy. Calico-node is part of our Pod network that we've been
+using inside of our cluster and kube-proxy being the Pod supporting networking
+inside of our Kubernetes cluster. Now, you might wonder, why are there four of
+each one of these? Well, let's go a little bit further and ask Kubernetes for the
+number of nodes. If you recall from the presentation portion of the course, a
+DaemonSet has a responsibility on running one Pod on all the nodes in a cluster
+or a subset of nodes in a cluster. In this case, we're running Pods on each node in
+a cluster because we're supporting the networking that goes into our Kubernetes
+cluster.
+Introducing the Deployment Controller and Deployment
+Basics
+Now, let's start our journey looking more closely at a specific type of controller in
+Kubernetes, the deployment. The deployment is used to provide declarative
+updates to ReplicaSets and their constituent Pods. We define the state of our
+deployment, and the deployment controller will move us towards that desired
+state. The deployment controller provides the orchestration for things like Pod
+creation and deletion, again, driving us towards the state that we define in our
+deployment. We can also use the deployment controller to maintain the state of
+our application over time, rolling out new versions of our application or rolling
+back using a defined update strategy that we can configure inside of our
+deployment's definition. We can also leverage deployments to scale up or scale
+down our applications either with manual intervention or automatically scaling
+those Pods for us. So in terms of managing application state with deployments
+inside of Kubernetes, we're going to focus on three primary operations, creating,
+updating, and scaling. In this module, we're going to focus on creating basic
+deployments. In the module Maintaining Applications with Deployments, we'll
+look more closely at updating deployments and controlling the rollout of those
+updates, as well as scaling our deployments. And so now, let's look more closely
+at what it takes to define a deployment in Kubernetes. The preferred way to
+manage workloads in Kubernetes is declaratively where we define our objects in
+code, most likely YAML, and give that to the API server to process and create
+those resources for us. In deployments, we'll write a deployment spec in
+YAML. And in that spec, it'll consist of several parts. And first up is the
+selector. The selector is used for determining which Pods belong to the
+deployment. The number of replicas or the number of Pods to create in
+a deployment is the next required element. And then, there's the Pod
+template. The Pod template defines the technical details for our container-based
+applications. These are the Pods that will be created by the ReplicaSets that
+support this deployment. If you want to dig into the details of a Pod definition, go
+ahead and check out my course Managing the Kubernetes API Server and
+Pods. Now, another way to create and configure deployments is imperatively at
+the command line. An imperative configuration will execute a sequence of
+commands to get our system in the state that we want it to be in. This is not the
+preferred way for managing deployments, but a useful way to quickly get
+operations completed. And so here, we can see kubectl create deployment hello-
+world, and hello-world is the name of the deployment that we're going to
+create. We also add in the --image parameter with the path to the actual
+container image that we run a run inside of this particular deployment. This
+command here will create a deployment with exactly one replica in i, running the
+hello-app container image. If you wanted to scale this deployment with an
+imperative command, we can use kubectl scale deployment hello-world, which is
+the name of the deployment, and then pass in the parameter --replicas=5. This
+will create four additional Pods in the deployment for a total of 5 replicas, driving
+the cluster from the current state to the desired state. So now we have the core
+concepts of deployments under our belt, let's look at how we actually write the
+code or the YAML to deploy a deployment inside of Kubernetes. And much like
+any other resource in Kubernetes, we start off with an apiVersion, a kind, a
+metadata, and the spec. And so let's walk through these elements before we
+jump into the spec. The apiVersion is going to be apps/v1. The kind is going to be
+Deployment. And of course, for metadata, we're going to give it a name. In this
+case, is going to be hello-world. Now in the spec, this is going to be the technical
+implementation details of the object, of the deployment. So the first thing that
+we're going to need is the number of replicas that we want to have up and
+running. And so, in this workload, we're going to have five, but this is going to be
+whatever it takes to run your container-based application. Next, we define a
+selector for determining membership, like which Pods belong to this
+deployment. In this case, we're going to use matchLabels as our selector type. We
+have the option of using matchLabels or matchExpressions. Here, we're going to
+use matchLabels. We'll discuss matchExpressions later on into this module. Our
+key and our value are going to be app and hello-world. And here we see the start
+of the Pod template. This is the core part of our deployment, or this is the
+template that's going to be used to create the Pods that are a member of this
+deployment. And so the first thing that we need to define is the metadata and
+the labels associated with these Pods. In this case, it's going to have to be app
+equals hello-world because we want this to match the selector inside of our
+deployment spec here at the top. Now, inside the Pod template, we're going to
+have a second spec, but this is going to be for the Pod template itself, and so
+we'll have the containers and the container configuration inside this portion of
+the Pod template. And so these are the core elements that you need to build a
+deployment inside of Kubernetes. It's going to be the replicas, the selector, and
+the Pod template. Now we take all this information, we save it into a file, and we
+use kubectl apply -f and ship that into the API server for creation. So now that we
+have the core concepts of deployments under our belt and we looked at the
+code that it takes to create a deployment, let's get a visualization of what occurs
+when we ask Kubernetes to create a deployment for us. And so, we're going to
+look at this from the cluster level. And let's say we come along and we ask
+Kubernetes to make a deployment for us. Well, the first thing that that's going to
+do is create a ReplicaSet, and the ReplicaSet has the responsibility of
+instantiating the number of replicas defined in the deployment spec. And
+now, there's one other piece of the puzzle to get users access into
+these container-based applications that are running inside of these Pods. We'll
+have to front end our deployment with a service. And so in this case here, we're
+going to define an HTTP service for access into these Pod-based
+applications. Now, not required for deployment, but we certainly want to be able
+to have people access the resources that we're exposing in a deployment. And so
+this is what it looks like when we've rolled out applications inside of
+Kubernetes. We combine the service for access and the deployment for
+managing our application state.
+Demo: Creating a Basic Deployment Imperatively and
+Declaratively
+Let's get into another demo and look at how we can create deployments, both
+imperatively and declaratively. All right, so here we are logged into c1-cp1, and
+let's get started with creating a deployment imperatively with kubectl create. Now
+when working with kubectl create, you have a lot of parameters available to you
+to specify the image, the container ports, and number of replicas. We're going to
+do a basic command here on line 8 where we just specify the only required
+parameter, which is a container image. And so on line 8, we have kubectl create
+deployment and then the deployment name hello-world and then the parameter
+--image to tell the deployment which container image to use. And here we're
+using our hello-app application from the Google Container Registry. Now when I
+run that code, that's going to create a deployment. In the output here, we see
+deployment.apps/hello-world created. That deployment will create a
+ReplicaSet, which will create exactly one Pod since we didn't specify the
+number of replicas on the command line here on line 8. Now we can scale this
+deployment by using the command on line 9, kubectl scale deployment hello-
+world --replicas=5, and I will create the four additional replicas bringing us to the
+desired state of 5. And so in the input at the bottom, we see deployment.apps/
+hello-world scaled. Now I do want to call out, again just to give you an
+example, that we can combine those parameters together. And so line 13, I have
+an example of that for you where I specify both the image parameter and a
+replicas parameter. Check out the --help options to dig into the available
+parameters for you to use when using kubectl create deployment. Now if I do
+kubectl get deployment, we'll see that our deployment is available to us. And so
+in the output, we have hello-world as the deployment name. We have READY 5 of
+5, so 5 replicas are up, running and ready. Now the output here, READY, UP-TO-
+DATE, and AVAILABLE, describes kind of the various states of a deployment. Now,
+right now, we're going to focus on the fact that just five replicas are up and
+running. And later on in this module, and then in the rest of the course, we're
+going to dig into what each of these columns means. So that's our imperative
+deployment. Let's go ahead and delete that imperative deployment and move
+on to the second part of the demonstration where we're going to create a
+deployment declaratively. Now, on line 29, I have the command kubectl apply -f
+deployment.yaml. Let's dig into that actual deployment file, which I have
+available to us here. So this is the same deployment that we walked through
+in the presentation portion of the course where we've defined our apiVersion as
+apps/v1, our kind as deployment, and the metadata, or the name of the
+deployment, is hello-world. Now, in the deployment spec, scroll down a little bit
+here. On line 6, we have replicas equals 5. On line 7, we have the selector, which is
+of type matchLabels. And there, the key and the value are app and hello-
+world. Inside the Pod template, we have the metadata associated with each Pod
+that will be created by this deployment defining the labels app hello-world that
+matches the selector into the deployment spec above. Now, in the Pod template
+spec, we're saying we're going to launch this one container named hello-
+world. And again, we're going to be using our hello-app container from the
+Google Container Registry. I also have in here a service that's going to be created
+with our deployment as part of this deployment that we're creating together. So
+let's jump back to our driver script and run the code on line 29 together. And at
+the bottom, we see both resources are created. We see deployment.apps/hello-
+world created and service/hello-world created. And so now, let's check out the
+status of that deployment that we just created declaratively. Do a kubectl get
+deployments, define a deployment named hello-world. In the output at the
+bottom, you see the name hello-world and that 5 of 5 replicas are up, running
+and ready. Now, it's the responsibility of the deployment to create a ReplicaSet,
+and let's look at the ReplicaSet that was created by this deployment. And so let's
+do a kubectl get replicasets. And in the output at the bottom, we see the name of
+the ReplicaSet, hello-world, which also matches the deployment name. Next to
+that in the ReplicaSet name, we see the Pod template hash, 54575d5b77. And so
+that's a hash actually of the Pod template spec. Now this ReplicaSet has the
+responsibility of starting up and keeping five Pods online. And so there we see
+the various states of the ReplicaSet, that 5 are desired, the 5 are current, and that
+5 are ready. And so let's look more closely at those Pods that were created by
+that ReplicaSet. We can do that with kubectl get pods. And so there we see the
+five Pods associated with that ReplicaSet, and we can kind of decipher that from
+the name of the Pod that's running. So let's kind of break that apart there. So the
+first part, we see hello-world, which is the name of the deployment. Then we see
+the Pod template hash in the middle there ending in b77 and then a unique
+identifier attached to the end. And so just visually, we can see real quickly that
+we can make a determination that these Pods belong to that deployment on that
+ReplicaSet. But if you want to see this from another angle, we can use kubectl
+describe pods to help us see that. And so each Pod will also have a field in its
+output that tells you which controller is controlling that Pod. And at the bottom
+there, we can see that this Pod is controlled by the ReplicaSet hello-world with
+the Pod template hash ending in b77. Now, so far in this demo, we've created a
+deployment imperatively, and we looked at the relationship of the deployment
+with the ReplicaSet and the Pods. Let's take a really close look at the deployment
+itself with kubectl describe deployment. We'll run that code and scroll up in the
+output here. So in the output, we see the name is hello-world. We see the
+selector app=hello-world. And that's how the deployment is able to determine
+which Pods are a member of this deployment. Now we see the number of replicas
+associated with this particular deployment in various states. We see 5 desired, 5
+updated, 5 total, 5 available, and 0 unavailable. We're going to dive deep into
+each one of those states later on in the course. Scrolling down in the output
+here, we see the Pod template. So each Pod that is created from this deployment
+will look like this. So there we see the labels associated with the Pod and
+the containers defined in this Pod template. Scrolling down a little bit further in
+the output in the events, we can see ScalingReplicaSet and from deployment-
+controller. So it was the responsibility of the deployment-controller to scale that
+ReplicaSet up. So in the message on the right there, we see Scaled up replica set
+hello-world then the Pod template hash ending in b77 to 5, or 5 replicas. And so it
+was the responsibility of this deployment to create the ReplicaSet, and then it's
+the responsibility of the ReplicaSet to create the Pods associated with the
+deployment. And so that's a wrap for this demo. Let's go ahead and clean up our
+resources with kubectl delete deployment hello-world and kubectl delete service
+hello-world.
+Understanding ReplicaSet Controller Operations
+So far in this course, we've learned that deployments are made of ReplicaSets
+and learned how deployments create ReplicaSets automatically for us based
+on what's defined in the deployment spec. Now, let's take some time to zoom in
+on what a ReplicaSet is and how it functions. A ReplicaSet deploys a defined
+number of Pods in a cluster and ensures that that number of Pods are always
+online and ready inside of a cluster. A ReplicaSet consists of a selector, which
+determines what Pods are a member of the ReplicaSet, a defined number of
+replicas to start, and also a Pod template. So in the example deployment that we
+just walked through, we had to define all three of these elements inside of the
+deployment spec since the deployment will create our ReplicaSets for us. Now,
+generally speaking, you don't create ReplicaSets directly. You create
+deployments, which then create the ReplicaSets for you. But in this part of the
+module, we will create a few ReplicaSets directly so that you can see how they're
+built and how they operate. But the main idea here is to examine the behavior of
+a ReplicaSet, knowing that it's the underlying building block of a
+deployment. Let's get a visualization of the core operations of a ReplicaSet in a
+Kubernetes cluster. And so let's say we have a cluster and we declare a
+ReplicaSet of four Pods, and the selector for this ReplicaSet is going to look for
+the R1 label on the Pods to determine who is a member of this ReplicaSet. Now,
+let's say something comes along and interrupts access to one of these
+Pods. Maybe the application crashed. Maybe the node died. Maybe the Pod was
+terminated. For whatever reason, that Pod is no longer available in the cluster. It's
+the responsibility of the ReplicaSet controller to sense that this has occurred and
+that the cluster has deviated from the desired state. It's able to determine this
+because the number of replicas running in the cluster that match the selector is
+only three, and the desired number of replicas is four. And so the ReplicaSet
+controller will kill off that failed Pod and delete it and send a creation request into
+the API server to create a new Pod in the cluster, making sure that we stay in the
+desired state of four replicas for this ReplicaSet. Now, later, let's say
+administratively we come along, and we remove a label from a Pod that was the
+selector for this ReplicaSet. Now, what's the ReplicaSet controller going to do
+here? Well, that Pod no longer satisfies the selector for the ReplicaSet, and the
+ReplicaSet controller sees that there are only three Pods supporting the
+ReplicaSet. And so what it's going to do is it's going to remove that Pod from
+the ReplicaSet and create a new Pod in the ReplicaSet to get us back into
+that define desired state of four Pods for this ReplicaSet. Let's look at what it
+takes to build a ReplicaSet in YAML. Now I do want to call out that you'll very
+rarely want to create ReplicaSets directly. You'll want to create deployments,
+which create ReplicaSets for you. But I want to show this to you so you have the
+skill in your toolbelt if needed. First up, we define an apiVersion, which is going to
+be apps/v1. And we're going to have a kind, which is going to be a
+ReplicaSet. That's the object that we're trying to create here. Jumping right into
+the spec, we see that we have a defined number of replicas, in this case 1. We'll
+define a selector for determining Pod membership. In this case, we use the
+matchLabels selector type and a key and value pair of app and hello-world-
+pod. Now we begin the Pod template, and the metadata for that will have the
+labels associated with the Pod the ReplicaSet creates. In this case, it's going to
+be app and hello-world-pod. These will have to match for determining which
+Pods are a member of this particular ReplicaSet. Inside of the Pod template, we'll
+have a second spec, which is the Pod template spec. Inside of there, we'll have
+the container definition with regards to things like the image and the networking
+configuration and other Pod-specific configurations. The three required elements
+of a ReplicaSet are the Pod template, the number of replicas, and a selector. Let's
+take a closer look at ReplicaSet selectors. ReplicaSet selectors allow for more
+complex set-based selectors. In ReplicaSets, we can use both matchLabels, which
+we've seen in our example so far, and also matchExpressions. MatchExpressions
+is a selector that will allow you to use operators, such as In, NotIn, Exists, and
+DoesNotExist, when looking at the label's keys and values for a particular Pod
+resource. Using matchExpressions, you can build more complex representations
+of your application state inside of Kubernetes. So let's take a look at the code
+required to use a matchExpression as a ReplicaSet selector. So the code we have
+up here now shows a selector that we defined before in a previous example using
+a matchLabel selector with the key of app and a value of hello-world-pod. Now to
+use matchExpressions as a selector, it's going to look kind of similar, but we're
+going to obviously change the code around matchSelector. And so let's go ahead
+and walk through that code now. So we'll start off with apiVersion, kind, metadata,
+and spec, defining the number of replicas here. We have 1. Then, in the selector
+section, we'll define matchExpressions. So notice the difference there. On the left,
+we're using matchLabels. On the right, we're using matchExpressions. Then, we
+define the key that we're going to use, which is going to be app. The operator is
+going to be In. And the value that we're going to be looking for is hello-world-
+pod-me. Now with that, the matchExpression is going to say does the key app
+have the value hello-world-pod-me in the set of values in that particular
+key? Now the remainder of the ReplicaSet is going to look familiar to you. So it's
+going to be a Pod template defining the metadata, labels. And, of course, for the
+Pods that get stamped out by this particular Pod template for this
+ReplicaSet, we'll need the labels so that they have something that matches. In
+this case, it does. And the spec and then finally the remainder of the technical
+details for that container-based application in this Pod. So here, these two are
+actually logically equivalent. On the left, we have the matchLabels where it's key
+and the value of app and hello-world-pod. On the right, we have app hello-world-
+pod-me. And so logically, they'll do the same thing. It's this individual label and
+that set of values for the matchExpression. Let's discuss how ReplicaSets handle
+failures inside of Kubernetes. If a Pod dies or perhaps it's accidentally deleted, it's
+the responsibility of the ReplicaSet controller to submit a new Pod to be created
+to the API server to ensure that the desire number of Pods are up and
+running. Now, if there's a node failure, there's two different scenarios that we
+need to look at, transient failures and permanent failures. In a transient
+failure, perhaps there was a networking issue that caused a node to
+become unreachable for a short period of time or even a node is rebooted
+and crashed and quickly restarted and is back up and ready again. If these
+events happen, the Pods on that node will be marked with an error status on the
+API server because the controller manager cannot reach those Pods to get their
+actual status. Now, if a node comes back online and the Pods on that node aren't
+running, the container restart policy applies, and the kubelet restarts the
+containers inside of those Pods on that node, and that's because those Pods are
+still scheduled on that node in the cluster. Now, what happens if we lose a node
+for good? We need a way to tell Kubernetes to give up on those Pods after some
+extended period of time. And on the kube-controller-manager, there's the pod-
+eviction-timeout setting, which defaults to 5 minutes. After 5 minutes, those Pods
+that were on that node will be marked for termination on the API server, and new
+Pods will be created by the replicas of controller in the cluster to ensure that
+we're in the desired state for our ReplicaSet. Now, let's take a side note and
+examine replication controllers. If you're cruising the web and you come across
+some legacy documentation or code samples, you might see an API object of
+ReplicationController. A ReplicationController is the predecessor to a ReplicaSet
+with the key difference being that a ReplicationController can have only a
+single label or key value pair used for determining Pod membership to
+that particular ReplicationController. Now, a ReplicaSet, as we discussed in this
+module, allows for more expressive representations of state with set-based
+selectors using matchExpressions. And now, as we've discussed, we won't be
+deploying ReplicaSets directly. We will want to use the higher-level construct
+deployments to manage the ReplicaSets for us.
+Demo: Creating a Deployment and ReplicaSet Controller
+Operations
+So here we are in our demo. And for demoing ReplicaSets, I'm actually going to
+create a deployment first, which is, of course, going to create a ReplicaSet for
+us. And then within that, we'll work through some various ReplicaSet demos. And
+we'll start off with deleting a Pod in a ReplicaSet, isolating the Pod from a
+ReplicaSet by changing its label, and then reclaiming that Pod or taking over that
+Pod to bring it back into the ReplicaSet by adjusting its label again. Then we'll
+also look closely at some node failures, both transient and permanent. Let's get
+started. So here we are logged into c1-master1. And the very first thing that we're
+going to do here is create a deployment, which is then going to create a
+ReplicaSet for us. And so on line 7 here, we see kubectl apply -f
+deployment.yaml. Let's go and take a quick peek at this deployment.yaml, and it's
+the one that we've been using so far in the course, our simple hello-world
+deployment kicking off five replicas. And this particular deployment is going to
+use a matchLabels selector of app and hello-world. Down in the Pod template, we
+can see the labels being applied and the subsequent spec for the containers
+inside of this particular Pod. We have a service also defined at the bottom of this
+deployment.yaml file. So let's jump back over, run that code, and there we can
+see deployment.apps/hello-world created and also the service created. Now, that
+deployment has the responsibility of instantiating a ReplicaSet based on the
+number of replicas, the Pod template, and the label selector defined. So let's go
+ahead and look at what it created for us. So here we can see the deployment
+created a ReplicaSet, so hello-world-5646fcc96b with the desired number of our
+replicas up and running, 5. Now, if we get a little bit further and use my favorite
+command in Kubernetes, describe, we're going to say kubectl describe replicaset
+hello-world. And that's going to give us the deep-dive information about
+the ReplicaSet that that deployment just created for us. So let's go ahead and
+scroll back to the top here and see what it has. So here we can see the name
+hello-world and then the Pod template hash. It's in the default namespace, and
+there's the selector. So we see app=hello-world, which is part of the matchLabels
+and the label selector that was applied and then also the Pod template hash for
+determining membership to that particular deployment managing this
+ReplicaSet. We'll learn much more about the Pod template hash in the next
+module. But for now, know that it's used to uniquely identify ReplicaSets within a
+deployment since a deployment could have multiple ReplicaSets associated with
+it. If we go down a little bit further, we can see that this ReplicaSet is controlled
+by the deployment hello-world and that five replicas are up and running. Inside
+of the Pod template, we can see the labels that are being applied to the Pods
+that are created by this ReplicaSet and also the container definition. And at the
+bottom here, we can see in the event that the ReplicaSet controller had the
+responsibility of creating five Pods, and there we can see five successful Pod
+creations at the bottom there. Now, let's go ahead and delete this particular
+deployment with kubectl delete deployment hello-world. That's going to go
+ahead and delete that for us and also delete the subsequent ReplicaSets. So
+here, we can see if I do kubectl get geplicaset, that when we delete the
+deployment, it also deletes the owned or the controlled ReplicaSet. There we see
+No resources found. Now, I'm going to go ahead and recreate that ReplicaSet, but
+using a matchExpression. So let's go ahead and look at the code for that here
+in deployment-me.yaml. So it starts off just like any other deployment,
+so apiVersion apps/v1, kind deployment, metadata giving it a name. And then
+inside of the spec, we see five replicas. There we see a selector, but here's a key
+difference from the previous deployment is that we're going to be using the
+matchExpressions selector. Here, we see that the key is app, the operator is In,
+and the values that we're going to be looking for, hello-world-pod-me. Let's go
+down a little bit further and look at the Pod template, and there we see in the
+metadata the labels that we're going to be using for this particular Pod template,
+app hello-world me. So that's going to be what our ReplicaSet will stamp out for
+us when it creates the Pods required. The remainder of this deployment looks just
+like the other one where we're defining the spec for this particular Pod with
+its containers and also creating a service. And so let's jump back over to our
+demo script and use kubectl apply -f deployment-me.yaml to create that
+matchExpressions-based deployment. Then, check on the status of that
+ReplicaSet that it created, and here we can see it created a new ReplicaSet,
+hello-world-f597dc95. And there we can see the desired number of replicas is up
+and running, 5. Now let's go ahead and use that kubectl describe command for
+the replicaset hello-world. It's going to run that code. If we scroll back to the top
+here, I do want to point out a key difference between the two different types
+of ReplicaSets based on the two different types of selectors,
+matchExpressions versus matchLabels. There, we can see in the selector app
+in (hello-world-pod-me), and then the Pod template hash. So you can see that
+the representation of the selector is slightly different where before, when we
+were using a matchLabels, it was using equality. And when we use the
+matchExpression, it's going to use the operation, and, in this case, it's going to
+be In. Now let's go ahead and move forward in this demo. We're going to keep this
+ReplicaSet and deployment alive. We're going to do some other things with these
+particular Pods. And the first thing we're going to do is actually delete a Pod and
+see how Kubernetes reacts when we administratively delete a Pod inside of a
+ReplicaSet. And so let's go ahead and grab this code and throw it in our clipboard,
+so kubectl delete pods hello-world-. Go ahead and throw that down at the
+bottom here and leverage tab completion to finish that for us. Let's go and grab
+that first Pod in the list there. So, what we're going to do here is delete an
+individual Pod and see what Kubernetes does for us, so kubectl delete pods
+hello-world, there's the Pod template hash f597dc95- and then the Pod
+identifier 4m6n4. Let's go ahead and run that code and see what happens.
+Now with that finished, let's go ahead and run kubectl get pods again and see
+what Kubernetes did. So we deleted that individual Pod. But if you look right
+there in the middle of that output in the Pod ending with drrnj, we see that its
+runtime is only about 11 seconds. So, as soon as we deleted that Pod, Kubernetes
+and the ReplicaSet controller was like, wait a second. You told me to have five
+replicas up and running at all times. Here's a new Pod and creates that new Pod
+in our cluster for us.
+Demo: ReplicaSet Controller Operations - Working with
+Labels and Selectors
+Let's go ahead and keep moving forward. Now, we're going to go ahead and
+isolate a Pod from a ReplicaSet by changing its labels, and I covered this in great
+detail in my previous course, Managing the Kubernetes API Server and Pods, in
+module 2 if you want to get into much more detail about that. But here, we're
+going to keep this to the context of ReplicaSets and deployments. But like I said,
+if you want more detail, go ahead and check out that module in that
+course. So, let's ask Kubernetes to give us a listing of all of our Pods and their
+labels. So here we see the collection of five Pods that belongs to this
+ReplicaSet, and there's two labels that are being applied, app=hello-world-pod-
+me and then the Pod template hash f597dc95. Now, I'm going to go ahead and
+change one of these Pod's labels. And so let's go and grab this code here, throw
+this at the bottom, and leverage auto complete again to grab an individual Pod,
+so we'll grab the first one on the list here. And so what we're saying here is
+kubectl label pod, and we're going to label this individual Pod ending in
+66fxt. Let's go and change that from app=hello-world-hello-world-pod-me
+to app=DEBUG and see what Kubernetes is going to do for us. And to do that,
+we'll go ahead and put that at the bottom here. We're going to label app=DEBUG
+and --overwrite. Let's go ahead and run that code there and see what Kubernetes
+does. If we run kubectl get pods with --show-labels again, we can see that we got
+a sixth Pod because the ReplicaSet is looking for a selector for anyone with the
+label of app=hello-world-pod-me. That new Pod was created just 5 seconds
+ago, but at the top of the list there we see app=DEBUG. And so that Pod is still up
+at alive. So this is a valuable technique to isolate a Pod for troubleshooting in the
+event that you want to keep it alive, maybe to gather some logs or some runtime
+information inside of the individual executing Pod. I do want to call out that in
+this scenario, the ReplicaSet has the responsibility of ensuring that five Pods are
+up and running at all times and within the selector defined in this ReplicaSet. So
+we have five that are within the ReplicaSet selector and one that is not. So let's
+go ahead and keep marching forward, and let's see if we could reclaim that Pod
+and bring it back into the ReplicaSet now, and we'll also see how Kubernetes
+reacts when we make this change. So I'm going to use the up arrow to bring back
+this command here, and I'm going to change app=DEBUG in this
+labelling command to app=hello-world-pod-me. Let's go ahead and apply that
+command. Go down a little bit further and run kubectl get pods --show-labels and
+see what Kubernetes did. What it did was it killed off one of those Pods. So now
+we see we have five Pods up and running, whereas before we had six, and one of
+those had app=DEBUG as the label. So we relabeled that Pod ending in 66fxt that
+stays in a ReplicaSet, and Kubernetes picks off Pod in the ReplicaSet to
+terminate, reducing the set of running Pods from six to five. And so if we look at
+the ReplicaSet events using kubectl describe replicasets, let's run that code here,
+and we can see at the bottom here, we can see the events that Kubernetes went
+through when it created and deleted the various Pods, so the five initial Pods
+being created. When we relabeled that Pod, it created a new one. And then when
+we relabeled it back to the original, so we put it back into the selector, then it
+deleted that extra Pod. And so there we can see the events that have occurred,
+all driven by the ReplicaSet controller.
+Demo: ReplicaSet Controller Operations - Node Failures
+So let's clear our console and start off fresh and move into the next demo where
+we're going to examine some node failures in ReplicaSets inside of our
+cluster. And so, the first thing we're going to do here is log in to c1-node3 and
+go ahead and initiate a command to shut it down. So we'll say sudo shutdown -h
+now, and that's going to shut down this node in the cluster. So we'll go ahead and
+move forward, and we're going to use the kubectl get nodes command with
+a watch to monitor the status of that node. And so here, we can see all the nodes
+are still reporting the status for Ready. But in about a minute, c1-node3 will switch
+from the status of Ready to NotReady. Now we're going to go ahead and move
+the video forward a little bit, so you'll have to wait this entire minute for that state
+change. All right, so there we see c1-node3 in NotReady. So that status has
+changed. And now, let's go ahead and move forward and see what
+Kubernetes does with the Pods that were on c1-node3. So let's go ahead and
+issue a command, kubectl get pods -o wide. And when we use -o wide, we'll see
+in the Pod listing the node that each Pod is running on. So in the node column
+there, we can see c1-node3 and that the Pod ending in fcs8z is still up and
+running. Well, that's weird, but not really because Kubernetes is making the
+assumption right now that this is a transient error and that Pod is still okay until it
+knows when it has to give up, and we'll discuss that scenario momentarily. So let's
+go ahead and bring c1-node3 back online, and I'm going to do that off screen
+here, and we'll initiate the same command that we did a second ago, kubectl get
+nodes --watch and watch for that status change. So here, c1-node3 is still
+NotReady, and momentarily it should shift from NotReady to Ready. Now, keep in
+mind, we shut down c1-node3. So the workload that was running on there, those
+containers were stopped because, well, the server was stopped. Now let's watch
+and see what happens when c1-node3 comes back online. So there's c1-node3 is
+Ready, so let's go ahead and break out of the watch and check the status of our
+Pods. Let's go ahead and run the same command we did a second ago, so kubectl
+get pods -o wide, and there we can see that same Pod that was scheduled to c1-
+node3 still exists. It's the same Pod, fcs8z, but its status is currently Error. Now,
+because that Pod is still scheduled there, the kubelet on c1-node3 has the
+responsibility of restarting that container inside of that Pod, and let's go see if it
+did that work for us. And so now, by the time I went back and asked kubectl get
+pods to give me that listing again, we can see in the output here at the bottom, let
+me go ahead and break out of this watch, we can see at the output at the
+bottom there that fcs8z certainly did have a single restart because, in the
+RESTARTS column there, we see 1. And so let's go ahead and review what
+happened here. We shut down c1-node3, so certainly the workload on c1-node3
+would stop. But the API server still left that Pod alone on c1-node3, and it was the
+responsibility of the kubelet when c1-node3 came back on and reported the
+status of Ready to start the containers in that Pod back up again on c1-
+node3. And so that then means that that Pod is back up and in the status of
+Running, and it increments the restart counter as we see there. Now that was a
+transient failure. Let's shift gears and talk about a more permanent failure, and so
+let's go ahead and do that now. So, I'm going to go ahead and log in to c1-node3
+again. I'm going to initiate another shutdown. But this time, rather than bringing
+the node right back online, we're going to wait a little bit. We're going to wait
+about 5 minutes to see what Kubernetes will do. Now, if you remember during the
+presentation portion of the course, we differentiated between a transient failure
+and a permanent failure. And so Kubernetes, when we do a transient failure, will
+rely on the kubelet to restart the containers. Now, if I turn off this particular server
+for an extended period of time, how is Kubernetes going to react? Well, we
+discussed that. We talked about Pod eviction timeout, and that's a setting on the
+kube-controller-manager. So after about 5 minutes, this Pod will be destroyed or
+terminated from c1-node3 and recreated where the ReplicaSet will have the
+responsibility of recreating a new Pod inside of the cluster to bring us back to
+that 5 number of replicas and get us back to that desired state in our cluster. So
+let's go ahead and run a watch here and see what happens after about 5
+minutes. And so we're going to pause and move the video forward about 5
+minutes so that you don't have to wait for this transaction to occur. But right now,
+we see that there are five Pods up and running. So let's go ahead and pause and
+move forward. All right, so after about 5 minutes, we can see our watch here is
+going to report some interesting status to us. So let's go ahead and break out of
+here and look at what Kubernetes did. So, we initiated a kubectl get pods --watch
+to watch the status of what was occurring when we shut down c1-node3. And so
+here we can see that the Pod that was scheduled on c1-node3, which was fcs8z,
+went from the status of Running to Terminating, which means it's going to be
+shut down by the cluster. That Pod is going to be destroyed. And then we see
+Kubernetes reacts and kicks out the creation of a new Pod. So there we see mttxp
+go from Pending to ContainerCreating to Running. Let's go ahead and run the
+code to see where that Pod landed in the cluster, and so we can do a kubectl get
+pods -o wide, run that code, and we can see mttxp has a status of Running and is
+now running on c1-node3. So we do have five up-and-running Pods, and we still
+have one that's still in the status of Terminating. So let's go ahead and clean up
+and use kubectl delete the deployment, which is going to delete the ReplicaSet
+supporting this deployment, and we'll go ahead and clean up and delete the
+service. And before we move on, let's go ahead and make sure that we start up
+c1-node3 again for the remainder of our demos.
+Module Review and What's Next!
+So let's revisit this topic in a more formal context. Should use ReplicaSets or
+should you use deployments? You should use deployments. Deployments will
+manage ReplicaSets for you. They manage to creation, moving between versions
+of ReplicaSets, and also scaling. We'll learn much more about these advanced
+techniques in the upcoming module, Deploying and Maintaining Applications
+with Deployments. Now, ReplicaSets are the core building blocks of deployments,
+and that's why I spent so much time in this module discussing how to create
+it, how selectors work, and how ReplicaSets respond to failures. So, here we are at
+the end of the module, and we certainly covered a lot. We began with some
+theory and introducing controllers, how they work, and discussing the types of
+controllers that are available for us to build workloads inside of Kubernetes
+Then, in the second part of the module, we started our journey looking more
+closely at the basics of the deployment controller and its core building block,
+ReplicaSets. Well, that's a wrap for this module. Join me in the next module,
+Deploying and Maintaining Applications with Deployments.
+Maintaining Applications with Deployments
+Introduction, Course and Module Overview
+Hello. This is Anthony Nocentino with Centino Systems. Welcome to my course,
+Managing Kubernetes Controllers and Deployments. This module is Deploying
+and Maintaining Applications with Deployments. In this module, we're going to
+look very closely at maintaining our application state with deployments. So far in
+this course, we introduced the concepts behind controllers and looked at our first
+controller, the deployment, and its basic use cases. Now, let's dig in a little bit
+further and learn how we can use deployments to maintain our application state
+in the module Maintaining Applications with Deployments. In this module, we're
+going to learn how we can use deployments to configure and manage our
+application state, and we're going to cover three big topics. And first, we're going
+to look at updating our applications using deployments where we can specify
+things like a new container image that needs to be rolled out into our
+cluster. Then, when we trigger an update, we'll need a way to control the rollout
+of that new version of that application as Kubernetes deploys new Pods and
+removes old Pods, and so we'll spend some time discussing how we can control
+rollouts. And then we'll look at how we can scale our application, both up
+and down, so we can increase or decrease the number of Pods supporting our
+workloads.
+Updating a Deployment and Checking Deployment
+Rollout Status
+And so, when it comes to managing our application state with deployments, we
+discussed creating deployments in the module Using Controllers to Deploy
+Applications and Deployment Basics. In this module, we're going to focus on
+updating deployments and also scaling deployments. Now, let's say our
+developers create a new version of our application and push that container-
+based application into a container registry, and now it's time to roll that out into
+our Kubernetes cluster. We can use a deployment to roll out new Pods using
+that new version of our container image, and the deployment will manage the
+transition between the two sets of Pods, the original set of Pods on the old
+version and a new set of Pods on a new version. And when it's finished, will have
+all of our Pods running that new container image, and all the Pods using the
+previous container image are terminated. When using deployments to manage
+our application state, an update is triggered by changing the Pod template, which
+is where we define the Pod and its configuration. So if you change any part of
+the Pod template, that's going to trigger a rollout since it will need to push that
+new configuration out into the cluster. So, in addition to the container
+image, which is a very common reason to update your application, you might also
+need to update other elements of the Pod template or other configuration
+elements for your Pods, like the container restart policy, secrets, environment
+variables, and so on, anything that changes the Pod template. Now, other fields in
+the deployment spec can be changed without triggering a rollout. For example, if
+we adjust the number of replicas, that's not going to trigger a rollout
+because that's part of the deployment spec, not part of the Pod template. We'll
+look at other configuration elements in the deployment spec later on in this
+module, and those too will not trigger rollouts. Let's look at a visualization of how
+Kubernetes manages state transition when rolling out a new application or a new
+version of an application inside of our cluster. And so let's look at controller
+operations, specifically deployment updates. So at the cluster level, let's say we
+declare a deployment that we want Kubernetes to roll out, and this will be the
+first version. So in this case, it's going to create a ReplicaSet, R1, and it's the
+responsibility of the ReplicaSet to create the Pods that are part of this
+deployment. Now remember, a deployment is used to declaratively move
+between versions of ReplicaSets. So I can come along later in the lifecycle of this
+deployment and say, hey, Kubernetes, I have an update to this particular
+application I want you to push out. Now, how does Kubernetes determine that it's
+time to update an application? Well, when we make an adjustment to the Pod
+template. And when we make an adjustment to the Pod template, then
+Kubernetes will sense that and initialize a new version of the ReplicaSet on that
+new Pod template that's defined. Most commonly, that's going to be something
+like a container image update. And so what Kubernetes will do is initialize a new
+ReplicaSet, and so, in this case, R2. So that ReplicaSet will be created, and then
+it's the responsibility of the deployment to manage the transition between the
+two versions of the ReplicaSet. How does it shut down Pods, how does it start up
+Pods, and managing that state transition for us. And as we go through this
+module, we'll learn some techniques on how we can control how we move
+between versions of ReplicaSets. Now, one of the key things about Kubernetes as
+it moves between versions of applications is it still keeps that previous version of
+the ReplicaSet around. So if we have to roll back, we can and go back to version
+R1 here. Now, we also have up here this thing called the pod-template-hash as
+part of the deployment. That's how Kubernetes determines who's part of which
+ReplicaSet. And so the pod-template-hash is actually a deterministic hash value
+of the ASCII text in the deployment object of the Pod template itself. And so
+we've seen this in some demonstrations. It's that alphanumeric value that we use
+as part of the pod-template-hash or labels that are associated with
+the ReplicaSets and the Pods created with that ReplicaSet, and we'll look much
+more closely at that when we get into some demonstrations. Now, generally
+speaking, when working with deployments, you're going to have a couple those
+with a service. And it's the responsibility of the service to distribute workload to
+the running Pods that are associated with it. And so, as we remove Pods from
+ReplicaSet 1, those will be deregistered from the endpoints of the service. And as
+Pods are started up in ReplicaSet 2, those will be registered as endpoints in the
+service. And so we can maintain availability of our applications as we
+move between versions and essentially have zero downtime deployments as
+we move between ReplicaSets 1 and ReplicaSet 2, so very valuable functionality
+there. I do want to add the caveat that there might be scenarios where your
+application doesn't support that. But if you can move between versions of your
+application, this is a very valuable tool to roll out new versions of our apps with
+zero downtime. If you are in a scenario where you can't have both ReplicaSets up
+at the same time, perhaps due to some application incompatibility, we can
+leverage different update strategies to help us still move between those versions
+of our applications, and we'll explore those a little bit later in this module. Let's
+look at a few ways that we can trigger updates and rollouts in Kubernetes. Now
+we're going to go through some imperative techniques initially and then shift
+gears at the end and look at the declarative technique or the preferred way to
+change our our deployments and update our deployments in Kubernetes. The
+first way that we're going to do this is with kubectl set image, so let's walk
+through this command here. Kubectl set image, that's the thing that we're going
+to change, on the deployment hello-world, which is the name of the
+deployment. Inside of that, we have hello-world=, which is going to be the
+container image that we're going to update inside of the deployment, and we're
+going to set that container image to hello-app 2.0. And so what that's going to do
+is initialize the creation of a new ReplicaSet based on that new container image
+or the 2.0 container image. And then Kubernetes, the deployment, will then start
+shutting down the Pods as those new ones start up, rolling out the new image
+and leaving us with the 2.0 Pods when we're done. Now, I want to encourage you
+to use this option here. So in addition to the things that we just discussed, we're
+going to add this flag, --record, because what's going to happen when we do --
+record is it's going to capture some additional metadata information about the
+change that you just made. And it's going to store that information in an
+annotation associated with the deployment object. The annotation is called the
+CHANGE-CAUSE, and in there, we'll see a text representation of what we did with
+that particular object. Now that data that's stored in that annotation is going
+to become very valuable later when we look at how we roll back to previous
+versions of images. I think you can see what I'm getting at here. If we use this
+option, we're going to get a lot more info that tells us what changed between the
+two versions, and then we can make better decisions when we have to roll back
+to previous versions, so always add that flag. Now, we can also use kubectl edit to
+interact with the objects too, so let's walk through this command, kubectl
+edit. What do we want to edit? A deployment. Which deployment? Hello-
+world. When we execute this command, what that's going to do is go make a
+request of the API server to retrieve that deployment object and present that to
+us in our local console in a text editor, and we'll get the YAML representation of
+the deployment. We can go down to the Pod template, make an adjustment, save
+that out, and then when we save that out, kubectl will ship that back into the API
+server to affect that change and initialize that rollout. And the final technique or
+the preferred technique, we're going to use a declarative operation
+with Kubernetes to affect this change. And so here's what we're going to do is
+we'll make an edit inside of a YAML file that represents the deployment that we're
+going to work with. We'll update whatever we need to update inside of the Pod
+template, save that into the YAML manifest, and then kubectl apply -f and then
+the name of the manifest, in this case hello-world-deployment.yaml, and ship that
+back into the API server. Once that hits the API server, it's going to trigger the
+rollout based on the changes in the Pod template and start that rollout process
+for us. Now, similarly to the previous scenario with the imperative kubectl set
+image command, we'll also want to add --record to the kubectl apply
+option, again, to capture additional metadata about the change that we're
+making and the annotation associated with our deployment object. So now that
+we know what a deployment is and how we can trigger a deployment update or a
+deployment rollout by updating the Pod template, let's look at how we could
+check the status of the deployment in Kubernetes. And the first method that I
+want to show you is kubectl rollout status deployment and then specifying the
+deployment name. This will give us an interactive view of what's going on at the
+command line and outputting to the console as new Pods are starting up an
+old Pods are shutting down and then culminating with an output of Our rollout
+was successfully completed. So that's a good way to see things interactively at
+the command line, but what if you want a big-picture view of what's going
+on? And that's where kubectl describe comes in. Kubectl describe is my favorite
+command in Kubernetes, giving us the deep-dive information about a specific
+object. And so here, we'll say kubectl describe deployment and then specify the
+deployment name. Inside of there, we're going to see some deployment
+statuses, and we're going to look at three of those right now, the first one being
+complete. When the deployment status is complete, well, that'll be the case
+where all replicas are up to date, and all previous replicas or Pods are no longer
+running and that all of the new Pods are up and running and in the status of
+Ready. Progressing is when a new ReplicaSet has been created and is being
+scaled up, so it's the responsibility of Kubernetes to start those Pods with the
+new Pod template. When we're in the Progressing state, that's also the case
+where the old ReplicaSets are being scaled down, so those Pods will be shutting
+down. So that's that transition period between the new Pod starting up into the
+new ReplicaSet and the old Pod shutting down into the old ReplicaSet. Now the
+final state, and hopefully we don't end up in this state very often, is Failed. What
+happens here is the update couldn't complete, meaning that the new ReplicaSet
+couldn't be scaled to the desired number of replicas or the desired number of
+Pods, and this can happen for lots of different reasons. It could be resource
+constraints in the cluster or quotas on a namespace for a particular rollout, but it
+could be also the case that our readiness probe is failing and something is wrong
+inside of our application or really a combination of any of these. Just something
+got in the way of that new ReplicaSet being created and scaling to the desired
+number of replicas.
+Demo: Updating a Deployment and Checking
+Deployment Rollout Status
+All right, so here we are in a demo. Let's look at how we can update a deployment
+and then check a deployment's rollout status. Here we are logged into c1-master1
+where we're going to drive our demos from. And the first demo that we're going
+to do together today here is updating a deployment and checking our rollout
+status. And so let's start off with rolling out an application, and we'll do that with
+kubectl apply -f deployment.yaml. Let's go ahead and and run that code
+there, and you can see, at the bottom here, we can see deployment.apps/hello-
+world is created and also the accompanying service for this particular
+application. Now, let's look at deployment.yaml to see what it is that we just
+did. Now inside of here, we have, like we would any other Kubernetes object, an
+apiVersion, a kind, a metadata, and a spec. And so our apiVersion is going to be
+apps/v1. The kind is going to be deployment. The metadata is going to contain
+the name of the deployment. And inside of the spec, the technical details of what
+we're configuring. And so here we see replicas 10 inside our deployment spec. We
+see the selector associated with that. And then at line 10, we see the start of the
+Pod template. Inside of there, the metadata and labels associated with the Pods
+that are going to be stamped out by this Pod template. And then in the spec, the
+containers associated with this application. Here we have just one, which is going
+to be our hello-world container. Now, line 17 is the most important line for this
+demonstration. We're running a container image, hello-app:1.0, and that's going to
+be what we update. We're going to change from 1.0 to 2.0, and so let's go ahead
+and kick back over to our demo script here and start that process. I do, before we
+proceed updating this application, want to check out the rollout status of the
+current version of the app. And so here we see kubectl get deployment hello-
+world. Let's go ahead and run that code and look at that output. Now, kubectl get
+deployment hello-world gives me some pretty good concise information. It gives
+me the name of the deployment hello-world. It tells me that 10 of 10 Pods are up
+and ready and that 10 are up to date on the most newest version of our
+application. We see that 10 are available, and then it's been up just for a few
+seconds here since we just created this together. Now let's scroll down a little bit
+further and look at the next line of code, line 14, where we're going to roll out
+version 2 of our application. Before we do that, let's go ahead and look at
+deployment.v2.yaml and see what the differences are. There should only be one
+difference between these two files, deployment.yaml and deployment.v2.yaml. If
+we go down to line 17, we'll see here that the container image is going to be hello-
+app:2.0, and that's going to be the new version of the application that we want
+Kubernetes to roll out for us. And so let's kick back over to our deployment
+script, bringing this into view here, and let's go ahead and run kubectl apply -
+f deployment.v2.yaml to start the rollout process. Now, very quickly, I'm going to
+go down and run the line 18, which is kubectl rollout status deployment hello-
+world. So hang tight while I do both of those things. So we start the rollout, and
+there we can see that our deployment is configured. And then, we have kubectl
+rollout status deployment hello-world, which is going to give us the output of the
+rollout as it's happening. So there we can see, on the first lines there, 9 out of 10
+new replicas have been updated. And so it's scaling up that new ReplicaSet. And
+then a couple of lines down, we see three replicas are pending termination, so it's
+scaling down the old ReplicaSet. And as we go through that output, we can see 3
+old replicas, 2 old replicas, 1 scaling down. Then we see 8 of 10 updated replicas
+are available, 9 of 10 available scaling up the new ReplicaSet. And then the final
+line, deployment hello-world is successfully rolled out. So now we know our
+deployment has successfully completed. Now in addition to looking at the output
+here, we can also grab the exit code from that application. And if it returns a 0, we
+know that our application deployment deployed successfully. And so there we
+see the exit status of that application is 0. In the upcoming demonstration, I'm
+going to show you a failure, and that would return a 1 in that case. So let's walk
+through some deep-dive information about our deployment and look at all the
+various attributes of that particular deployment that we were working with. And
+so let's go ahead and run this code here, kubectl describe deployments hello-
+world. Now we have lots and lots of information to go through in this output, so
+let's scroll to the top, and we'll go through almost all of this together. So when we
+get to the top here, we see the name of our deployment is hello-word, and it's in
+the default namespace, and it was created just a few minutes ago. Now in the
+annotations, we see deployment.kubernetes.io/revision: 2. There have been two
+revisions of this deployment, the initial one, which was the revision 1, and the one
+that we just updated to when we changed out that container image, revision
+2. We see that the selector for the deployment is app=hello-world, and then we
+have a lot of information in this replicas line here. So let's walk through each one
+of these together. Now 10 desired. Desired is the total number of Pods or replicas
+that we want up and running in this deployment. And in both deployment.yaml
+files that we used, we defined in the deployment spec that we wanted replicas
+10. That's that same value. Now, the next value we have here is 10
+updated. Updated is the number of Pods in the new ReplicaSet. So these are the
+ones running the new Pod template that we updated in that new
+deployment. Now we see 10 total. Total is the total number of Pods in both
+ReplicaSets, and it's possible that this value is actually going to be greater than
+the number desired. And we'll look at some of those scenarios in the
+upcoming demonstrations when we talk about controlling rollouts. Then we see
+10 available. This is the total that are currently up and running and reporting
+Ready across both ReplicaSets. And so we know that our deployment
+finished, and so we know that these 10 available are in the new ReplicaSet. And
+we see that 0 are unavailable. Now unavailable is the total number of Pods that
+are in the NotReady status. And so those Pods could be failed for any number of
+reasons. Maybe there's a misconfiguration in our rollout or that application is
+crashing and is unavailable. Now StrategyType, MinReadySeconds, and
+RollingUpdateStrategy, we're going to look at those much more closely in the
+upcoming part of this module when we talk about controlling rollouts. Next up,
+we see our Pod template, and that label that's associated with the Pods is going
+to be app=hello-world. Our container image, which we just updated to hello-
+app:2.0 is what's defined here. If we go a little bit further, we see conditions, and
+conditions give us some good insight about the status of our rollout. And so here
+we see two conditions, Available and Progressing, and they're both set to the
+status of True. Now, the available condition says MinimumReplicasAvailable, and
+so that means that there are the required number of replicas up and running in
+this application to support this deployment. In an upcoming demonstration, we're
+going to look at a failed deployment, and that value will certainly be something
+different, and we'll see that in a little bit. Now Progressing True
+NewReplicaSetAvailable, Now, that could be one of two conditions. That could
+mean our deployment is still progressing, or it's completed. And we know that
+we're completed because we just checked that with kubectl rollout status. Now
+there's two other values I want to check out here, OldReplicaSets and
+NewReplicaSet. NewReplicaSet is pinned to the new version of our application
+that we just rolled out, so there we see hello-world 54875c5d5c. That's the
+NewReplicaSet, and 10 of 10 are created because that's what we want in that
+particular deployment. Now, OldReplicaSets isn't populated with a value. But
+during the transition between two ReplicaSets, while we're scaling up the new
+one and scaling down the old one still and there's still Pods in the
+OldReplicaSet, that value would be populated there. Now, let's go down to
+events, which is my A number 1 favorite place to go when I'm looking for more
+information about an object in Kubernetes. In the events here for the
+deployment, we have lots of information available to us. And so on that first line
+there, we see the initial scaling or the initial deployment of our application when
+we rolled out the version 1.0 of our app. And then driven by the deployment
+controller, we see that we scaled up the ReplicaSet hello-world 5646fcc96b to
+10. So that went from 0 to 10, and it was the responsibility of the ReplicaSet
+controller inside that ReplicaSet to deploy those Pods. Now, just after that, we
+told Kubernetes to roll out a new version of our application. So the next line we
+see scaling up replica set hello-world 54875c5d5c to 3. If we look at the new
+ReplicaSet value, we can see that's the new ReplicaSet. So it starts to scale up
+that new ReplicaSet, starting at 3. And then, what it does is Kubernetes starts to
+scale down the old ReplicaSet. So there we see the next line for the ReplicaSet
+ending in 96b to 8. And then the next line, d5c to 5, 96b to 7. And so as we see the
+new ReplicaSet scale up, we'll see the old ReplicaSet scale down. And with
+that, let's go ahead and look at both of those ReplicaSets with kubectl get
+replicaset. And so here we see the one ending in d5c is on 10. That's the newest
+version of our application or NewReplicaSet. And there we see 96b, which is the
+previous version of our application, is scaled to 0. Now both of these are going to
+stick around for a little bit, and we'll talk about how long they stick around later
+on in this module. But that's a very valuable thing to keep around because we
+can roll back to that previous version of our application if we need to.
+Demo: Updating a Deployment and Checking
+Deployment Rollout Status (cont.)
+So let's go ahead and keep moving forward and look more closely at the
+individual ReplicaSet. So we're going to start off by looking at the new
+ReplicaSet, kubectl describe replicaset, and this one is going to be the one
+ending in d5c. Inside of here, if we go to the top of this information, we'll see the
+name, which ends in d5c. The namespace is default. And then the selector is very
+important here, app=hello-world, and then there's the Pod template hash ending
+in d5c. That's how we determine the Pod membership of the Pods managed by
+this ReplicaSet, which is eventually managed by the deployment, which you see,
+Controlled By: Deployment/hello-world. ReplicaSets, 10 current 10 desired, so we
+are in a good place in that 10 are up and running. We'll go down a little bit
+further. Inside of the Pod template for this ReplicaSet, we can see the version 2.0
+of our application. We also see the labels associated with this Pod
+template, app=hello-world and then again the Pod template hash, making sure
+that each one of these Pods has the appropriate labels for this particular
+ReplicaSet's selector to determine membership. If we go down a little bit further
+in the events, since this is the new ReplicaSet, all we see is the scaling up
+operation. And so the replicaset-controller here has the responsibility of
+going from 0 to 10 to bring us into the desired state. If we look at the old
+ReplicaSet, the one ending in 96b with kubectl describe replicaset, it's going to
+run that code, we're going to see a little bit different of a story. Let's go ahead
+and scroll to the top, and we'll see the name. There we see hello-world ending in
+96b. The selectors for this one, app=hello-world and then the Pod template hash
+for this particular ReplicaSet, the one ending in 96b. If we scroll down a little bit
+further, we can see Controlled By: Deployment/hello-world and that replicas are
+set to 0 and that 0 are desired. So we know that this is the scaled down
+ReplicaSet. Inside the Pod template, we see the appropriate labels and the Pod
+template hash, and then the image for this particular ReplicaSet is version
+1.0. Now if we go down to the events, we see the initial creation of this ReplicaSet
+when we did the initial deployment driven by the replicaset-controller, that
+ReplicaSet ending 96b scales up, so we see those 10 Pods. And then when I
+updated the deployment, now we see deleted Pods scaling down this
+ReplicaSet. So now we kind of get the full story of what's happening when
+Kubernetes rolls out an application. We can look at both ReplicaSets. We'll see
+the scaling up of the new one. In this case, we see the scaling down of the old
+one. And at the deployment level, we can see the transitioning between the two
+versions of the ReplicaSets by looking at the information in these kubectl
+describe commands that we just reviewed.
+Using Deployments to Change State and Controlling
+Updates with UpdateStrategy
+The update that we just performed in the demonstrations were all using the
+default settings for our deployment. Now, Kubernetes gives us some controls or
+some configuration points that we can use to control the rollout of new versions
+of our applications. And so, we can work with in Kubernetes concepts like update
+strategy, which is how Kubernetes manages the transition between versions of
+ReplicaSets in our application. We can also use Kubernetes deployments to
+pause rollouts to make corrections. So perhaps mid-rollout, we determine that
+there's something wrong with our deployment. We can pause our rollout, make an
+edit, and then resume our rollout with that new configuration. We also have the
+ability to roll back to an earlier version of our application or an earlier version of
+our deployment, transitioning you back to a previous ReplicaSet. And finally, we
+can restart the deployment. When a deployment is up and running, you can issue
+a restart, which will restart all the Pods in a deployment. Now, let's take a closer
+look at each one of these methods to help us control our deployments. The first
+tool that we're going to look at in terms of controlling our rollouts is update
+strategy. Update strategy controls how Pods are rolled out, and we've already
+seen an example of this in our previous demonstration. We saw the RollingUpdate
+update strategy in effect. This is the default update strategy inside of a
+deployment. What RollingUpdate will do is start up a new ReplicaSet and start
+scaling up that ReplicaSet. And then, as that ReplicaSet starts scaling up, it will
+start scaling down the old ReplicaSet and managing the transition between the
+two as it scales the new ReplicaSet up to the desired number of replicas and
+then scales the old ReplicaSet down to 0. That's the RollingUpdate update
+strategy. Now there's also the Recreate update strategy, which terminates all the
+Pods in the current ReplicaSet first prior to scaling up the new
+ReplicaSet. Now, you might see this when you're moving between versions
+of applications that can't run concurrently in your particular applications that
+perhaps there's a conflict in some sort of data structure or persistent state, things
+like that. And so this is a common strategy to use when you're doing those heavy
+lifting version migrations. But most commonly, as you move between
+applications, we're going to engineer towards using the RollingUpdate
+update strategy because that allows us to move between versions of
+our applications with next-to-zero downtime. So, let's look more closely at the
+RollingUpdate strategy and some configuration points that we can use to control
+the rate at which Pods are rolled out in Kubernetes deployments or, more
+precisely, the rate at which we move between versions of our ReplicaSets as
+we scale down one side and scale up the other side. And so, those two
+configuration points are maxUnavailable and maxSurge. These are defined inside
+of the deployment spec, and each one of these values has a unique way
+of controlling the rate of rollout. And so let's discuss it in more
+detail. MaxUnavailable ensures that only a certain number of Pods are unavailable
+or being updated at a particular point in time. And by default, this is going to be
+25%, which means if I have a deployment, say of 20 replicas, the most number of
+Pods that will be unavailable or not supporting my application will be 4 because I
+want to ensure that the remaining set of Pods that are up and running or
+available are enough to support my workload that's coming in. Now this value can
+either be a percentage or a fixed integer value, and so the default being 25%, or I
+can just specify that I want to only have 4 Pods down at any given
+time, depending on how I want to control that transition between those two
+versions of my application's ReplicaSets. The other value that we have to work
+with is maxSurge. MaxSurge ensures that only a certain number of Pods are
+created above the desired number of Pods in our replicas. And so, when we
+define the deployment, we define a number of replicas, let's say 20. Well, when
+we're transitioning between versions of ReplicaSets, as we scale down the old
+ReplicaSet and scale up the new ReplicaSet, it's possible that as we scale up the
+new ReplicaSet, the number of Pods are going to exceed the number of Pods that
+are desired across the whole deployment, and that's going to help us
+move between the two versions. Well, I might need to put a limit on that based on
+the resources that I have available. And so this value, maxSurge, allows me to do
+that. MaxSurge also can be a percentage and, by default, is 25% and also could
+be an absolute or a fixed integer value, if needed.
+Successfully Controlling Deployment Rollouts and
+Defining an UpdateStrategy
+Let's discuss some key tips to successfully control deployment rollouts in
+Kubernetes. The first thing I want you do when working with rolling out a
+new version of an application with deployments is define an update strategy in
+your deployment spec that's appropriate for your application, whether you're
+using Recreate or RollingUpdate. And if you're using RollingUpdate, be sure to
+define maxSurge and maxUnavailable values that are appropriate for your
+applications and your infrastructure. The next thing that I want you to do is to
+define a readiness probe in your Pod template spec. A Kubernetes deployment
+will stop a rollout if the number of Pods not passing readiness probes goes below
+that maxUnavailable value for a RollingUpdate update strategy, thus protecting
+your application and leaving a set of Pods up and running and online on the
+previous version of your app. Those will still be functioning and supporting your
+workload. If there is no readiness probe defined in the Pod, the Pod is considered
+ready when it starts, which means the rollout will continue. And if your application
+isn't responding correctly, the deployment will continue the rollout of that
+nonfunctioning application. So use readiness probes to ensure your apps are up
+and ready and give the deployment the intelligence it needs about your
+application to help maintain a functioning app during a deployment rollout. Let's
+look at some code to define a rollout strategy for a deployment and also leverage
+a readiness probe. And so, much like any other deployment, it's going to start off
+with an apiVersion of apps/v1, a kind is deployment, the additional metadata
+information that we would need to define our deployment, and then the
+deployment spec itself. Inside of the spec for the deployment, we're going to
+define a number of replicas. And so for this deployment, we're going to roll out 20
+replicas. And here's where we can define a strategy. In this case, we're going to
+define a strategy type of RollingUpdate. And then within that, we define the
+RollingUpdate settings that we want to define. So in this case, we're going to
+define maxUnavailable at 20% and maxSurge at 5. Now remember, either one of
+these values could be a percentage or a fixed integer number. So in this case, I
+chose 20% for maxUnavailable and 5 for maxSurge. With maxUnavailable set to
+20%, that's going to be 20% of 20 replicas, which means, at most, Kubernetes will
+shut down 4 replicas or 4 Pods when doing a rollout. And then, from a maxSurge
+standpoint, we know that it will only ever start up 5 additional Pods above the
+number of replicas defined, in this case 20. So we'll only ever see 25 Pods or 25
+replicas when a deployment is rolling out an update. Now, with the update
+strategy defined, we'd have any additional settings that we would need inside of
+the deployment spec, and then we'd go over to the Pod template. Inside of the
+Pod template, we'd have any specific information regarding the template that we
+want to roll out and then the Pod spec. And, of course, inside the Pod spec, inside
+the Pod template, we'll define the containers and all of the information
+associated with that, things like the image, name, and so on. Inside of here is
+where we'll define the readiness probe. In this case, for this particular
+deployment, I'm going to use an httpGet readinessProbe with the path
+of index.html on port 80. We'll define an initial delay of 10 seconds and a period of
+10 seconds. And so initial delay means when the Pod starts up, it's going to wait
+10 seconds before it checks that readiness probe. And then it's going to have an
+interval check or a periodSeconds of every 10 seconds, checking to see if this
+particular application is responding correctly. Now, the combination of these two
+things will help me lead to a better rollout. I've defined a RollingUpdate strategy
+with settings appropriate for my infrastructure, and I've defined a readiness
+probe, such that if I start rolling out my application and something goes wrong
+and that readiness probe fails, then the deployment will stop. Now, if you want to
+get more into readiness probes, do check out my course, Managing the
+Kubernetes API Server and Pods, where we go deep into how to define a
+readiness probe and all of its various configuration attributes.
+Pausing and Rolling Back Deployments
+Let's say you started a rollout and found an issue that you need to fix or needed
+to make an additional configuration change that was forgotten once you
+initialized the rollout. Well, if you just went ahead and edited the deployment
+object, that would trigger a subsequent rollout that will be processed after the
+current rollout is finished. And that could be bad because you might need to
+intervene and act and stop the current rollout such that it preserves the stability
+of the current version of your application. And so, Kubernetes gives us the ability
+to pause a rollout, make changes to that deployment, and then resume the
+rollout, and so let's talk about how that works. When we have paused a rollout,
+changes to the deployment, while it's paused, are not rolled out. And so this gives
+us the ability to batch together any additional changes to the object or what
+we're rolling out when we make those edits. And then when we're ready, we can
+resume the rollout. When we resume the rollout. The current state of the
+deployment is maintained until we restart things up and resume that rollout. And
+once we do start up or resume our rollout, a new ReplicaSet with the new
+changes will be deployed such that we'll start moving from the previous version
+of our application into this new ReplicaSet, the newly defined rollout where we've
+made those edits and changes and started our rollout back up again. From a
+syntax standpoint, we can do this at the command line with kubectl rollout
+pause. The deployment is the thing that we're going to stop. In this particular
+case, I want to pause the deployment my-deployment, so kubectl rollout pause
+deployment my-deployment. Now when we're ready and after we've made those
+changes and we've batched them all together and we have our
+corrected deployment that we want to rollout, kubectl rollout resume my-
+deployment. Now, what if you started rolling out an application and things went
+wrong, and you need to roll back to the previous version of your application. Let's
+say we rolled out version 2 of an app, and all of a sudden, the containers are
+crashing, or the application is not responding correctly, or maybe even there was
+a configuration error in the Pod template. Maybe we misconfigured a readiness
+probe on the wrong container port. Either one of those things can cause us some
+grief as we roll out our application, crashing applications or misconfigured
+readiness probes. Now, what do we do in these scenarios? Kubernetes gives us
+the ability to roll back to a previous version of a deployment. As we change
+objects in Kubernetes, Kubernetes deployments will track rollout
+history. Specifically, it's going to track the CHANGE-CAUSE as an annotation to
+the deployment object that you're working with. And within that, it's going to
+track the revision history of the changes that we make. So each ReplicaSet or
+each Pod template that's associated with the version change will be tracked
+inside of the metadata about our deployment object. How much revision history
+is maintained? Well, by default, it's going to be 10. But if we need to change that
+value, we can set the revision history limit as part of the deployment spec for our
+application. So we can increase this value or decrease this value based on the
+needs of our applications. What this is really doing under the hood is maintaining
+the number of ReplicaSets or the history of those ReplicaSets over time, and
+those ReplicaSets will have the Pod template configuration that is appropriate for
+that particular ReplicaSet. Now remember, as we move between versions of
+ReplicaSets, it's the job of Kubernetes to scale down the old version of our app
+and scale up the new version of our app. So a rollback is simply the reverse. We'll
+scale down the new one and scale up an old one. And so this is very useful for
+rolling back our applications. If needed, we can also set the revision history limit
+to 0, which would mark the ReplicaSet available for immediate cleanup, and that
+would then be deleted once the deployment is successfully rolled out. Now,
+when it comes to actually rolling back an application, we need to do a couple of
+things. We need to find out which version of our app we want to roll back to, and
+then we need to tell Kubernetes to roll back to that version. And so since
+Kubernetes is tracking the version information over time, up to 10 by default, we
+can ask Kubernetes for the version information of a particular deployment and its
+rollout. And so let's go ahead and see how we do that. We can use the command
+kubectl rollout history deployment hello-world to get the version history of the
+rollouts for this particular deployment, in this case hello-world. Now once we
+have that, we can see the changes that are happening inside of our
+application. Let's say we want to go back to a particular version of our
+application, but we want to look at those changes a little more closely. And so we
+can ask Kubernetes kubectl rollout history deployment hello-world and then
+specify a revision, in this case revision 1. There we'll see the actual Pod template
+information from that version, so we can see the app configuration that we'd be
+rolling back to if we selected that revision. If we're at the command line and we
+want to just roll back to the previous version and we don't want to investigate
+a particular version to roll back to, we can use kubectl rollout undo deployment
+hello-world, and this will roll back the hello-world deployment to the previous
+version, which is the version before the one that we're on right now. And if we
+need to roll back to a particular version, we can say kubectl rollout undo
+deployment hello-world --to-revision and then specifying the actual
+revision number that we want to roll back to. And then Kubernetes will do the
+work of scaling down the new ReplicaSet and scaling back up the old
+ReplicaSet. There may come a time where you need to restart all the Pods in a
+deployment. Perhaps you've had an environment variable change that you need
+to roll it out to all of your Pods, or you need to recover from some sort of transient
+error. A restart can help you do that. What a restart does is effectively restarts all
+the Pods in your deployment using the same Pod template spec. But as we've
+discussed in previous courses, no Pod is actually ever recreated or
+restarted. What you get is a new set of Pods in a new ReplicaSet. So what's
+happening behind the scenes is that Kubernetes creates a new ReplicaSet and
+scales down the old ReplicaSet while scaling up this new ReplicaSet. The
+transition between the two ReplicaSets is governed by your update
+strategy, which can be either RollingUpdate or Recreate. Now, those two
+ReplicaSets will be based on the same Pod template spec, so it is the same
+version of your application in that new ReplicaSet. Now, to initiate a restart, you
+can use kubectl rollout restart deployment and then the deployment name, in
+this case hello-world.
+Demo: Rolling Back a Deployment and Controlling the
+Rate of a Rollout with UpdateStrategy
+Now, let's get into a demo. We're going to look at rolling back of
+deployment. We're going to make a change to our application and then roll back
+to the previous version. Once we have that under control, let's look at how we
+control the rate of a rollout with some of the configuration settings that we
+discussed in the presentation portion of the course. Then, we're going to learn
+how to combine readiness probes with our deployments so that we can control
+rollouts, ensuring our application's availability during the rollout. And then finally,
+we're going to look at restarting a deployment. So here we are logged into c1-
+master1, and we're going to work through the process of updating the deployment
+and then rolling back to a previous version. So, if you do have any demos in
+flight, let's go ahead and clean this up with kubectl delete deployment hello-
+world and kubectl delete service hello-world. I really want to start with a blank
+slate in this demonstration. So here you can see, when I ran that code, I didn't
+have either one of those defined. Now I'm going to redefine our version 1
+deployment that we've been working with with kubectl apply -f
+deployment.yaml. And then, once that's rolled out, I'm going to quickly update
+that version 2. And so that's going to change our container image from hello app
+1.0 to hello app 2.0. So that's where we are right now. We've made one update. So
+let's go ahead and look at what's next in this particular demonstration. And what
+we want to do here is I'm going to roll out a deployment that I know is broken, and
+let's go ahead and look and see inside that code what precisely is
+broken. Now, this one is going to start off just like any other deployment with an
+apiVersion, kind, metadata, and spec. Now, I've added a new line to this
+deployment to look at here. We have progressDeadlineSeconds is 10. Now, we're
+going to update our deployment with a broken image, which we're going to look
+at in a second. And then normally what's going to happen is Kubernetes will roll
+that application out, and it'll wait up to 10 minutes, which is the
+progressDeadlineSeconds. That 10-minute default is how long it's going to take
+before Kubernetes will mark that deployment failed on that bad rollout. For this
+demonstration, I'm shortening that to 10 seconds so we can quickly fail the rollout
+that we're working with right here because we're intentionally going to break our
+configuration with a bad container image. And so let's go ahead and scroll down
+a little bit and look at that. And here you can see, in the Pod template, inside the
+spec from the particular Pod that we've defined a container image. But if you look
+at the name of the container, it's not quite right. We have hello-a-p instead of
+hello-a-p-p. And so this is going to yield a broken container image pull. And so
+let's jump back over to our deployment script and see how Kubernetes handles
+this. So let's go ahead and roll that code out and go ahead and look at
+the deployment status for this particular application rollout with kubectl rollout
+status deployment hello-world. After about 10 seconds, this should short-
+circuit, fail the deployment, and give me my command line back. And
+certainly, that's what it did as here we see error deployment hello-world
+exceeded its progress deadline. The default value is 10 minutes, so we could have
+waited it out for 10 minutes. But I wanted to have mercy on everyone, and we set
+that value to 10 seconds in the deployment spec. Now that's an artificial value
+good for demonstrations. You'll want to establish a value that's appropriate for
+your rollout strategy and how you roll out your applications. So let's go ahead and
+keep moving forward. And remember, the last time we did a rollout, when I looked
+at the return code of kubectl rollout status, I got a 0, which was good. That means
+that the program executed and completed the rollout successfully. Let's look at
+the value now. Now here, we see we have a 1, so we know that failed. Let's go a
+little bit further, just kind of get some investigation as to what's going on with this
+particular rollout and see how it failed. So if we look at kubectl get pods, let's look
+at how Kubernetes is doing with the rollout. So we see two ReplicaSets, hello-
+world-54875c5d5c, the other one with the Pod template hash of b8c6b6b49. Well,
+we know we injected a bad container image, and the status there is error image
+pull, which is fantastic. We know exactly what's going on here from a state
+standpoint. But let's look at what Kubernetes did with the rollout because it
+stopped the rollout. It failed the rollout and kept 8 of our previous Pods up and
+running and only put out 5 new Pods on that bad version. So this is fantastic
+because we messed up, well, more precisely, I messed up in this particular rollout
+intentionally, but we still have 8 functioning Pods in our 10-replica rollout, which
+is great. We've lost a little bit of capabilities, but our app is still up and
+running. Kubernetes started up these 5 additional Pods and was like, hey, these
+aren't working correctly, let's stop. And so let's look at why this all happened and
+how it came together. If we go into kubectl describe deployments hello-
+world, we're going to get a lot more information about the status of what
+occurred. And so let's go ahead and scroll up and walk through the deployment
+information in here. So, here we see the name of this deployment is hello-
+world. And if we go down into the definition of this deployment, it looks precisely
+at the replicas. We can see that there were 10 desired and that there were 5
+updated. So 5 new Pods were rolled out with the new configuration, and those
+were broken, so there we see 5 unavailable. Now, we also see that there are 13
+total and 8 available. So this 13 total comes from the 8 from the previous
+ReplicaSet, which are still up and running and available, but also the 5 that are
+unavailable, so there's 13 across both ReplicaSets. Now, Kubernetes stopped at 8
+available, so it knew to keep 8 Pods up online. How did it know how to do
+that? Well, the RollingUpdate strategy was specified to have 25% of
+maxUnavailable. And so 25% of 10% approximately is going to be 2, and so that's
+where we get those 2 Pods that got shut down with the maxUnavailable of the
+old ReplicaSet. Now, if we scroll down a little bit further, let's go ahead and check
+out the conditions. So conditions are going to have some different values here as
+well. We see Available True MinimumReplicasAvailable, which is great, because
+we have those 8 Pods from our previous ReplicaSet up and running or the old
+ReplicaSet. But we also see Progressing as False, where previously we saw
+Progressing as True because it was working towards rolling out or it had
+completed. Here, we see Progressing False because of this reason,
+ProgressDeadlineExceeded. I artificially set it that low, short-circuited the rollout,
+and stopped. Now if this was 10 minutes, we just would have waited it out, and we
+would have landed at this value as well. So, let's go ahead and bring our console
+back up and scroll down a little bit further and see how we can fix this bad
+rollout. Now, we'll walk through and ask Kubernetes, well, what does it know
+about this particular rollout. And so we can do that with kubectl rollout history
+deployment hello-world, and that's going to give me the revision history for this
+particular deployment. And well, I see three revisions, but no CHANGE-CAUSE is
+set. We see none set for all of those because, as we rolled out these changes, I
+didn't use the --record flag, which I told you we should do. And that's why I
+wanted to do this here to show you and highlight what happens when you don't
+do that. So I don't know right here what information I need to know about rolling
+this application back. And so let's go ahead and look a little closer as to how we
+can make an intelligent decision on what version of our application to roll back
+to. So let's go ahead and scroll down a little bit further in the demo. And here,
+let's use kubectl describe deployments, again, hello-world and pipe it into head. In
+the annotations, we can see deployment.kubernetes.io/revision is 3. So we know
+we're on revision 3 right now. And let's go back and ask Kubernetes some more
+detailed information about the revisions that it does know information about. So
+on line 49 here, I'm going to ask specifically about the information for revision
+2. So we'll say kubectl rollout history deployment hello-world --revision=2. Let's go
+ahead and run that code, and we can see there that our container image is okay.
+We see hello-app, a-p-p, :2.0. That's cool. That's what we want. Let's go ahead
+and check revision 3 just for completeness, and there we can see the error, hello-
+ap:2.0. So, we know we want to roll back to revision 2. Let's go ahead and scroll
+down a little bit further and do that. We can do kubectl rollout undo deployment
+hello-world, and then we're going to specify the exact version we want to go to.
+We're going to go back to revision 2. Let's go ahead and run that code. We can
+see that it comes back with hello-world rolled back. If we check out our
+deployment status here, we can see our deployment hello-world successfully
+rolled out, so we're back on the previous version. If we check the exit code, it
+should be a 0. Everything is good there. If we check the Pods, let's do a kubectl
+get pods and see where we are. Now we can see we have 10 Pods back up and
+running. We have the 8 that stayed online and 2 additional ones that have been
+up for about 19 seconds since they're running on the previous version of the
+ReplicaSet, scaling that back up to the defined number of replicas in the
+deployment, which is 10. So, let's go ahead and clean this up and delete the
+deployment and delete the service and move into the next demonstration.
+Demo: Using UpdateStrategy and Readiness Probes to
+Control a Rollout
+All right, so let's go ahead and clear our console and start off fresh and
+work towards the next demonstration that we want to do. In this
+demonstration, I'm going to combine a rollout strategy with a readiness probe so
+we can learn how to control the rate of a rollout, but also ensure a successful
+rollout of our application. And so let's go ahead and check out the file that I
+want to rollout in deployment.probes-1.yaml. So inside here, we see a deployment
+spec where we're defining that we want 20 replicas online and that our update
+strategy is going to be RollingUpdate with the parameters of maxUnavailable set
+to 10% and maxSurge set to 2. So at most, we're ever going to have to Pods offline
+in this particular deployment. We've increased our revision history limit to 20. And
+inside of the Pod template, we've defined, inside of the Pod spec, a container
+image of hello-app:1.0. That app is going to run on container port 8080, and
+we've defined a readiness probe of httpGet with the path of index.html on the
+port 8080. Now these two are very important, initialDelaySeconds 10 and
+periodSeconds 10. And so what initialDelaySeconds 10 is it's not going to
+check the container application until 10 seconds after the Pod and container are
+created and started. What that means is we'll have a little bit of a delay in
+the rollout of our application before this particular app reports that it's up and
+running and healthy. And this could be valuable in scenarios where you do have a
+slow application startup time in your Pod-based applications. So let's go and
+jump back over to deployments and run this particular rollout. And so, I'm going
+to deploy this application with kubectl apply -f deployment.probes-1.yaml and --
+record so that I can capture the metadata operations about this rollout in the
+CHANGE-CAUSE annotation of this particular deployment. So, let's go ahead and
+run that code. And quickly, I'm going to jump down here. I'm going to run a
+kubectl describe deployment because I want to capture that information at the
+very beginning of that rollout. We're going to look at some critical values here so
+that you can learn how Kubernetes manages this type of rollout. So as I scroll
+back to the top, let's go ahead and get to the top of the output here. There we
+see name is hello-world. So inside of here, in the replicas, this is kind of the
+important part for this particular demonstration. So we set an initialDelaySeconds
+of 10. And so right now we see that there are 20 Pods desired and that 20
+are updated and running the newest version of the application, which just so
+happens to be the first. We see that there are 20 total across all
+ReplicaSets, again just one ReplicaSet, so we have 20. But interestingly, we see
+that 0 are available and 20 are unavailable. So there's 20 Pods up and
+running, but none of them are reporting ready yet because of
+the initialDelaySeconds on the readiness probe. If we go down a little bit further
+and we look at the current conditions, we see Available False
+MinimumReplicasAvailable because we don't have the minimum number of
+replicas required for this ReplicaSet up and running inside of our application. And
+we also see Progressing True ReplicaSetUpdated. That's good because it knows
+that it's rolling out this new version of our application. So if we scroll down now,
+and since we waited a few seconds, and I do another kubectl describe
+deployment hello-world, and I scroll back up, let's go ahead and check the status
+now. If I look at replicas, I see 20 desired, 20 updated, 20 total, 20 available
+because these are now passing the readiness probes because our applications
+are up running online and have all been checked and are available and are now
+part of a successful rollout for this particular deployment. So, let's go ahead and
+scroll down and look at the conditions. We also see Available True
+MinimumReplicasAvailable; Progressing True NewReplicaSetAvailable. So we
+know we're in a good state in our rollout. So, let's go ahead and update our
+application, and so let's bring our prompt up as well. And at the top here, I'm
+going to show you that I have two deployment files, the one that we just ran,
+deployment.probes-1.yaml, and I'm going to update our application to
+deployment.probes-2.yaml. And using the diff command here, just a quick
+difference so that we can see that those files are identical with the exception of
+I'm going to rollout a new version of my container image from 1.0 to 2.0. So let's
+go ahead and use kubectl apply -f deployment.probes-2.yaml --record to capture
+that metadata. And here we can see that our hello-world deployment is
+configured, as well as our service. If we scroll down now, let's go ahead and check
+out what's going on with our application. I want to look at this first from the
+ReplicaSet level. And here we can see that we have 18 Pods in our old ReplicaSet
+ending in 58b, and we have 4 Pods in the new ReplicaSet ending in 5f9. And so,
+that seems like it's kind of slow. So how do we know if that's progressing? Let's go
+ahead and look at the conditions and replicas inside of kubectl describe. So let's
+go ahead and execute kubectl describe deployment hello-world and look at
+some of the important values inside of here. And so, we know that we're rolling
+out our application. And because I've tested it, I know that this is going to be a
+successful rollout. And so let's kind of go through the information because what I
+did do with this rollout is I slowed things down with setting maxUnavailable to 10,
+maxSurge to 2, and setting that 10-second readiness probe. So things are kind of
+grinding slowly through our deployment, and this could be a valid deployment
+scenario if you want to kind of slowly rollout a new version of an application
+without potentially impacting production workloads. And so, let's go ahead and
+look at the status. So, in our annotations, we can see that we're on revision 2. And
+if we look at replicas, we see that there are 20 desired, and 12 have been
+updated. So 12 are running the new version of our application. Because maxSurge
+is set to a value of 2, we can see that we only have 22 total or 2 above desired, so
+22 total Pods across both ReplicaSets. There are 18 Pods available that are up
+and running because we have 10% set as maxUnavailable. So at most, we'll only
+ever go down 18 available in this configuration. That value is 25% by default. So I
+shrunk that window to 10% because I wanted to keep lots and lots of Pods online
+in this particular deployment. We see that we have 4 unavailable, and those are
+ones coming up in the new ReplicaSet that haven't quite past their readiness
+probes yet. If I scroll down a little bit further, let's go ahead and check out some
+more information. We can see that in the conditions that we have Available True
+MinimumReplicasAvailable. So we're in a healthy state because we know we have
+18 Pods up and running and supporting our workload. We also see Progressing
+True ReplicaSetUpdated because now we're in the phase where we've started up
+the new ReplicaSet, and those Pods are being created. Now this deployment
+takes about a minute to complete rolling out. So hopefully by the time I get down
+and run this code again, we can see that it would be finished. So let's go and
+check that. I'm going to run this code here one more time, and we'll scroll up,
+check out the replicas area of our deployment. Now we see 20 desired, 20 up to
+date, 20 total, and 20 available. So that rollout of the new version of
+our application, hello-app 2.0, has completed. We can see that here with this
+current configuration. If we scroll down a little bit further, we also see that old
+ReplicaSets is done, so that's scaled down, and our new ReplicaSet 20 of 20
+created. So we know that that rollout has completed successfully. So let's go
+ahead and change one more thing in our application. This time, I'm not going to
+tell you what I'm going to change because I want to troubleshoot it together. And
+I'm going to rollout some code in kubectl apply -f deployment.probes-3.yaml, and
+I want to use --record to capture the data about this particular operation. So I did
+not set a progressDeadlineSeconds on this deployment, and so it's going to
+default to 10 minutes. This is different than our previous demo where a short-
+circuited the bad rollout in 10 seconds, and that rollout failed. And so when I go
+ahead and check my kubectl rollout status for this deployment, we're going to
+see that I get to 4 Pods and things stop, which is great because now I know that I
+still have a good chunk of Pods up and running and supporting my application
+still. And so let's go ahead and break out of here. And since I know this is a failed
+deployment, let's go ahead and walk through some of the things that we would
+look at in a failed deployment, how we can discover this, make a good decision,
+and correct it. So, let's go ahead and run kubectl describe deployment hello-
+world. Go ahead and scroll to the top here and look at the status of this rollout. So
+here we can see in replicas that 20 are desired and 4 are updated or running on
+the new version of our application. There's 22 total across our app. That's going to
+include the 18 that are currently available for our old version of our ReplicaSet
+and the 4 that are coming up that are unavailable in the new ReplicaSet. So we
+see that there are 4 unavailable, which is interesting. I'm going to hold onto that
+piece of information. And so, let's go ahead and break out of here and move on
+and see how else we can troubleshoot this. And the next thing I want to do is I
+really didn't get a big piece of information to grab onto in the kubectl describe
+deployment, so let's go ahead and look at this from a different level to see if we
+can get another piece of information to grab onto with regards to our
+deployment. And so here's kubectl get ReplicaSet, and we have the three
+ReplicaSets that have been part of this particular deployment, the initial rollout, a
+v1 of our app that was running on the ReplicaSet ending in 58b. Then, we
+updated that the version 2 of our application to the ReplicaSet ending in 5f9. So
+we see 18 that are desired, current, and ready. Now, we've rolled out a new
+version, that third deployment, and we can see that in that ReplicaSet ending in
+76, we have a desired 4, current are 4, so there's 4 Pods that are up and
+running, but 0 are ready, and that's something that I want to kind of hone in
+on because I see that I started those Pods up, but they're not reporting as
+ready, which means that the rollout for those particular Pods is seen as
+unsuccessful by the deployment controller. So the deployment stops, which is
+great because we don't go below maxUnavailable of 10% with 2 Pods offline in our
+old ReplicaSet. And with maxSurge set to 2, we don't go above 22 total Pods
+across both ReplicaSets with the desired count of 20 replicas. With this, the
+deployment can't proceed because no more Pods can be shut down, and this is
+great because we've protected our application, keeping 18 Pods online and
+supporting our app. So let's go ahead and look at this again at another level since
+I know that ready is 0. That kind of is a hint to me. What else have we defined
+working with this particular deployment? A readiness probe. Let's go ahead and
+look at kubectl describe deployment hello-world and see what the readiness
+probe is for this particular Pod template. If I go in here, I can see the readiness
+probe is an httpGet readiness probe, and it's looking on http://:8081. All right, well,
+what's the container port for this particular application, 8080? So clearly, when I
+made this demonstration, I must have had a typo in that particular
+deployment, and Kubernetes didn't want to roll that out and continue to break
+my application. And it stopped when it rolled out those 4 new Pods and
+they started failing their readiness probe, leaving us with 18 Pods still online or
+10% of maxUnavailable. So we had a nice healthy rollout because of two
+things. We combined it with a RollingUpdate strategy with settings appropriate
+for our application, but we also combined it with a readiness probe because
+that application wasn't coming up as ready, or I misconfigured it and it isn't able
+to check to see if it's ready. If those Pods didn't have a readiness probe
+defined, Kubernetes would have just continued to roll out those Pods without any
+consideration of the health of the application. So let's go ahead and see how we
+can get out from underneath this. So let's go ahead and ask Kubernetes for the
+rollout history of this particular deployment that we've been working with. Let's
+go ahead and make sure that we grab that whole command there and run that
+code. And now we can see what happens when we use the --record options. We
+get some additional information in our revision history. So we have three revisions
+to this particular deployment. The one where we used kubectl apply with
+probes-1, -2, and -3. Now, let's go ahead and look a little bit closer at version
+3. That's the last bit of code that we rolled out. So I'm going to say kubectl rollout
+history deployment hello-world --revision=three. I'm going to look at the Pod
+template here. That's where I made the change to 8081, so we know that that's
+the bad one because we see our container port is on 8080. Let's get ahead and
+look and kind of walk back to the next version, so we'll look at revision 2. Run that
+code there. Cool, 8080. Now I know this is a good one, and so we're going to take
+this code and make the decision, yep, run version 2 of our app. We're running a
+readiness probe on 8080. Our container port is 8080. We're in good shape
+here. And so let's go ahead and roll back this deployment to that particular
+revision, and we can do that with kubectl rollout undo deployment hello-world --
+to-revision=2. Let's go ahead and run that code. It's going to quickly roll back our
+application. I'm going to go ahead and check the status of our deployment
+with kubectl describe deployment. Pipe that into head. And there at the bottom,
+we can see we have 20 desired, 20 that are updated, 20 total, and 19 available. So
+I got it a little early. I have 1 still unavailable. If I run it again, there we go, 20
+available, 0 unavailable. And so what happened there is when I rolled back
+the application, Kubernetes scaled down that misconfigured ReplicaSet and
+scaled back the old ReplicaSet from revision 2 back up to the desired number of
+replicas, which is 20. And then those container probe started the check, and we
+went from 19 available to 20 available. If I do a kubectl get deployment, we can
+see 20 of 20 already are up to date on the current version of our application and
+that 20 are available. Let's go ahead and delete this deployment and delete the
+service and move forward into our next demo.
+Demo: Restarting a Deployment
+Now for our next demo, we're going to work on restarting a deployment. And
+so, let's go ahead and create a fresh deployment so we can get some nice,
+clean, easier-to-read logs without all the other work that we've done in the
+previous demos. And so on line 156 here, I have kubectl create deployment hello-
+world for our hello-world application that we've been working with, and I'm
+specifying 5 replicas. And so that's going to create a deployment with 5
+replicas. And so let's check the status of that deployment before we move on, and
+here we can see from the output of kubectl get deployment, we have hello-world
+and that 5 replicas are up, running, and ready. So let's check out those Pods with
+kubectl get pods. And what I want to point out here is the Pod template hash for
+these Pods ends in 555. And so what we talked about what a restart will do is
+transition between two different ReplicaSets. And so I want to call out that that's
+the first ReplicaSet there and also our age, so just 17 seconds that these Pods
+have been up and running. And so to initiate a restart, we can use kubectl rollout
+restart deployment and then the deployment name, hello-world. And so I'll run
+that code there, and that will initiate the restart, creating the new ReplicaSet,
+scaling down the old ReplicaSet, and scaling up the new ReplicaSet. And in this
+case, when I created the deployment, I didn't specify an update strategy. The
+default is RollingUpdate, and so it's going to transition between the two
+ReplicaSets using the RollingUpdate update strategy. And so let's check out what
+the restart did with kubectl describe deployment hello-world. And in the events
+at the bottom here, we can see that our deployment controller did just that. It
+created a new ReplicaSet ending in 846. It then started scaling down our old
+ReplicaSet, the one ending in 555. And so there, in the second line of the events,
+we see hello-world with the Pod template hash ending in 846, scaling up to 2.
+And then we see the old ReplicaSet scaling down to 4 all the way down to 0 in
+the last line of the output here. And so if we do a kubectl get pods here, what we
+see is our 5 new Pods up and running, effectively restarting the Pods, but since
+no Pod actually ever gets recreated, we have a new set of Pods in a new
+ReplicaSet up and running. And in the output here, we can see all 5 of those Pods
+with the Pod template hash ending in 846, and they've been up for just over a
+minute now. So let's clean up from this demo with kubectl delete deployment
+hello-world and head back into the presentation portion of the course.
+Scaling Deployments
+Now the final method that we're going to look at in this module about managing
+the state of our applications with deployments is scaling deployments. And
+Kubernetes gives us two ways to scale our deployment, so we can do this both
+manually and automatically. And let's look at manually first. Now, manually, when
+we're working with Kubernetes objects, we, of course, can come along and
+change an object imperatively at the command line. And so to scale a
+deployment, whether it's up or down, I just simply say kubectl scale
+deployment, the name of the deployment, in this case hello-world, and then I
+define the number of replicas, in this case 10. It could be 20, 100, to whatever I
+need to make modification to my application state. Now, that's imperatively at the
+command line. And, of course, I'm going to encourage you to do this declaratively
+in YAML in code. Inside of there, inside the deployment spec, we would define
+the number of replicas that we want for the next state of our application. It could
+be more; it could be less depending on how we want to roll out that
+change. Now, there's another way in which we can control scaling deployments
+inside of Kubernetes, and that's the Horizontal Pod Autoscaler. The Horizontal
+Pod Autoscaler is a Kubernetes resource that scales the number of Pods in a
+replica set or deployment based on resource utilization, and the changes to this
+are going to be driven by the controller manager. Now, we're not going to dive
+into HPA, or Horizontal Pod Autoscaler, today in this course. We're going to save
+that for a future course. In this course, we're going to focus on manual scaling,
+and we'll do that in our upcoming demonstration.
+Demo: Scaling a Deployment
+Now, let's get into the final demo for this module. Let's look at scaling
+deployments. So here we are logged into c1-cp1, and let's start off with creating
+and scaling deployments. And the first technique that we're going to use today is
+imperatively at the command line. So on line 7 here, I have the code that we've
+seen throughout this course and the series of courses on Kubernetes where
+we're going to create a deployment at the command line with kubectl create. So
+on line 7, I have kubectl create deployment, the name of the deployment, hello-
+world, and the container image that we want to launch, which is our hello-app
+container. So let's go ahead and run that code, and what that's going to do is
+create a deployment with exactly one replica in it. And so let's check out the
+status of our deployment to confirm that. With kubectl get deployment hello-
+world, we can see that our hello-world deployment is up and running and that
+one replica is ready. Now moving forward, we can scale our deployment
+imperatively at the command line with the command kubectl scale. And so on
+line 15, I have the code to do just that, kubectl scale deployment hello-world --
+replicas=10. Let's go ahead and run that code there, and what that's going to do
+is create 9 additional replicas in our deployment for a total of 10. Let's go ahead
+and confirm that that actually occurred with kubectl get deployment hello-
+world. And in the output at the bottom there, we can see 10 of 10 replicas are up
+running and ready. So with that, let's go ahead and repeat this demonstration, but
+we're going to do that with declarative deployments. So let's delete our current
+deployment with kubectl delete deployment hello-world. That's going to delete
+the deployment, delete the ReplicaSet supporting that deployment, and also the
+10 replicas. And what we're going to do now is create a deployment declaratively
+in code. And so on line 27, I have the code to do just that, kubectl apply -f
+deployment.yaml. So inside this deployment.yaml file, we can see this is the
+deployment that we've been working with throughout this module. The key
+difference here is on line 6. We're going to start this deployment with 10
+replicas. And so there on line 6 inside the deployment spec, we see replicas 10. So
+jumping back over to our driver script, let's roll that code out with kubectl apply -
+f deployment.yaml. And in the output at the bottom, we see deployment.apps/
+hello-world created and also the accompanying service, which is also in that
+deployment.yaml manifest. Let's check the status of our deployment with kubectl
+get deployment hello-world. And in the output there, we can see the name of the
+deployment, hello-world, and that 10 replicas are up, running, and ready. Now, the
+key difference between using imperative techniques and declarative techniques
+is, well, we want to write our changes in code when we're using declarative
+techniques. And so what we have here is a second deployment manifest that I
+want to roll out. It's nearly identical to the deployment manifest that we just
+rolled out. I just have it into two separate files for us for demonstration
+purposes. The key difference between these two files is what we see on line
+6, replicas 20. And so to declaratively scale our deployment, that's how we'll make
+that change. We'll make that change in code and then give that code to the
+API server to affect that change in the cluster. And so just to confirm that replicas
+is the only difference between the two manifests on line 35 here, I have a diff of
+the original manifest and the new manifest with 20 replicas. And in the output at
+the bottom, you can see replicas 10 in deployment.yaml, replicas 20 in
+deployment.20replicas.yaml. Now the way that we affect that change in the
+cluster is with kubectl apply. And so we'll take that new deployment manifest and
+feed that in the API server to affect that change. And so in the output at the
+bottom, after running kubectl apply, we see deployment.apps hello-world
+configured. That tells you that the state of that deployment changed. It one from
+10 to 20 replicas. And we also see service/hello-world unchanged. That was also
+inside deployment.20replicas.yaml, but there were no changes to be affected
+into the cluster. And so let's check the status of our deployment with kubectl
+get deployment hello-world, and now we can see our deployment is scaled up to
+20 replicas. And in the output there, we see 20 of 20 up, running, and
+ready. Looking at a little bit closer, we can look at the events for the deployment
+with kubectl describe deployment. Let's run that code and check out the events,
+and we see two scaling operations in the events for this resource. In the output at
+the bottom, we see the initial creation of the deployment, which created
+a ReplicaSet and scaled back to 10. And then a few seconds later, when
+we deployed that second manifest to make that change, we can see the scaling
+operation in the events scaled up ReplicaSet to 20. And so there we can see that
+later in the output. So that's a wrap for this demo. Let's go ahead and delete our
+resources, both our deployment and our service, and move back to the
+presentation portion of the course.
+Successful Deployment Tips, Module Review, and What's
+Next!
+So as we bring this module to a close, let's talk about some deployment tips to
+help make sure that your deployment rollouts succeed inside of Kubernetes
+when you're managing your application state with deployments. First up, always
+control your rollouts with an update strategy appropriate for your application. It
+could be Recreate, it could be RollingUpdate, but make sure you're selecting an
+appropriate rollout strategy for when you need to make changes to
+your application configuration with deployments. Next up is always define a
+readiness probe for your application. Give Kubernetes that additional information
+that it needs so that it can understand the health of your application. You saw in
+the demonstration where I had a misconfigured readiness probe, and Kubernetes
+was able to stop that rollout with only taking two Pods offline. I had 18 of 20 Pods
+in my deployment still up and running and supporting my application, a very
+valuable piece of functionality when it comes to controlling rollouts in
+Kubernetes with deployments. And then finally, use the --record option to leave a
+trail of your work for others. It might not be you that comes along and has to
+troubleshoot a failed rollout. It might be a coworker of yours or someone else that
+needs to get in there, and using this --record option will give them
+additional information to help them troubleshoot and get that application back
+into a desired state. Well, here we are at the end of the module, and we covered a
+lot of information. We looked at configuring and managing application state with
+deployments in Kubernetes, and we learned how we can use deployments to
+change state of our applications, whether it's to roll out a new version of our app
+or to change a specific Pod configuration inside of a Pod template. We also
+learned how to control rollouts in terms of update strategy, whether it's Recreate
+or RollingUpdate, and also how to control that with readiness probes to make
+sure that we have successful rollouts. And then we wrapped it up with scaling our
+application, both imperatively and decoratively at the command line so that we
+can scale our apps to meet the demand of our workloads. Well, here we are at the
+end of this module. Why don't you join me into the next module, Deploying and
+Maintaining Applications with DaemonSets and Jobs. In this module, we'll cover
+how we can build different types of workloads with these types of controllers
+inside of Kubernetes.
+Deploying and Maintaining Applications with
+DaemonSets and Jobs
+Introduction, Course and Module Overview
+Hello. This is Anthony Nocentino with Centino Systems. Welcome to my course,
+Managing Kubernetes Controllers and Deployments. In this module, we're going
+to learn how to deploy applications with some additional controllers in
+Kubernetes, the DaemonSet, Job, and CronJob controllers. So far in this course,
+we learned how controllers work and how we can deploy, scale, and update our
+applications with the Kubernetes object, deployments. Now, let's look at how we
+can model and deploy different types of workloads in our Kubernetes cluster in
+the module Deploying and Maintaining Applications with DaemonSets and
+Jobs. Now that we have a pretty good understanding of how ReplicaSets work
+and how we can use deployments to roll out our applications inside of
+Kubernetes, let's look at working with some additional controllers inside of
+Kubernetes. We're going to look at DaemonSets, Jobs and CronJobs, and
+StatefulSets and how we can use these controllers to model additional workload
+types in our cluster.
+Controllers in Kubernetes and Understanding
+DaemonSets
+So far in this course, we've looked closely at both ReplicaSets and
+deployments. Now let's look at some additional controller types and the
+workloads that they support. First up is a DaemonSet. DaemonSets are useful if
+you need to run a single Pod on every node or a subset of nodes in your
+cluster. Think of this as having Kubernetes manage system daemons for you as
+you would in a traditional Linux system with systemd or init. Next is Jobs. If you
+need to run something in your cluster just once, you can leverage a Job to do
+that. Perhaps you need to run a batch Job or a task, and you need to guarantee
+that it runs to completion. That's where Jobs will come in. If you need to run a Job
+on a schedule, you can do that. Kubernetes gives us the CronJob controller. This
+will run a Job, the controller type that we just introduced, on a periodic
+interval. And then finally, the StatefulSet. This is a controller type that provides
+the needed infrastructure for stateful applications, for example persistent
+naming, ordered operations for things like scaling and updates, and it also
+manages persistent storage. I'm going to introduce StatefulSets in this module
+conceptually, but we're going to cover them in much more detail in a later course
+on storage. The first controller that we're going to look more closely at in this
+module is the DaemonSet. The DaemonSet ensures that all or some nodes in a
+cluster run a copy of a Pod. Effectively, this becomes an init daemon inside of
+your cluster so that you could run basically cluster services much like you would
+run system services in a traditional Linux system. The DaemonSet has the
+responsibility of ensuring that those services are up and online in your
+cluster. Example workloads that you might see deployed as DaemonSets, well, I
+can guarantee you have at least one DaemonSet up and running inside of your
+cluster right now, and that's the kube-proxy providing the network services inside
+of your cluster. Additional workloads that you might see deployed as DaemonSets
+include log collectors, metric servers, resource monitoring agents, and storage
+daemons. So these types of workloads, specifically log metric and resource
+monitoring agents, have the responsibility of collecting data and shipping it off
+into other tools, and so you might want those running on every node in your
+cluster. Storage daemons you would see running on every node of your cluster or
+perhaps a subset of nodes in your cluster wherever you would need access to
+that specific type of storage provided by that storage daemon. Now, let's get a
+visualization of the controller operations provided by
+DaemonSets. Basically, where does Kubernetes when it runs a DaemonSet, place a
+workload or Pods in the cluster. And so here we have a cluster with the control
+plane node and a collection of worker nodes, and I come along and define a
+DaemonSet that I want to ensure is running on each node in the cluster. And so
+when I declare that DaemonSet, it's the responsibility of the DaemonSet
+controller to deploy a Pod on each node in the cluster. But if you notice here, it
+didn't put a Pod on the control plane node. And so if I come along and define my
+own user DaemonSet, that's going to be deployed on all the nodes in the cluster
+with the exception of the control plane node because the control plane node
+is tainted for non-system service functions and workloads. And when you look at
+system DaemonSets like kube-proxy, you'll find that they're deploying each and
+every node in the cluster, including the control plane node, because they
+will have a toleration for that taint. If you want to dive more taints and
+tolerations, head over to my course Configuring and Managing Kubernetes
+Storage and Scheduling. When it comes to scheduling Pods associated with
+DaemonSets, by default, Kubernetes will ensure that one Pod will be scheduled
+to each worker node in the cluster by the default scheduler. And as nodes are
+joined to the cluster, they will get a copy of that Pod. And we saw that in the
+demonstrations in my course Kubernetes Installation and Configuration
+Fundamentals where we built a cluster and added additional nodes to the
+cluster, and it was the responsibility of the DaemonSet that controls the kube-
+proxy to ensure that each additional node that we added got a copy of the kube-
+proxy Pod. Now, if needed, we can control which nodes in our cluster get a copy
+of a Pod. Perhaps we don't need it to run across all nodes in our cluster. Maybe
+we need to run a Pod on a subset of nodes in our cluster. And then, the
+DaemonSet spec we can define a node selector. And in conjunction with labeling
+the nodes our cluster, then we can have our DaemonSet run Pods on a subset of
+nodes in the cluster. Let's take a look at what it takes to define a DaemonSet in
+YAML, and we would kick it off much like any other API object inside of
+Kubernetes with an apiVersion. In this case, it's going to be apps/v1 for the
+current version of a DaemonSet. The kind is going to be DaemonSet, and the
+metadata is going to have to have a name. In this case, it's going to be hello-
+world-ds. Now, inside the spec or the technical specification of this
+particular controller object, we'll define a selector. And much like any
+other controller in Kubernetes, it's going to use labels and selectors to determine
+Pod membership to this particular controller. This time we'll use matchLabels. But
+of course, we could use matchExpressions here if we need it, and then we'll
+provide the labels that we want associated with the selector for determining Pod
+membership. Now in the Pod template, we'll define the metadata, which
+will include the labels and the key and the value such that those satisfy the
+selector defined up top. And so that would be stamped out for each Pod created
+by the DaemonSet. Then, we would go along and define the spec inside of the
+Pod template, which would include the container definition, the name, image, and
+so on. That's going to be how we define a DaemonSet inside of Kubernetes. So we
+just looked at how to create a DaemonSet inside of our Kubernetes cluster, and
+that's going to guarantee that a Pod is going to be running on each node in our
+cluster. But what if we needed to run a Pod on a subset of nodes in a cluster?
+Then, we can do that with defining a DaemonSet with a node selector. And so
+let's go ahead and walk through the code to do that in YAML. The first part of this
+is going to look the same as it did just a second ago with apiVersion, kind,
+metadata, and spec. Inside the spec, when we define the Pod template, that's
+where things are going to change up a little bit. We'll still have the metadata and
+the labels associated with the Pod that's getting stamped out by the DaemonSet,
+but inside the spec inside the Pod template, that's where things are going to
+change just a little bit. We'll define a node selector and a label with a key and
+value pair, so, in this case, node hello-world-ns. We'll take that label, and we'll
+assign that label to each node in the cluster that we want to run this Pod on. That
+could be all of them, that could be a subset of them, based on how we want to
+run this particular workload in our cluster. Now the value in using a DaemonSet
+with a node selector is great in that we get away from using static names
+associated with nodes. We're going to use labels to say I want to run this Pod
+on this subset of nodes in my cluster or even an individual node if that's what's
+needed. But we do get out of the business of statically assigning this to specific
+nodes in our cluster and leveraging labels to place the workload in a cluster. Now
+the remainder of this configuration would look like any other Pod template spec
+where we define the containers, the name of the containers run, and the images
+associated with them.
+Updating DaemonSets
+Now, earlier in this course, we learned how we can leverage an update strategy to
+control the rate of rollouts inside of deployments in Kubernetes. Let's look at how
+we can use a similar technique inside of DaemonSets and look at DaemonSets
+update strategies. The first update strategy available inside of DaemonSets is the
+RollingUpdate update strategy. With this update strategy, after you update the
+DaemonSet Pod template, old DaemonSet Pods will be killed, and new dataset
+Pods we created automatically in the place of the previous Pods. And it's going to
+do this in a controlled fashion. This RollingUpdate update strategy has a setting,
+maxUnavailable, which can be set to a percentage or an integer value, the
+default value being set to 1. The RollingUpdate update strategy is the default
+update strategy for DaemonSets. So, if we don't define an update strategy and we
+don't define a maxUnavailable setting, the DaemonSet controller will work its way
+through our DaemonSet one Pod at the time, replacing those in our cluster. The
+next update strategy available for DaemonSets is the OnDelete update
+strategy. And so after you update the DaemonSet Pod template, new DaemonSet
+Pods will be created only when you go manually delete the old DaemonSet Pods
+in the cluster. Now if something goes wrong with your DaemonSet Pod update
+Rollout, you can edit the Pod template again to update the object, and that
+new configuration will start replacing the old configuration, basically pushing you
+towards that desired state defined in that latest version of the DaemonSet spec.
+Inside of DaemonSets, there's really no concept of pausing an update here. We
+would just simply redefine what we want to have happen with a new edit
+and push that out, and then DaemonSet controller will work its way through the
+cluster using the update strategy that we defined.
+Demo: Creating and DaemonSets Controller Operations
+All right, so let's get into our first demo where we're going to look at creating a
+DaemonSet together. We're going to do two scenarios here. We're going to create
+a DaemonSet on all nodes in our cluster and then a second DaemonSet that runs
+on a subset of nodes in the cluster. And then finally, we'll look at how we can
+update a DaemonSet and roll out a new Pod template with a new container
+image. Here we are logged in to c1-master1, and let's walk through some demos
+on working with DaemonSets. And the first thing that we're going to do is look at
+a DaemonSet that already exists on our system, the kube-proxy, and then drive
+through creating our first DaemonSet on all of the nodes in a cluster. And so, let's
+get started. The first thing I'm going to do here is get a listing of nodes so that we
+know the number of nodes that we're working with in a specific cluster and how
+Kubernetes is going to roll out Pods to these nodes and in what number. And so
+let's go ahead and run kubectl get nodes. And we can see that I have four nodes
+in my cluster, one master and three worker nodes. And so, the first DaemonSet
+that we're going to look at is the kube-proxy DaemonSet. And to get the
+information about that DaemonSet, I'm going to say kubectl get
+daemonsets, specifying the namespace kube-system and then the name of the
+DaemonSet. In this case, it's going to be kube-proxy. It's going to run that
+code. And here we can see, we have four kube-proxy Pods running on the nodes
+in a cluster, one for each and every node, including the master. So let's go ahead
+and move forward and bring this code into view here, and let's create our first
+DaemonSet together and jump over to that DaemonSet.yaml file that I have up
+here and walk through this configuration. So we see apiVersion apps/v1, kind
+DaemonSet, metadata, we're going to give it a name of hello-world-ds. Inside the
+spec, I'm going to define a selector for this DaemonSet, which is going to have a
+matchLabels type, and the label is going to be hello-world-app. If I scroll down a
+little bit, you can see inside the Pod template, we're defining the metadata and
+the labels for the Pods stamped out by this DaemonSet. And then in the spec,
+that's the container image that we're going to deploy, which is going to be our
+hello-app:1.0. Jumping back over to the demo script here, let's go ahead and roll
+out this code with kubectl apply -f DaemonSet.yaml and run that code. If I go
+down a little bit more, if I do a kubectl get daemonsets, you can see this
+DaemonSet only rolled out to the three worker nodes in our cluster. We have
+three Pods that are up and running because our master node is tainted and is
+only going to run system Pods, including the kube-proxy Pod. If I want to see a
+little bit more information about this DaemonSet, I can add the -o wide flag to
+kubectl get daemonsets, run that code, and we can see a little bit more info
+about how this DaemonSet was rolled out. So in addition to the information that
+we got from kubectl get daemonsets, we also get things like the container that's
+running and the specific image followed by the labels associated with it. But if I
+want to see which nodes the Pods landed on, I'm going to use this command,
+kubectl get pods -o wide, run that code there, and now we see the three Pods
+that were deployed by the DaemonSet and the nodes that they were deployed
+on. So on the left there, we see the name, so hello-world-ds followed by a unique
+Pod identifier. And in the NODE column, we can see that one Pod was assigned to
+each node because I have an entry or a Pod running on c1-node1, c1-node3, and
+c1-node2. And so one Pod is running on each worker node in our cluster. Let's go
+ahead and use my favorite Kubernetes command, describe, and look at the
+detailed information about the DaemonSet, so kubectl describe daemonsets
+hello-world. I'm going to pipe that into more so it doesn't run off the screen and
+get this good detailed information about our DaemonSet. We're going to walk
+through this information together. So there we see the name hello-world-ds and
+the selector that is used to determine Pod membership, and that's going to be
+app=equals hello-world. If we go down a little bit further, we can see the desired
+number of nodes scheduled, which is 3, and the current number of nodes
+scheduled, which is 3. So Kubernetes knows that there's three worker nodes, and
+it needs to have one Pod on each node that is part of this cluster. We also get to
+see the number of nodes scheduled with up-to-date Pods. So there we know if
+we're running the latest version of our application and also the number of nodes
+scheduled with available Pods. Is that Pod up and running and ready on that
+particular node in the cluster? If we go down a little bit further, we can see the
+Pod template, and there you can see the container image is our hello-app:1.0. And
+at the bottom here, in the events, we can see how the DaemonSet controller had
+the responsibility of creating both of these three Pods right away. So we see
+three entries, one for each of the Pods that it had to create. So let's keep moving
+forward and look at these Pods from a different standpoint. Now, I'm going to ask
+Kubernetes and say, hey, Kubernetes, kubectl get pods, but this time I'm going to
+add the show-labels flag to that command, and we get some additional
+information about these Pods. We get all of the labels associated with it. And so
+on the right there, we see the label for the selector, which is going to be
+app=hello-world-app. And so this particular Pod has that label, and that's how it
+determines membership of the DaemonSet. But the DaemonSet also has the
+responsibility of tracking updates so that we see two additional labels here that
+are associated with how it tracks the versions of the Pods that have rolled out in
+this DaemonSet. So there we see controller revision hash, which is very similar in
+concept to the Pod template hash in deployment. And then finally, we see there
+pod-template-generation set to 1, this being the first deployed DaemonSet
+running that first container image. So, let's go to work with those labels a little
+bit. I'm going to show you how Kubernetes is going to handle this or, more
+specifically, the DaemonSet controller is going to handle something like changing
+the Pod label. And so if I go ahead and grab the Pod name of the very first Pod in
+that list, that's part of our DaemonSet, which is what that syntax does right
+there, all I'm going to get out of that syntax is the first Pod in the list, in this case
+ending an 8cf2l. What I'm going to do here is I'm going to adjust the label of the
+Pod. I'm going to change the Pod from something that's within the selector
+to something that's outside of the selector. So kubectl label pods MYPOD
+the variable which has an individual Pod name in it, I'm going to assign it the label
+of app=not-hello-world and specify the overwrite flag, label that Pod, and I want
+you to take a guess on what Kubernetes is going to do now. Is it going to create a
+new Pod? Is it going to shut that Pod down? What's it going to do to maintain the
+desired state? Let's go ahead and run kubectl get pods again with show-labels
+and see what it did for us. And so in this listing now, we see four Pods. And the
+very first Pod there, we see that it's been up and running for a little bit over
+5 minutes, and we see that the label is app=not-hello-world. But we also see a
+Pod that was newly created 16 seconds ago that does have the label app=hello-
+world-app. So that's within the selector and the first Pod being outside the
+selector. So we can see similar to what we did with deployments where we can
+push a Pod outside of the selector for some additional analysis. Kubernetes is
+simply going to replace that Pod on that node where that previous Pod was
+labeled and removed from the selector. And so now we can work with this Pod,
+make any corrections, perform some log analysis, or delete the Pod if we're
+finished with it, and it's no longer of use to us since it's been replaced.
+Demo: Creating DaemonSets with NodeSelectors and
+Updating DaemonSets
+Now let's go ahead and move into our next demo and clean this DaemonSet
+up. Let's go ahead and delete that DaemonSet and also delete the Pod that we
+moved outside of the selector for the DaemonSet. And the next thing that we're
+going to do together is create a DaemonSet on a subset of nodes. And so, within
+this DaemonSetWithNodeSelector.yaml file, it starts off the same as our previous
+DaemonSet. But the key difference is in the Pod template where it now includes a
+node selector. So their on line 14, you can see it specified a nodeSelector and, on
+line 15, the label that I'm using for the node selector, which is node and hello-
+world-ns. So let's jump back over to our demo script and run that code and roll
+out that DaemonSet. Now, let's go ahead and check the status of that rollout and
+do a kubectl get daemonsets. And uh oh, we can see that I have zero Pods
+deployed. All right, well, I just deployed the DaemonSet, ran the code. I expected
+it to run some Pods, and it's not. All right, so I want you to take a guess as to why
+that's not happening. Why did the Kubernetes DaemonSet controller not start up
+any Pods? Well, we need to label some nodes to satisfy that node selector. And to
+do that, we'll use kubectl label node, and then we're going to label the c1-node1
+node, and we're going to apply in the label node=hello-world-ns. And so that's
+effectively going to apply that label to the c1-node1. And now, we have a node
+that's within the node selector for that particular deployment. So the DaemonSet
+controller will do what? It's going to rollout one Pod on that node. Also, in the
+output here, we can see that we have data in our NODE SELECTOR column. It's
+looking for a label of node=hello-world-ns. If we look at the output of kubectl get
+daemonsets -o wide, we see additional information, such as containers, images,
+and the labels associated with this DaemonSet. Moving forward, if I do kubectl
+get pods -o wide, hopefully we have a Pod on c1-node1, and yes we do. So that's
+because we applied that label to that node, and then the node selector attribute
+that was defined inside of the Pod template now is satisfied. It can put a Pod on a
+particular node. So what happens if I remove a label now? If I go kubectl label
+node c1-node1 node-, if I do this and remove that label, what's the DaemonSet
+controller going to do? It's going to terminate that Pod, and we can see that here
+by looking in kubectl describe daemonsets hello-world-ds. We can see that 67
+seconds ago when I applied the label, it created the Pod. And then 5 seconds ago
+when I removed the label, it deleted the Pod. So we can control where these
+things live and breathe inside of our cluster by adjusting the labels real time. And
+so if we know a node is coming online, we can apply a label to it and push
+workload to that if that's how we need to deploy our systems. And so let's go
+ahead and clean up this demo and do a kubectl delete daemonsets hello-world-
+ds and move into the next demo where we're going to update our
+DaemonSet. And so I'm going to rollout that DaemonSet that we started our
+demos with where we we're just going to run the version 1 of our
+application across all worker nodes in our cluster. And so we should see three
+Pods are created, and there we can see those in the events there. And also in the
+Pod template, we can see the container image is set to 1.0. Now, we didn't define
+an update strategy in DaemonSet.yaml. In fact, we used pretty much a barebones
+configuration to get our DaemonSet rolled out. But, if we look at kubectl get
+daemonset hello-world-ds -o yaml and pipe that into more, there are some
+default values that are set within the DaemonSet's configuration. So let's go
+ahead and look at those. We talked about these during the presentation portion
+of the course, but I want to highlight that they are always set inside your
+configuration. So, as we went further down in the YAML that describes this
+DaemonSet, we can see updateStrategy: RollingUpdate, maxunavailable: 1, type:
+RollingUpdate. And so what it's going to do, the DaemonSet will shut down a Pod
+and replace it. It's going to move to the next node, shut down a Pod, and replace
+it and so on as it works its way through the cluster. So let's go ahead and break
+out of there and go ahead and update our application. So just to show you that
+the only thing that I'm changing between these two YAML files, we're going to do
+a diff between DaemonSet.yaml and DaemonSet-v2.yaml. You can see the only
+thing that's different between these two is the container image. We're going to
+go from 1.0 to 2.0. If I do a kubectl apply -f DaemonSet-v2 on that YAML file, roll
+that out, we can see it's configured. Let's go ahead and check the rollout status
+with kubectl rollout status daemonsets hello-world-ds. And in the output here, we
+can see that DaemonSet is slowly working its way through the cluster, updating
+Pods and started them up on the nodes. If we do a kubectl describe daemonsets,
+we can see, in the events here, we have the initial deployment 115 seconds ago
+that created 3 Pods on each node in the cluster, then that fourth line there that
+happened 21 seconds ago deleted the Pod and then immediately replaced it. And
+it works its way through the cluster, deleting the Pods at 15 seconds. It deleted
+Pod sf62l and replaced it with a new Pod, n8gk9. So it works its way through the
+cluster one at a time based on how we configured the update strategy. In our
+case, we left it as default. If we scroll up a little bit further, we can see that the
+container image in our Pod template is certainly the 2.0, so we're up to date with
+our application. Go up a little bit further in this output, and then we see that the
+number of nodes scheduled with up-to-date Pods is 3. So we know we're running
+the latest version of our application across the cluster here. Let's go ahead and
+keep moving forward in the demo. Do a kubectl get pods --show-labels one last
+time, and we can see some new information inside of here. So we see the three
+Pods that were just rolled out about a little bit over a minute ago, and we see that
+app=hello-world-app is the label that's applied, but we have a new controller-
+revision-hash for this particular version of our DaemonSet, and there we see that
+Pod template generation equals 2. So that was incremented from the initial
+deployment, which was 1, and now it's 2. So let's go ahead and clean up this demo
+and move forward in the course.
+Introducing and Working with Jobs
+All of the controllers that I've introduced so far have the responsibility of starting
+up Pods and running them continuously, in fact ensuring that they Always stay
+online based on the type of controller that we're working with, whether it be a
+deployment, a ReplicaSet, or a DaemonSet. But what if you needed to run just a
+single task in your cluster, or you needed to run that single task periodically in
+your cluster? And that's where two additional controller types come into play, the
+Job and the CronJob. Jobs in Kubernetes have the responsibility of creating one
+or more Pods. Now remember, Pods are just container-based applications that
+run code, and so it's the responsibility of a Job to run a program in a container
+until its completion. And it's the responsibility of the Job controller to ensure that
+the specified number of Pods completes successfully. So there are some
+workload examples where we can define that we want a multiple number of
+completions or successful completions to execute within a Pod. Now how do we
+determine success inside of a Pod's execution? Well, in the most basic ways that
+we'll do that is with the return code from the program that is executed. If it
+returns zero, success. Any non-zero value is considered a failure. Some workload
+examples for Pods that are running inside of Job controllers include ad-hoc Jobs
+that need to run periodically in my cluster. Perhaps I need to execute a task at a
+specified period of time. I could also have a batch Job. Maybe I need to have
+some sort of large processing job that needs to occur that executes and maybe
+breaks up a larger type of workload into a smaller number of Jobs. And, of course,
+data-oriented tasks. Maybe I need to move data from system A to system D
+or execute a backup or some series of events that needs to occur at a particular
+moment in time. It's the responsibility of the Job controller to ensure that Jobs
+run to completion. And so, if something goes wrong during the execution, well,
+the Job controller is going to react. Let's look at two different techniques that the
+Job controller will use to ensure that our Jobs run to completion. Now first up is if
+the Pod's execution itself is interrupted, and a primary example of this is if a node
+fails inside of the cluster. If that's the case, then it's the responsibility of the Job
+controller to reschedule that Pod somewhere else in the cluster. The other
+scenario that we want to look at in the context of ensuring Jobs run to
+completion is if the container-based application we're running inside of a Pod
+managed by a Job controller returns a non-zero exit code, indicating execution
+failure. For these events, we need to tell the container restart policy of the Pod
+how we want it to react. The default container restart policy for Pods inside of
+Kubernetes is Always, which is not compatible with the Job controller. It's
+required that we define another type of restart policy, and our choices are going
+to be OnFailure or Never. Using the OnFailure container restart policy, the Pod
+restarts the container when our program has a non-zero exit code. And in this
+scenario, the Pod isn't rescheduled. It still persists on the same node. It just
+restarts the container to help make sure that our container-based application
+succeeds if that's what we define as the restart policy. The alternative restart
+policy is going to be Never where the container isn't restarted, and then the Job
+is failed. The reason why the container restart policy Always is not compatible
+with Jobs is because when a container-based program execution is completed,
+the container in the Pod will shut down. And with Always set as the container
+restart policy, it would simply start that container back up again. Well, if the Job
+was successful in the first execution, this would clearly not be desired
+functionality as our program would have already completed successfully. If you
+want to look much more closely at container restart policy and how it
+works, check out my course Managing the Kubernetes API Server and Pods
+where we cover this in great detail. As we've been discussing, Jobs are tasks that
+we need to ensure that run to completion in our cluster. Now, when a Job
+completes successfully and it runs the task that we want and it returns an
+appropriate exit value of zero, then that status for that Job will be set to
+Completed inside of the Job object. The Job object is going to remain, and the
+Pods associated with that Job object that were created won't be deleted. And
+the reason for that is that we can keep these Pods around for their logs and
+maybe some other output that's inside that container that we need to look at in
+greater detail. Now, it's going to be up to us, the user, to ensure that we delete
+the Job when it's finished. And then when we delete the Job, it will then delete
+the associated Pods that were created by that Job. Let's look at the YAML code
+that it takes to define a Job inside of a Kubernetes cluster. We're going to start off
+with the apiVersion batch/v1. We're then going to define the kind as Job. And
+then, of course, we'll need to give it a metadata with a name. In this case, it's
+going to be hello-world. Now, inside the Job spec, we'll have a Job
+template. Inside the Job template, we'll have a Pod spec for the containers that
+we want to run in this Job. And for this Job, we're going to run an Ubuntu
+container, specifically off of the Ubuntu image. Now the Ubuntu image is going to
+be a container that we'll need to feed some additional information into, and so
+we're going to feed in a command that we want to execute. In this case, the
+command is going to bash, and we're going to execute that bash program with
+the -c parameter, which allows us to call another program. In this case, we're
+going to call echo, which is going to output some information about the Pod. And
+the final attribute configured here is going to be the container restartPolicy,
+which we're going to specify as Never. Now, we have to define a container restart
+policy because the default container restart policy for Pods in Kubernetes is
+Always, and that is not compatible with a Job type. We'll need to specify either
+Never or OnFailure. Now, it's the responsibility of the Job controller to start up
+a Pod that's going to start this container that's going to run that program to
+completion. And if it's successful, then it'll mark the Job as successfully
+completed. If it's not successful, then it's going to react with the defined
+container restart policy, whether it be OnFailure or Never. In the event that it's
+OnFailure, then it would restart that container. In the event that it was Never, it
+would simply stop that Pod and mark it as failed. The Kubernetes gives us some
+configuration attributes that we can use to help control our Job's execution, and
+let's look at a few of those. First up is a backoffLimit. BackoffLimit is the number of
+times a Job will be retried before it's marked failed. By default, a Job will create
+one or more Pods. And if this Pod creation fails or these Pods fail, then it will be
+retried this number of times, and it defaults to six. ActiveDeadlineSeconds
+specifies the duration in seconds relative to the start time of the Job. The Job
+can run for this duration before the system tries to terminate it. Basically, this is
+the maximum runtime for a Job. Now, parallelism is the maximum number of
+desired Pods a Job should run at a point in time. Now, this is useful for breaking
+up larger sets of data into computable tasks where we can leverage parallelism to
+help us complete those Jobs more quickly. Completions specifies the desired
+number of successfully finished Pods that a Job should be run with. Basically,
+how do we define a successful Job completion? For serial Jobs or ones that run
+only one task or the Jobs that you want to run one task at a point in time, you'll
+set this value to 1. For larger Jobs where you want to leverage parallelism, you'll
+use this in conjunction with the parallelism setting. This will be the total number
+of Pods you want to run to complete your task, and parallelism will be the number
+of Pods you want to run concurrently.
+Introducing and Working with CronJobs
+When working with Jobs inside of Kubernetes, it's up to us to create and execute
+those Jobs. But what if I needed to run a Job periodically or on some time-based
+schedule? That's where CronJobs come in. CronJobs give us the ability to run a
+Job resource at a given time-based schedule in our cluster. Now this is
+conceptually similar to the UNIX or Linux CronJob that you might be familiar with
+and uses the same format when I'm defining the schedule. Some example
+workloads that we'll want to use CronJobs for are periodic tasks that need to
+happen on scheduled times, perhaps backups, data movements, whatever it is
+that we would need to run on some interval inside of our cluster. A CronJob
+resource is created when the object is submitted to the API server by the
+administrator. But at the time of execution or at the scheduled time that we
+define inside of that CronJob, that's when a Kubernetes Job resource is going
+to be created via the Job template, which is part of that CronJob object. It's
+going to create that Job and then execute that Job to completion, just like it
+would any other Kubernetes Job. Let's look at some of the configuration
+attributes that Kubernetes gives us to help control CronJob execution. And first
+up is schedule. This is going to be a cron-formatted schedule. Basically, when do
+we want this Job to run and on what interval? Then there's suspend, which allows
+us to pause the execution of a Job. We can set the suspend to true, and that will
+then suspend subsequent executions of that CronJob. There's also
+startingDeadlineSeconds. If after this number of seconds a Job hasn't started
+yet, then don't start it, and mark that execution as failed. We'll still come along
+and execute the Job again at some point in the future that's defined in the
+schedule. Then there's concurrencyPolicy. ConcurrencyPolicy tells Kubernetes
+how to handle concurrent executions of a Job, and there's three settings, Allow,
+Forbid, and Replace. Imagine this scenario. You've defined the CronJob, and it
+starts an execution. And within that, that Job is still up and running, and a
+subsequent execution comes up because it's scheduled to do so. How do you
+want Kubernetes to react? Do you want it to allow, in that case allow the
+subsequent execution to run concurrently? Or do you want it to forbid and block
+the execution and mark that Job as failed? Or do you want it to replace that Job
+execution by killing off the previous Job and starting up this new Job? These are
+the three settings that Kubernetes gives you to allow you to control how you
+want it to react in those scenarios. Defining a CronJob in YAML for use in
+Kubernetes can be a little bit interesting, so let's walk through this together so
+that we can learn how to get this up and running in our cluster. And first up, we'll
+define an apiVersion. In this case, it's going to be batch/v1. The kind is going to be
+CronJob. And inside of metadata, of course, we'll give it a name, in this case hello-
+world-cron. Now here's where things get a little bit interesting inside of the
+spec, and let's walk through each one of these elements together. First up we'll
+define a cron-formatted schedule. And so here we see a star, a slash, a 1, followed
+by four stars, which means that this CronJob will stamp out a new Job every
+minute for execution. What Job is it going to stamp out? Well, that Job is defined
+in the Job template. Now this Job template is the same as the Job definitions that
+we looked at earlier in this module. And so inside of here, we'll have a spec. And
+inside of the spec, we'll have a Pod template. And inside of that Pod template,
+we'll have another spec for defining the containers that we want to run inside of
+the Job. And so inside of here, we'll go about our standard definition for the
+containers or for the workloads that we need to run to execute inside of that Job.
+Demo: Executing Tasks with Jobs
+All right, so let's get into our demo about Jobs and CronJobs. We're going to look
+at executing tasks with Jobs. We'll look at failed Jobs and container
+restartPolicy. We'll learn how to define a parallel Job, so we can take a big Job
+and break it up into smaller chunks, and then also how we can schedule tasks
+with CronJobs. So here we are logged into c1-master1, and let's get started with
+our first demo where we're going to learn how to execute tasks with Jobs. So, let's
+go ahead and jump right into this job.yaml file and look at what it takes to define a
+Job inside of Kubernetes. And so the first line there, we see apiVersion is going to
+be batch/v1, the kind is going to be Job, and the metadata is going to have a
+name of hello-world-job. Inside the spec, we're going to have a template that
+defines the Pod template spec on line 7. Inside that Pod template, we'll have the
+containers that we want to have run inside these Pods that are going to be
+wrapped up in this Job controller. The name of our container is going to be
+ubuntu, and we're going to launch the ubuntu image. And on line 11, we're going
+to tell our ubuntu image to execute a specific command. In this case, it's going to
+be bin/bash. We're going to parameterize that with -c and then tell it to run
+the bin/echo command where it's going to run this string of text, telling us hello
+from a particular Pod at a particular time. Now on line 15, we're defining our
+container restartPolicy as Never. Our two valid values here are Never and
+OnFailure. If we didn't explicitly define a restartPolicy like we have here on line 15
+and we saved this and sent it into the API server, it would use the restartPolicy of
+Always, which is incompatible with a Job. And at that time, when we'd submit that
+into the API server, it would actually fail and submit an error back saying that
+we were using an incompatible restartPolicy. So we have to set this to either
+Never or OnFailure, and for this one, we're going to use Never. So let's go ahead
+and move forward and send this manifest into the API server for creation and
+jump down to line 11 here and do a kubectl get jobs --watch. We can watch the
+phases of execution for our particular Job. So here we see hello-world-job start
+up, and it has 0 of 1 completions required, and it's been running for about 2
+seconds. And then in the next line, we see 1 of 1 completions, which means our
+Pod started up, our container ran our command to completion successfully, and
+then that Pod shut down. So let's go ahead and break out of here and get a
+listing of Pods that have run in our cluster. So here we see I have a hello-world
+Pod that was run, and it's not ready because no containers are up and running
+inside of that Pod, so we see 0 of 1, but its status is Completed. And so we know
+we had a good execution because we saw just a second ago that we've reached
+the number of required completions which is 1 of 1. If we move a little bit
+further, let's go ahead and use kubectl describe job hello-world-job so that we
+kind of dig into the details of this particular Job's execution. Go ahead and scroll
+to the top here, bring that into view, and there we can see hello-world-job for the
+name, the namespace is default, and we have some selectors defined to help us
+determine Pod membership to this Job. So here we can see the selector is going
+to be controller-uid with that UID defined there. If we go down a little bit
+further, we can see parallelism is 1 and completions as 1. So this Job only ran one
+Pod to completion. We see a start time and a completed time to help us know
+when it started and stopped and a duration of 4 seconds. Now important here we
+see Pod statuses. We see 0 is running and 1 succeeded and 0 failed. So we know
+one Pod started up and ran to completion and ran successfully. If we go down a
+little bit further, we see the Pod template. In the Pod template, we see the labels
+that will be assigned to any Pods created by this controller. So we see the
+controller-uid and also the job-name associated as a label as well. There we see
+our containers where we define ubuntu and then the image that we have up and
+running and the command that we're going to execute. If we scroll to the
+bottom, we see in the events that the Job controller successfully created a Pod
+named hello-world-job cmn2f. So, let's go ahead and keep moving forward in our
+demo and look at how we can actually pull the log from a particular Job so we
+can see what happened inside the execution. That's going to be helpful if we
+need to either debug or we're interested in the actual output of the Job that it
+ran. And so I'm going to use the label here to get a listing of the Pods that were
+created by this particular Job. And so we can use a label in combination with
+a selector to pull that information out. So we'll say kubectl get pods -l where
+we're going to define the label of the job-name=hello-world-job. So let's go ahead
+and run this code here, and we get the output at the bottom here where we see
+that Pod that was named ending in cmn2f. So I'm going to grab that, throw that
+on the clipboard, and paste that right here and then run kubectl log and then the
+Pod name. And here, we can see the output of that Pod's execution. So we see
+Hello from Pod, the Pod's name, and the time of the execution. Again, this is a
+very valuable technique if we're interested in the output of our Pods or
+debugging information. So, since our Job is completed, let's go ahead and delete
+that Job with kubectl delete job hello-world-job. Run that code there. That's
+going to delete that. And then, in addition to deleting the Job, it's also going to
+delete the Pods associated with that. So if I do a kubectl get pods, we'll see that I
+have no Pods defined in the cluster.
+Demo: Dealing with Job Failures and restartPolicy
+All right, so let's keep moving forward and go into our second demo where we're
+going to learn how Kubernetes reacts in failure situations when we're working
+with Jobs. And so we're going to start off by looking at this job-failure-OnFailure
+manifest that we've defined inside of this file. And so starting off just like we did
+before, apiVersion, kind, metadata, and spec. Now inside the spec, I've defined a
+backoffLimit of 2, which means, in this scenario, Kubernetes will start the Job. And
+then if it senses a failure, it will create up to two more Pods to try to complete the
+Job. And so we'll have three potential executions, the initial execution and then
+the two restarts. If we go down a little bit further inside of here, we'll see that our
+template is the same, so the Job template is similar to what we saw before, and
+that our restartPolicy is set than Never. But I've injected an intentional error here
+on line 15. Here, you can see bin/ech instead of bin/echo. This is going to cause
+our application to yield a non-zero exit code and fail the execution of this Job. So
+we swing back over to our script, let's go ahead and run this particular Job and
+send that manifest into the API server and then quickly run down and do a
+kubectl get pods --watch, and we'll kind of walk through the output at the bottom
+here. So the very first line we see ContainerCreating. So the Job started up that
+first Pod ending in 2w7wb. That immediately failed on the next line there, and
+then Kubernetes killed that Pod. It then started to schedule another Pod, so we
+see tskt8 in the status of Pending. That gets scheduled to a node, shifts into the
+ContainerCreating status, and as soon as it creates that container, it errors out as
+we see on that next line there where tskt8 has a status of error. Since we're using
+a backoffloop of 2, we see another Pod get created ending in h784. It tries to start
+up, it goes into Pending during scheduling, switches over to ContainerCreating
+once it gets scheduled to a node. That Pod starts up its container, and it finds
+that it can't find that command that was in our misconfigured Job template. That
+errors out, and then things grind to a halt because we've reached the backoff
+loop. So, let's go ahead and break out of here and kind of investigate what just
+occurred. So, we have kubectl get pods. Let's go ahead and run this code. We can
+see that we have three Pods that were created, the initial one and then the two
+restarts, and those are all in an error status. If we do a kubectl get jobs, we can
+see that right now we have zero completions for our Jobs, and our Job's name is
+hello-world-job-fail. Now, if we jump into kubectl describe jobs, let's go ahead and
+see what's happening inside of here. So let's jump down to Pod Statuses. We see
+0 running, 0 succeeded, and 3 failed, and we saw that. We saw the initial
+deployment fail and then the two retries fail. If we go down to the bottom here, we
+can see in the events some pretty good information that tells us what
+happened. We see the three creations of the first three Pods, and then eventually
+Kubernetes gives up and says BackoffLimitExceeded. The Job has reached the
+specified backoff limit. And then, it marks the Job as failed, and it's not going to
+proceed anymore. So let's go ahead and delete that Job. And when we delete
+that Job, it's going to delete all the Pods associated with it. So you can see if we
+do a kubectl get pods, those are all gone as well.
+Demo: Working with Parallel Jobs and Scheduling Tasks
+with CronJobs
+For our next demonstration, we're going to look at how we can define a Job that
+needs to run in parallel, and so let's go ahead look at this ParallelJob.yaml
+manifest and see how we can leverage parallelism to help us get a lot more work
+done more quickly inside of our cluster. So starting off just like any other Job, we
+have an apiVersion of batch/v1, a kind of Job, and a metadata defining the
+name. Inside the spec, we'll see that line 6 and 7 are new. We have completions
+and parallelism. And what completions is telling our Job controller to do is that it
+needs to run 50 copies of this Pod and ensure that they run to completion. Now,
+line 7 is telling the controller that, at most, it will run it in chunks of 10. So there
+will only ever be 10 Pods running concurrently inside of our cluster. Now, the
+remainder of the Pod template is going to look pretty similar to the initial
+templates that we were working with inside of these Jobs. And so we have a
+template, a spec, and then the containers defining what we want our Job to
+do. So let's go ahead and jump back over to our script and send that into our
+cluster. And now, if we do a kubectl get pods, then we'll see it starts off by
+creating 10 Pods. And so right now, Kubernetes is going through and starting up
+the workload in our cluster. And as we march through this, we'll see that some
+have completed, and it moves on to creating the additional containers needed
+to complete up to 50 completions running 10 at a time. If we want to, we can use
+a watch where we go through and kind of use the traditional Linux watch
+command where we're going to parameterize that with a kubectl describe. And so
+if we look at Pod Statuses at the bottom there, we can see it's working through
+the set, getting up to 50 successful completions. So two more left, and there we
+go. Our Job completed just a few seconds ago. So, let's go ahead and break out
+of here and go back into seeing what Kubernetes did. If we do kubectl get jobs,
+we can see that we have 50 completions, and it took about 41 seconds to do that
+work. Now, let's go ahead and delete that Job and move forward and talk
+about scheduling Jobs with CronJobs in Kubernetes. So, let's go and take a peek
+at this manifest, the CronJob.yaml, and learn how we can use this to define
+scheduled workloads in our cluster. So the apiVersion for this is going to be
+batch/v1beta1. Kind is going to be CronJob, and I'm giving it a name of hello-
+world-cron. In our spec, we're going to define a schedule of */1, which is going to
+run a Job every minute from this CronJob. If you go down further, we can see the
+Job template is the same Job template that we've been using throughout these
+demonstrations with our Hello from Pod echo command. So, let's go ahead and
+switch back over here. Send that into the cluster to be created to schedule that
+work. If we do a kubectl get cronjobs, we can see that we've successfully created
+this CronJob in our cluster. We have a name of hello-world-cron. We can see the
+schedule executing every minute in a cron-formatted schedule and that its
+suspend value is set to False. So this is not suspended. This is an active
+ConJob. Now, ACTIVE there in that next column is the number of Jobs that are
+up and running that are controlled by this particular CronJob. We also see LAST
+SCHEDULE, which is the last scheduled execution. Right now, no CronJobs have
+been kicked off yet, and so we have a value of none there. So hopefully by the
+time I run this, we'll have a Job that runs. So let's go ahead and run this a few
+more times, and there we can see we had an execution. So 1 active, so 1 is running
+right now, and it was scheduled about 3 seconds ago. And so let's go ahead and
+look a little closer at the CronJob with kubectl describe cronjob. Inside of here,
+we see the name is defined as hello-world-cron. We can see the schedule there
+and that the Concurrency Policy is set to Allow. We're using the default value
+there. We can see Suspend is False, and the other values associated with this
+particular CronJob are set to unset. If we go down a little bit further, we can see
+our Pod template. And at the bottom here, we can see Events. And in Events, we
+can see that the CronJob controller successfully created a Job named hello-
+world-cron and then an identifier on the end there. And then it also observed
+that it saw a completed Job. So we see SawCompletedJob for the particular Job
+that started up. So the process is going to be we schedule the CronJob, the
+CronJob creates the Jobs, the Jobs ensure that those Pods run to
+completion, and then the CronJob observes that that specific Pod completed its
+execution. And if we do a kubectl get cronjobs again, we can see that the last
+time that a Pod was scheduled was about 22 seconds ago. If we do a kubectl get
+pods --watch, we can watch the lifecycle of these Pods coming and going. So
+here we can see a Pod ending in cs28r and then another Pod ending an
+hn5fw. There we see another Pod get scheduled. It goes from scheduling
+Pending to ContainerCreating and then to a status of Completed. And so, let's go
+ahead and break out of here. Now the question I'm going to ask is, well, how long
+do these Pods stay around for? Because if I just do a kubectl get pods and run
+this code here, you can see that these Pods are kind of hanging around, the one
+ending in cs28r, hn5fw, and so on. These are all getting created by the
+CronJob, which is going to then create the Job, which is then going to create the
+associated Pod. Well, how long do these Pods stay around for because we could
+actually start consuming some resources inside of our API server if we left all
+these Pods laying around. Well, I'm going to show you exactly how long they do
+stick around for. If we do a kubectl get cronjobs -o yaml and run that code
+there, inside of here, we can see the YAML definition of our CronJob. And its
+definition, we see a successfulJobHistoryLimit of 3. So this is great because now
+it's kind of self-cleaning up after executions. It's going to keep three remaining
+Pods around so that we can go back and look at those if we need to look at the
+logs or whatever other information we need out of the individual Pod. So they're
+not going to live forever. They're going to live about this long or through three
+subsequent executions. We can increase or decrease this based on our
+needs. Now, let's go ahead and delete that CronJob when we're done. And that,
+of course, will also delete the Pods associated with that CronJob. So, when we
+delete the CronJob, the Pods will go away too.
+Introducing StatefulSets
+The final controller type we're going to look at in this course is the
+StatefulSet. Now recall, we're just going to introduce StatefulSets
+conceptually, and we're going to look at the implementation of StatefulSets in a
+future course. StatefulSets enable stateful applications to be managed by a
+controller in Kubernetes, and some example workloads of stateful applications
+include databases, caching servers, and application state servers for web
+farms. Let's look at StatefulSets and the capabilities that they provide for running
+stateful applications inside of Kubernetes. In Kubernetes, when a Pod is
+rescheduled, it's a completely new Pod every time. For stateful applications, we
+need to have the ability to have a Pod be rescheduled in a cluster and have it
+come back in the cluster and maintain its state because, remember, no Pod is
+ever redeployed. It's always a completely new Pod. So if we decouple application
+configuration and application state from the Pod lifecycle, we can have a stateful
+applications inside of Kubernetes. And the way that it's done is based on
+persistent ordered naming, persistent storage, and headless services, and let's
+walk through each of these individually. In terms of naming, we need to provide
+unique persistent naming identifies for Pods running in the StatefulSet. This is
+often needed by persistent state applications, like databases, because they
+might need to know precisely where data is located in a collection of Pods
+supporting a database application. Next up is storage. Pods and StatefulSets will
+need to have persistent storage such that they can store their data in a known
+location and be able to get back to that at a future point in time. And then
+finally, headless services. Headless services are services in our clusters that
+don't have load balancers or even cluster IPs and give our stateful applications
+the ability to use cluster DNS to locate each other by name. Again, kind of
+going back to that concept of data locality and knowing where it exists in the
+cluster because those persistent state applications might need to know exactly
+where a piece of information is on a particular Pod with a persistent name.
+And leveraging cluster DNS, it can help locate those resources inside of the
+cluster based on their names. We'll be diving deeper into StatefulSets in
+an upcoming course on storage. But for now, I wanted to introduce the concepts
+to round out our discussion of controllers in Kubernetes.
+Module Review and Thank You!
+All right, so here we are at the end of the module, and we looked at working with
+other types of controllers in Kubernetes. We learned how we can leverage
+DaemonSets to run Pods on all of the nodes in a cluster or a subset of nodes. And
+we learned how we can leverage Jobs and CronJobs to complete tasks or
+to complete scheduled tasks inside of our clusters, and we learned the
+core concepts behind StatefulSets and how we can use those to deploy
+stateful applications in our Kubernetes clusters. So here we are at the end of our
+course, and I really hope you enjoyed listening to this and that we've laid the
+appropriate foundation for your Kubernetes studies. We've covered a lot of
+ground so far together and discussed many different types of controllers and
+their use cases in Kubernetes. We looked at deployments and how we can use
+those to maintain application state and scale our applications in our clusters, and
+we also looked at how we can leverage other controller types like DaemonSets,
+Jobs, CronJobs, and StatefulSets to round out our capabilities to deploy various
+types of workloads in Kubernetes. It's truly been a pleasure recording this course
+for you, and I thank you for listening and, most importantly, learning with me.
+Thank you so much. I hope you enjoyed the course, and join me again soon here,
+at Pluralsight.

@@ -1,0 +1,1346 @@
+Certified Kubernetes Administrator
+(CKA): Kubernetes Foundations
+Understanding Kubernetes architecture and
+building your lab
+Four framing questions
+Hello there, welcome to Certified Kubernetes Administrator: Kubernetes
+Foundations. This is course 1 of 11 in our Pluralsight CKA skill path aligned to the
+February 2025 curriculum on Kubernetes 135. I'm Tim Warner, your author for the
+entire path. Four questions mapped straight to CKA competencies and real
+admin work. Number one, what is the role of each control plane and worker node
+component? This is your troubleshooting foundation for Kubernetes. Cluster
+architecture is 25% of the CKA cert exam. When production breaks, you need to
+know which component owns the system before you touch anything. Second,
+what are the differences between the CRI, CNI, and CSI extension interfaces? This
+is a new add to the February 2025 exam curriculum. Container runtime,
+network, and storage interfaces are the plug-in boundaries connecting
+Kubernetes to runtimes, networking, and storage. Third, how do I create a multi-
+node kind cluster and verify cluster health? Kind stands for Kubernetes in
+Docker. One config file, one command under 30 seconds. The cluster persists
+across every course in the learning path. I did that intentionally to make your lab
+setup easier. And lastly, how does your practice lab compare to the CKA exam's
+PSI Bridge desktop? The PSI Bridge is the remote XFCE desktop you sit in on
+exam day. I want zero surprises, that's the goal. Remember that the CKA exam is
+100% performance based. There are no multiple choice items. You drive live
+clusters under a two-hour clock with a pass mark of approximately 66%. Let's
+check in with Globomantics Robotics, the fictional company we follow through
+the path. Let's look at Devon's scenario. He's a platform engineer with
+Globomantics. He says the VP approved our Kubernetes migration last week, and
+I'm our first dedicated cluster admin. Well, congrats, Devon. She told me, before
+you deploy a single container, I need you to understand every component
+running inside a cluster because when something breaks at 2:00 a.m.,
+architecture knowledge is the difference between a five-minute fix and a five-
+hour panic. You know what I would say to Devon? That he's got an amazing boss.
+About Kubernetes
+First learning objective, identify every Kubernetes control plane and worker node
+component. Let's ground ourselves in what Kubernetes actually is. Precision
+matters on the CKA exam. The word Kubernetes comes from Greek, meaning a
+ship, helmsman, or pilot. The name telegraphs the philosophy. You declare the
+destination, the helmsman steers there. Kubernetes is an open-source platform
+for orchestrating containerized apps at scale in any environment, cloud or
+local. The key phrase here is at scale in any environment. Bare metal VMs, every
+major cloud, your laptop with kind in your practice lab. Portability is a key design
+principle of Kubernetes. It was released by Google in 2014, it's now maintained by
+the Cloud Native Computing Foundation, also called CNCF. They're the exam
+sponsors for CKA. Google ran a precursor called Borg internally for over a
+decade. CNCF took governance over in 2015, which is why CKA is a CNCF
+cert, not a Google cert. Kubernetes provides declarative configuration, not
+imperative. You describe the desired end state in YAML. Kubernetes figures out
+how to get there. Declarative wins because the system continuously
+reconciles, so if your cluster drifts from declaration, Kubernetes corrects. CKA
+exam tip. The exam rewards kubectl apply muscle memory. Writing imperative
+one shots where a declarative manifest belongs costs time and loses points when
+scenarios require updates or rollbacks. Here's that last bullet point, I forgot to add
+it in. Architecture in one slide. Control plane decides, worker nodes execute. First
+in Kubernetes, we have the control plane, specifically the API server. API stands
+for Application Programming Interface. This is our single entry point into the
+cluster. Every kubectl command, every internal call, every webhook flows through
+the API server. No exceptions. It validates requests, then it persists to etcd. Etcd
+is also control plane, and this is a database storing all cluster states. It's a
+distributed key value store holding every pod, service, and config map. Lose etcd
+without backup and you lose the cluster. This is why etcd backup is a dedicated
+exam competency. The scheduler watches for unscheduled pods, evaluates
+resources, affinity, taints, then picks a node. The scheduler places, it does not
+execute. It's placing pods on nodes, you got that? Lastly, in the control plane, we
+have the controller manager. This runs deployment, replica set, node, and dozens
+of other controllers in Kubernetes. A reconciliation loop compares desired to
+actual state and closes the gap. This is making Kubernetes a self-healing, high-
+availability engine. Now, there's one control plane node in your cluster and there's
+n number of worker nodes. First, we've got kubelet. This is an agent that runs on
+every worker, both control and worker, pulls pod specs from the API server and
+runs containers via your configured container runtime. If a container crashes, the
+kubelet restarts it. All right? Kube-proxy, this is service network rules. It programs
+IP tables or IPVS rules, so service virtual IPs route to backend pods. The container
+runtime, containerd is software that pulls images and runs containers. Dockershim
+was removed in Kubernetes 124. Containerd is our default. Let's look at a couple
+of first principles. One, first is every request, as I said, flows through the API
+server. This is the mental model that drives all Kubernetes troubleshooting. Also,
+etcd, as I said, is your source of truth. Architecture knowledge, in sum, is your
+troubleshooting foundation.
+Kubernetes cluster architecture
+[Autogenerated] OK, this is the mental model I want you to carry for the rest of
+the course, so let's walk it together. Everything starts on the left with cube
+CTL. When you run a command, cube CTL doesn't reach into the cluster and start
+flipping switches. It talks to exactly one thing, the API server. That's the front
+door, and it's the only front door. Write that down because it matters for the exam
+and it matters in your production work with Kubernetes. Now let's look inside the
+control plane. The API server sits in the middle on purpose. ECD is your source of
+truth, the database that holds the entire cluster state, and notice it only ever
+talks to the API server, never directly to any. Anything else, the scheduler decides
+which node a new pod should land on, and the controller manager is the
+reconciliation loop, constantly comparing what you asked for against
+what's actually running and closing the gap. Here's the key idea. None of these
+components talk to each other directly. They all go through the API server. This is
+a hub and spoke design. Then we cross over to the worker nodes where
+your containers actually run on every. Node, the cubelet is the agent that takes
+orders from the API server and makes sure the right pods are running. Cube proxy
+wires up the networking so traffic finds your pods, and the container runtime is
+what actually pulls and starts the containers, and the pods are your workloads. So
+the one sentence to remember is this The control plane decides, the worker
+nodes execute, and absolutely everything flows through the API server.
+Kubernetes extension interfaces
+Our second learning objective, to differentiate CRI, CNI, and CSI. This is a new
+add, as I said, to the February 2025 exam curriculum, and there's a lot of TLAs to
+go around. TLA stands for three-letter acronym. In Kubernetes, we have three
+extension interfaces that deal with the various compute subsystems, and
+therefore, three programmable plug-in boundaries, starting with CRI, which I've
+mentioned a few times, it stands for Container Runtime Interface, and
+specifically, this is a component how the kubelet talks to the container
+runtime. Kubelet speaks CRI, the runtime implements it. It doesn't matter if it's
+containerd or another CRI, it's a swappable interface. That's the idea. And a
+confusion that I know I had as I got into Kubernetes deeper is I thought, what
+about the relationship between Docker and Kubernetes? Well, Docker was the
+mainline CRI, but that's no longer the case. Nowadays, we're using containerd. I
+think it's just all of a piece in terms of Kubernetes being a community project, and
+if you don't like one CRI, you can use Docker. You're not locked down. Next we
+have CNI, which stands for Container Network Interface, and this is the interface
+how pods get IP addresses and they get network connectivity. There's a hard
+guarantee here that every pod gets a unique ID. The choice is here for your plug-
+in. There's several. Two common ones are Flannel and Calico, as you can see here.
+Flannel uses VX-LAN overlays. Calico uses BGP and adds network policy
+enforcement. We use kind in our initial demo lab, and that has a stripped down
+networking layer called KindNet. So, think of that going forward. One pod, one
+IP, the Kubernete's networking model in a nutshell, with no NAT between pods,
+please understand that we don't want NAT slowdown. Finally, we've got CSI. This
+is container storage interface, how persistent storage is provisioned and
+attached. Storage vendors write plug-ins conforming to CSI. Kubernetes core no
+longer embeds storage drivers, so depending on where you're hosting
+Kubernetes, it could be in Amazon, or Azure, or locally, you would provide the
+proper plug-in, as you can see, it's a driver. CSI externalizes drivers as separate
+deployments. As you can see again, vendors ship updates independent of
+Kubernetes releases. CKA exam tip, if your container won't start, think CRI or
+runtime. The pod has no IP, that's your CNI to look into. If your persistent volumes
+are stuck in a pending state, that's going to be CSI or storage class. Naming the
+interface narrows the search space instantly when you're troubleshooting
+Kubernetes.
+About kind
+The mental model that makes the whole objective click is to understand that
+we're talking about plug-in boundaries, not implementations. Kubernetes defines
+the interface. Vendors, including you as a community member, can supply plug-
+ins for use. When something breaks, it's usually one of these boundaries, and that
+helps us from a troubleshooting perspective. Our next learning objective is to
+create a multi-node cluster using kind, and verify cluster health. Let me explain
+why kind is the right tool for at least a lot of our CKA prep. Kind means
+Kubernetes in Docker. You know open-source folks love their wordplay. Each
+Kubernetes node runs as a Docker container. Three node cluster is three
+containers, lightweight, disposable, fast. That's the idea. Because each node is a
+container, both your control plane and your workers, that means you can spin
+them up, break, delete, spin up fresh, all in under a minute, and that freedom is
+how real confidence with Enterprise Kubernetes gets built. Now, kind is an
+abstraction. It's using kubeadm internally, so the behavior matches real
+clusters. I'll show you this in our demo and eventually we'll be using kubeadm a
+lot directly. Kubeadm is the official Kubernetes bootstrapper tool. You can use it
+to generate certificates, identity certificates. You can start etcd, you can
+configure the API server. The CKA exam uses kubeadm clusters, so your muscle
+memory transfers on exam day. Supports multi-node clusters on your laptop. Yeah,
+with kind, it's very reachable from a resource perspective, you can spin up a
+control plane and two workers, and that at minimum gives you enough for
+daemon sets, scheduling, and node-failure demos. Again, the idea is that kind is
+fast, it's reproducible, and it requires no cloud account. Docker and a YAML file is
+the entire dependency chain. CKA exam tip, kind is your safe place to break and
+fix static pod manifests prior to exam day.
+Building a 3-node kind cluster
+All right, let's drill into actual config YAML and actual commands. We've got a
+mashup on the left-hand side, we're going to have some partial YAML topology
+and some commands going on, it's a little bit chaotic. So, we're going to, in
+Kubernetes, you define all your infrastructure using this YAML representation
+format, which uses a very space-dependent key: value syntax so if you're going to
+deploy a cluster, the kind, the API kind would be cluster, and you define
+declaratively, let Kubernetes figure out how to actually do the work, that you
+want such and so number of workers with your control plane. In this case, I'm
+asking for a three-node cluster. I'm also exposing ports to my host computer, 80
+and 443 for ingress demos, 30,000 for node port demos. Without these port
+exceptions, your browser can't reach the services in your pods. And what's cool
+about the YAML is that it's reusable. Save it once, reuse it across the entire 11
+courses in this series. And kind has its own CLI or command-line interface. But
+notice how simple it is, kind create cluster, passing in the config YAML and the
+name, and that's it. Can't be easier than that. That's why kind is helpful. You've
+got a cluster ready in less than a minute. It's quite amazing. Now, over in quick
+setup land, when you're creating an actual cluster, and we will get there
+together, there are various kubectl commands that you need to know, like we've
+got cluster info, that's going to be your first post-creation command that
+confirms the API server endpoint and core DNS are running. You'll become very
+familiar with kubectl get nodes -o wide to give you a more detailed view of your
+hardware nodes. You want those to be in ready state. It's a good idea in your bash
+environment to create alias shortcuts, because on the exam, you'll be running
+kubectl so many times, you can define an alias in your terminal shell with the alias
+command, and this way you can just use k if you want to, and you can add this
+second command to support auto completion. So if we were to do k space get p
+Tab, it would say get pods. It would fill that out. You do have to have some basic
+bash Linux proficiency, and I would suggest that you use Ubuntu Linux and stay
+in the terminal. You don't need the graphical user interface at all. Now the get
+context shows kubeconfig contexts. A context is a named tuple of cluster
+endpoint, user identity, and default namespace. The CKA exam uses six clusters,
+and you simply switch contexts per question. All right? This command is where,
+will show us rather where every control plane component lives, static pods for the
+API server, etcd scheduler, controller manager, plus kube-proxy DaemonSet and
+core DNS deployment. There's a lot here.
+CoreDNS and your lab environment
+CoreDNS is the Kubernetes cluster DNS service. DNS, of course, is Domain Name
+System, providing host name to IP address resolution, and sometimes IP to
+host. Bottom line is, you know, it all comes down to DNS. Without it, pods can't
+find each other by name. The cluster DNS service for all service discovery, yeah,
+that's CoreDNS. It runs as a deployment in the kube system namespace,
+fronted by a cluster IP service named kube-dns. Every one of your pods uses that
+service IP for its DNS. Speaking of which, every service gets a DNS name, service-
+name.namespace.svc.cluster.local. Notice this is all local, non-internet routable
+DNS. That's why we have a separate DNS for our internal cluster use. That string I
+just read is the Fully Qualified Domain Name, or FQDN. It's the complete DNS
+path uniquely identifying a service. Same namespace pods can use just the
+service name, just like you can use just a host name when you're pinging
+another machine in your environment as opposed to an FQDN. Runs as
+deployment plus cluster IP in the kube-system namespace. Right, you get two
+CoreDNS replicas out of the box when you do a Kubernetes deployment, and
+that's for high availability, and the deployment provides self-healing. You've got a
+desired state to fall back to, and the service provides a stable IP. You can verify
+with nslookup kubernetes.default. This is your definitive DNS check, and if it
+resolves, that means your Kubernetes service discovery works. CKA exam tip,
+understand and use core DNS as an explicit exam competency.
+Your CKA lab vs. the PSI Bridge exam environment
+Our fourth objective is to compare your local learning lab to the CKA exam's PSI
+Bridge desktop. Side by side, let's look at what we have in this training, our kind
+lab, versus what you'll see on exam day in the PSI Bridge desktop. Well, in your
+environment, we're using Windows subsystem for Linux on Ubuntu, macOS, or
+Linux. This is our everyday dev terminal. We've got bash, kubectl, same workflow
+as the exam. We've got our kind cluster environment, which you'll learn more
+about in the upcoming demo. Just a single command will bring up our Bootstrap,
+a simple cluster for us running as Docker containers, running as container
+decontainers, and we'll then use kubectl, along with the browser for doc access
+as our example. I've mentioned some of the terminal tricks you can add in
+your exam environment and your lab environment, like creating a k alias. Most
+importantly, our kind lab is not time-boxed, nor is it sandboxed, unless you've
+added those additional guard rails, so this is your play-safe environment that
+offers you unlimited time and full internet access. Oh, of course, there's the issue
+of the clipboard, Ctrl+C,/Ctrl V to copy and paste, your host commands are going
+to work just fine. Now, on exam day, you've got an Ubuntu desktop environment
+using XFCE. It's a secure browser from PSI, the exam administrators. You'll be
+building Kubernetes clusters using kubeadm, so you need to become extremely
+familiar with that command. You'll also have a Firefox browser instance that's
+locked down into the kubernetes.io docs and the helm docs, and you will likely
+find that you don't have to create the quality of life alias, unless you really want
+to. It should already be preconfigured and no need to duplicate work. The live
+exam has a two-hour time limit. You'll be busy just about every one of those
+minutes, I can assure you. And you do have just a single monitor, which means it's
+to your advantage to take the CKA exam on the largest single screen you can
+because there's quite a few moving parts between browsers and terminals and
+docs in your environments, your contexts. Speaking of which, in the PSI Bridge,
+Ctrl+Shift+C, Ctrl+Shift+V. You want to pay attention to the exam environment's
+UI controls and respect them because they are our guardrails.
+Reviewing your kind cluster topologies
+Well, it's time for us to turn theory into practice. Fasten your seatbelt. We're going
+to walk through a kind config. I'll share all the source code with you, and we'll use
+it to create simple clusters. I'm also going to buzz you through some kubectl
+commands to verify node status and kube-system components, and then we'll
+test DNS and look at outputs. How's that sound? Okay, let's get this party
+started. Demo for Kubernetes architecture and lab setup. The exercise files for
+this course are here in this public repo. It's under timothywarner-org/ ps-cka, that
+stands for Pluralsight Certified Kubernetes Administrator. And if we come down to
+the very pretty README file, if I do say so myself, it gives you a blueprint of the
+entire 11-course series and how they map to the CKA domains, and then we have
+have an important graphic that reminds us something I've been telling you a
+lot, that troubleshooting corresponds to a full third of the CKA lab exam. But
+that's just the README and want to make sure that you're aware of this repo. Now,
+it probably, the repo that is, looks different on your screen right now compared to
+mine. That's because I'm at the front end of the training and this repo is going to
+dramatically evolve over time. That having been said, let's take a look at the lab
+architecture that I've created for us. Got a couple HTML files with embedded
+mermaid diagrams in the repo, and I want to go over two of them. This is called
+CKA cluster topologies. And as you know, we're using kind, at least until we reach
+a certain point where Kubernetes and Docker is no longer feasible, but getting
+started, it's absolutely the perfect architecture for us. And I've got, in YAML, a few
+topologies to defined. I've got a simple, two-node architecture here that
+consumes about 4 GB of RAM. This is for quick practice, smoke tests, basic
+kubectl and pod lifecycle. And we've got our standard three-node. This is the one
+I like to use the most. This is for pod scheduling across nodes, services, rolling
+updates. Later, we've got high availability here with five nodes, as you can see,
+more complicated. This is going to give us etcd quorum, leader, election,
+snapshot and restore of the etcd database, killing the control plane and showing
+the cluster surviving and stacked etcd topology. And then four, we've got various
+workloads here, about 8 GB of RAM, and this is going to allow us to demonstrate
+node affinity and anti-affinity, taints, tolerations, DaemonSets, topology
+spread, cordon, drain, and uncordon, and resource quotas. Now let's go to the
+CKA lab architecture reference diagram. What I've done in the repo is create
+PowerShell scripts, and we've got kind-up when you want to bring your lab up
+and kind-down when you want to destroy it. It starts with a Topology menu
+here, you can provide your own custom config if you have one. And you choose
+which of those topologies you want. You also choose whether you want to show
+the underlying kubeadm commands because kind does use kubeadm in the
+background, and we're going to run a tutorial, which is an on-rails exercise, but
+it's running real commands against a real kind cluster, so it gives us the best of
+both worlds. Easy setup and repeatability, and genuine learning. I've built quite a
+bit of bulletproof stuff into the script. We're going to do validating prerecs to
+make sure you've got Docker and kind and kubectl. We're going to validate that
+Docker's running. If it is running, we're then ready to build out the cluster, and
+kind, like I said, abstracts kubeadm, and we can choose to show the verbose
+output of the kubeadm in the app or not. Kind will create the cluster, validate its
+health, set the appropriate context, pull nodes for ready status, and then run the
+traditional get nodes -o wide to do wide output, and then we're ready to kick off
+our tutorial. So, that's really what we've got. Now, in reverse, when you're ready to
+shut down your lab, very simple to do, you can run from your PowerShell
+session, kind-down, and that'll ask, do you want to stop everything, including your
+Docker desktop engine, or are you just destroying the cluster?
+Setting up your CKA lab environment
+Given that, let's go into our dev inter loop. I'm here in Visual Studio Code. I've got
+the PS-CKA repo already cloned. I've got a PowerShell terminal up. Now again,
+PowerShell 7 runs on Linux, so you can absolutely be in your Linux environment
+when you run these scripts. I'm just doing it because that's what my jam is right
+now. As you can see, I'm running a series of info commands to make sure I've got
+Docker installed, kind installed, kubectl. I've got customized as well. So I've got my
+prerequisites. So, now it's time to run, and as you can see in the repo, you've got
+src cka-lab; and then configs is where the topology YAMLs live; the mermaid
+diagrams are under doc; the tutorials, the actual text, is under lib; and then in the
+root of source, that's where you've got your kind-up and your kind-down. And
+there's some variant ones here, cks and kind-multi. And I'm sure there'll be more
+by the time I'm finished with the 11 courses. But I'm going to do a kind-up.ps1, and
+I'm going to choose 2, our standard one-control plane with 2 workers for our
+topology. I'm going to suppress the kubectl commands because they're pretty
+verbose. I'm going to say no to that. And yes, we're going to run the guided
+tutorial. Notice that I've got, if you want to skip the tutorial at 0, we can just verify
+components with 1. I'm going to choose course 1, module 1 here, architecture and
+lab setup, and it's going to give us informational output, but not all of the
+verbose, under-the-hood kubeadm. We get into kubeadm separately. I didn't
+think it was as valuable here because we're working with an abstraction on top of
+kubeadm, namely kind. If we want to take a brief look at the underlying config
+YAML for cka-3node, and as you notice for learning purposes, it's heavily
+commented here, but we've got kind on line 8 as cluster. For API version, notice
+that I'm using a kind API spec here. We're not using kubeadm specifically. And we
+have two node declarations. On 12, we've got control plane, and then we've got
+very simply on 31 and 32, two worker nodes. And then for port mappings, we're
+not doing any fancy mappings, we're passing through three ports, TCP
+ports, between the host, which is my Windows 11 hardware computer, and the
+containers. Let's go back to our lab, and it looks like we're ready to go. So, the
+cluster's up and we've got some real output showing up here, but because it's
+abstracted away from us, I want us to see the underlying kubectl commands. So
+let's step through this lab here, and this lab is great for you because it allows you
+to practice on your own in a dead simple environment for sure. I also have
+instructions on how you can install the prerequisites as well in the repo.
+Touring the cluster with kubectl
+Now first of all, notice the way I've structured this. We get some instructional
+content, the command I've highlighted in an alternate color, a breakdown of what
+the command does. This is real output coming from the kind cluster, and then I
+have an explanation of the output where you can understand each column. Step
+one of any troubleshooting or health check is the view from 30,000 ft. We're
+using kubectl get nodes, but we're appending the -o wide flag. On the CKA exam,
+regular output's not enough. We need wide as our bread and butter because it
+surfaces the internal IP and the container runtime. Look at the status column
+first. Ready means the kubelet, the primary node agent, is heart beating and
+talking to the API server. If this said not ready, our lab would be dead in the
+water. Next, check the version. We're pinned to a v1.35, which matches the
+current Feb 2025 curriculum. And here's a major focal point, the runtime. It's
+containerd. Kubernetes deprecated Docker as a runtime years ago, and the exam
+now strictly tests your ability to manage CRI-compliant runtimes like this
+one. Finally, look at those internal IPs. These are assigned by the Docker Bridge
+because we're running in kind. In a production bare-metal or cloud
+environment, these would be your VPC or LAN addresses. We have a healthy
+three-node backbone. Let's dig deeper by pressing Enter. Now let's pull back the
+curtain. One of the most common points of confusion for newcomers is where the
+nodes actually live. In this lab, we aren't using heavy virtual machines, we're using
+Docker containers as nodes. When I run docker ps, I'm looking at the metal layer
+of our infrastructure. Notice the names, cka-lab-control-plane and the
+workers. These aren't just containers running an app, they're containers running
+an entire kubelet and container runtime. Focus on the ports column for the
+control plane. You see that mapping for port 6443? That's the API server port. Kind
+is clever. It maps a random port on your host to 6443 inside that container, so
+kubectl can talk to the cluster. You also see 30000 and 30080. These are our
+node port ranges. Because these nodes are containers, we have to punch a hole
+through Docker to reach our services from a browser on the host. If a container
+status hears that exited, your Kubernetes node is effectively powered off. That's
+the physical reality of our virtual cluster. Let's move on to step three. Now we're
+looking at identity and location. On the CKA exam, you don't have just one
+cluster, you'll have several. If you run a delete command on the wrong one, that's
+an automatic 0 for that task. This is why kubectl config current-context is the
+most important safety command in your toolkit. A context is just a shorthand
+name for a triple. It bundles together a cluster, where's the API; a user, who am I;
+and a namespace, where do I land by default? When kind stood up this lab, it
+automatically injected the kind CKA lab context into your local configuration file
+and set it as the active target. In the exam environment, every question begins
+with a command to switch contexts. My advice for your Warner's law of exam
+prep, never trust your memory. Run this command before you touch any
+resource. If the output doesn't match the cluster named in your exam
+instructions, you're in the wrong house. Verify first, then execute. Moving on to
+four.
+Contrasting Kubernetes nodes and pods
+Now we're peering into the kube system namespace, the engine room where
+Kubernetes keeps its most vital organs. You'll notice we're using -o wide again,
+and for a very specific reason. Look at the node column. Notice that etcd, the API
+server, the scheduler, and the controller manager are all pinned to the control
+plane node. These are called static pods. They aren't managed by a deployment
+or the API server itself, instead, the kubelet on that node watches a specific
+directory, etc/kubernetes/manifests, and ensures those containers are running no
+matter what. If you want to break a cluster for a troubleshooting demo, that
+directory is where you start. Also look at the IP column for these static
+pods. Notice they match the internal IP of the control plane node we saw
+earlier. That's because these components use host networking for maximum
+performance and to avoid a chicken and egg problem with the cluster
+network. One final thing, check out kube-proxy and kindnet. You see, one
+instance on every single node, that's the DaemonSet pattern in action, ensuring
+the networking logic is present everywhere from the brains of the cluster down to
+the last worker. If these aren't all 1 out of 1 ready, your traffic isn't going
+anywhere. Okay, let's move on. 5 of 10. Networking in Kubernetes is not magic, it's
+kube-proxy. We're isolating these pods using a label selector. Labels are the
+primary way we query the API, and you'll notice a strict pattern in the output. We
+have three nodes in this cluster, and we have exactly three kube-proxy pods. This
+is the DaemonSet contract in action. A DaemonSet ensures that one copy of a
+pod runs on every single node, or a subset of nodes, automatically. If we added a
+third worker node right now, the control plane would detect it and
+immediately schedule a fourth kube-proxy pod there. What is it actually
+doing? Well, it's a network traffic cop. It watches the API server for new services
+and endpoints, then it programs the host's IP tables or IPVS rules. This is what
+allows a pod on worker1 to talk to a service that lives on worker2. Notice the IP
+column. Just like our static pods, these use the host's IP address because they
+need direct access to the node's network stack to do their job. If the READY
+column ever drops below 1/1, service discovery and load balancing on that
+specific node will completely fall apart.
+Exploring CoreDNS
+Now let's talk about the cluster's phone book. Every time one pod tries to reach
+another by name, it hits CoreDNS. You'll notice the service name is kube-
+dns. Push back, don't let the name trip you up. While the binary is CoreDNS, the
+service name is hardcoded as kube-dns for legacy compatibility. Look closely at
+that cluster IP, 10.96.0.10. This isn't just a random address. This IP is practically
+sacred in Kubernetes because it's baked into the etc/resolv.conf file of every
+single pod the moment it's created. If a pod can't resolve a service name, your
+first diagnostic step is checking the cluster IP's reachable. Notice the type is
+cluster IP. This means the DNS service is strictly internal. It has no external IP
+because your cluster's internal naming shouldn't be exposed to the outside
+world. Also, note the ports. We see the standard 53 for DNS traffic, but also
+9153, which is where CoreDNS exports metrics for Prometheus logging. If this
+service ever goes down, your entire microservices architecture becomes
+a collection of lost, silent containers. We just looked at the service, which is the
+stable entry point for DNS, but the deployment is the muscle behind it, in the
+CKA exam, understanding this relationship, service is the front end and
+deployment is the back end, is fundamental. Notice the READY column shows
+2/2. This tells us two things. We have high availability out of the box, and the
+deployment controller is successfully maintaining our desired state. If one of
+these pods were to crash, the deployment would immediately spin up a
+replacement to get us back to that 2/2 status. Pay attention to the UP-TO-DATE
+and AVAILABLE columns on the exam. When you're performing a rolling update,
+these numbers won't always match. UP-TO-DATE tracks how many pods are
+running the newest version of your config, while available tracks how many are
+actually healthy and ready to handle traffic. For CoreDNS we want these
+perfectly synchronized. If available drops, cluster-wide name resolution starts to
+flicker. This is the heartbeat of your cluster's communication. Theory is great, but
+in Kubernetes, we trust but verify. This command is a CKA-troubleshooting
+master class in a single line. We're using kubectl run to spin up a temporary debug
+pod using the busybox image. Look at those flags, -rm and -restart=Never are
+crucial. They ensure this pod is a one-shot deal. It runs the command, gives us
+the output, then deletes itself immediately so we don't clutter the cluster. The
+attached flag streams that output directly to our console in real time. We're
+performing a lookup for the Fully Qualified Domain Name, FQDN, of the
+Kubernetes API service. Why the full name? Because the version of nslookup in
+busybox is a bit picky and doesn't always respect the search domains in your
+configuration. The result's perfect. You see that server address 10.96.0.10? That's
+our CoreDNS service answering the call. It resolved the name to 10.96.0.1, which
+is the internal cluster IP for the API server itself. If you see this output, your DNS
+plumbing is solid. If it times out, you know the issue lies back in those CoreDNS
+pods we just inspected.
+Probing the Kubernetes API
+When you're sitting for the CKA, time is your most expensive resource. If you ever
+feel like your connection to the cluster is ghosting you, run kubectl cluster info
+immediately. It's the fastest way to confirm that your kubeconfig is
+actually pointing to a live, responsive API server. Look at that first output line.
+Because we're in a kind lab, the control plane's running on local host, 127.0.0.1, via
+a random port mapped by Docker. If this URL fails to respond, it's a signal that
+either your local network is blocked or the control plane container itself
+crashed. You also see a long, messy URL for CoreDNS. Notice it's being accessed
+via the API server proxy. This confirms that the API server isn't just up, it's also
+capable of routing traffic to the internal kube-system services. If the API is up but
+the proxy fails, you've likely got a Networking or CNI issue. And one final pro tip, if
+things are truly broken and the basic info isn't enough, the output itself reminds
+you to run cluster-info dump to pull a massive stream of diagnostic data. Use it
+sparingly. It's a lot of noise, but it contains the smoking gun for deep failures. To
+wrap up our architecture walkthrough, we're looking at the API resources
+list. Think of this as the definitive menu of everything your cluster understands.
+When you run Cube CTL API resources, you're asking the API server to dump its
+entire schema. The holy grail column for the CKA exam is SHORTNAMES.
+You have two hours to finish several tasks. You don't have time to type persistent
+volume claims every time. Memorize the gold standards, po for pods, svc for
+services, deploy for deployments, and ns for namespaces. These aliases will save
+you minutes of cumulative typing. Also, pay attention to the NAMESPACED
+column. This is a frequent exam trap. If a resource like a node or a persistent
+volume says false, it's cluster wide. You don't filter those by namespace because
+they exist outside that logical boundary. Finally, the kind column shows you
+exactly what to put in the kind field of your YAML manifests. If you can navigate
+this table, you can navigate the entire Kubernetes API. And with that, let me press
+Enter to complete that and clear the screen and show you two other scripts. I've
+got kind-status.ps1 that checks on whether you've got docker-up and whether
+you have any kind clusters created that you haven't yet destroyed, and it gives us
+a tear down action to leave everything running or tear down a lab. And if we
+choose 1 here, It actually invokes a third script, kinddown.ps1, and that's what I'm
+going to choose now. And the way I've set this up is that if we do 1, it destroys the
+cluster, but it keeps Docker running so you can keep working, 2 will actually stop
+Docker Desktop. So, when you're finished for the day and you don't want the
+extra overhead of Docker, you can do it that. I'm going to choose 1 in my
+case, which is going to delete the cluster but keep the underlying Docker engine
+running. And if I go back to kind status, we should find that kind status echoes
+that truth. Let's check back in with Devon. Devon from Globomantics now says, I
+understand why I spent my first day on architecture instead of
+deployments. When our scheduler went sideways last Thursday, I diagnosed it in
+minutes because I knew exactly which component was responsible. Exactly. What
+I love about IT, and I hope you agree with me, is that your knowledge is applied in
+many cases instantly. Devon in the morning got down to looking at his
+architecture and to see how Kubernetes was laid out. By afternoon, or later that
+week, whenever it was here in this fictional situation, there was a production
+problem and because Devon had actually drilled on that particular situation, he
+was ready when it happened in the wild. We've got four module takeaways. These
+are habits that separate confident administrators from people who panic when
+pods turn red. First, start with architecture, map every component and
+understand its failure mode. Control plane decides, nodes execute. Knowing
+which component is responsible is 80% of troubleshooting, and remember,
+troubleshooting is 30% of the CKA certification exam. You want to get started
+with labs, and I'm going to say labs plural because kind is a heavy abstraction and
+we pay a price for that. We have to know how to spin up and use the
+minimum viable product or MVP real Kubernetes, so I'm going to show you that
+using Hyper-V virtual machines. But having that lab available is absolutely critical
+because the CKA exam is entirely practical. I've mentioned that alias about 10
+times too many, so I'm not going to say it anymore. But finally, treat every kubectl
+command as a diagnostic, especially the get commands, and then we'll get into
+describe and logs. But by running these kubectl ad hoc commands, it'll help you
+see what healthy looks like and unhealthy screams at you in your cluster.
+Mastering kubectl workflows for speed and
+precision
+Four framing questions
+Hello there and welcome back. I'm Tim Warner, and we're doing Kubernetes
+Foundations. This particular module is mastering kubectl workflows for speed and
+precision. Four framing questions, as usual, that we'll answer by the end of this
+module, and each of these maps directly to a CKA workflow pattern. First, how do
+imperative commands let me create resources in seconds instead of writing
+YAML? Imperative means one kubectl command that both describes and creates
+the resource. Kubectl create deployment, run, expose. On the exam, imperative
+beats YAML for anything simple because YAML from scratch costs minutes you
+don't have. How does the dry-run-to-YAML pipeline bridge speed and
+flexibility? As we'll learn, dry run generates valid YAML from an
+imperative command without touching your cluster. You pipe to a file, edit the
+fields imperative can express, then kubectl apply. This is the best of both
+pattern. How do kubectl explain and resource querying save minutes during
+troubleshooting? Explain is inline API documentation that keeps you in the
+terminal. Label selectors, JSON path and custom columns pull exactly the fields
+you need instead of scrolling default output. And last, why is context switching
+the number one CKA exam gotcha? Well, you're going to have various clusters to
+choose from, and you'll find if you're working on the exam in the wrong
+cluster, you'll get 0 points for perfectly executed tasks. You always need to know
+your context. Let's check in with Globomantics, our fictional company, and meet
+Priya, our guide for this module. Priya reports, I need 12 resources deployed
+before the stand up, and I've got 15 minutes. Writing YAML from scratch isn't
+going to work here. Oh, and remember we run six clusters now. Deploy to the
+wrong one and nobody'll catch it until production breaks. So Priya's a little
+stressed out here. As you can tell, the through line is in Kubernetes you've got
+your YAML format for your declarative desired state, but sometimes speed means
+that we need to run imperative commands using kubectl directly from the
+terminal.
+Imperative commands: the CKA exam speed toolkit
+And that's our first learning objective and our first workflow pattern. How do
+imperative commands let me create resources in seconds? No YAML file, no
+editor, the Kubernetes API server validates and creates in a single round trip. Here
+are six imperative command patterns you need in your muscle memory, plus one
+scale command down at the bottom that earns its own call out. First, kubectl can
+create a pod quickly, one-off pod, debug pod, and this ability is perfect for, as I
+said, one-off connectivity tests, DNS lookups inside the cluster, and for
+debugging. Kubectl create deployment allows us to set a replica count right on
+the spot without YAML. For instance, if we run kubectl create deployment web --
+image=nginx, --replicas=3, that creates a three-replica deployment, a replica set,
+and three pods literally in seconds. Kubectl expose creates cluster IP node port
+or load balancer services. One command takes a running deployment and wires a
+service in front of it. The default type is cluster IP unless you specify. Kubectl
+create configmap and secret inject config data. We provide literal flags for inline
+values from file for reading a file. Here we have two commands that create a
+namespace scoped role in a binding. For cluster scoped roles, use cluster role
+and cluster rolebinding. I know I'm throwing a lot of kubectl commands at
+you. That is intentional because the theory is only as good as our ability to apply
+it, which we do in our demos, as you know. These patterns that we see running
+these quick in, quick out imperative kubectl commands are high
+frequency patterns that you'll need on your exam. In fact, these six commands
+cover roughly 60% of your CKA exam tasks. You want to practice them to the
+point where your fingers type them without your brain narrating. Down at the
+bottom, we've got a kubectl scale deployment, and this is to show that scale is
+the most used imperative command after create because it gives you an instant
+replica number change without a YAML edit, without a separate apply step, very
+fast.
+When to use YAML instead of imperative commands
+Here's a subtle distinction, but the CKA exam loves to test it. Kubectl talks to the
+Kubernetes API server for cluster operations. Kubectl config works on your
+kubeconfig locally. Kubectl get pods, apply, delete, exec, those hit the API server
+over the network and modify cluster state. Kubectl config get-contexts use-
+context, set-context, those read and write your local kubeconfig file at
+tildy~/.kube/config. This is your local context, and it's stored locally on your file
+system, and it's a way for your Kubernetie's client to understand what your
+cluster is, who you're signed in as, and so on. So when you run kubectl config
+commands, you're editing a local file. They succeed even when the cluster's
+unreachable. That's exactly why they work as your first command after every
+question switch. CKA exam tip. If the task says switch to Cluster X and delete Pod
+Y, the switch is kubectl config use-context. The delete is kubectl delete-pod. Two
+different surfaces, two different failure modes. Imperative is fast, but it has hard
+limits. You need to know where the wall is, resource limits, node selector,
+tolerations. Kubectl run, which is the command we use to start containers in
+Kubernetes, supports limits as a flag, but most real-world resource specs,
+requests plus limits combined with affinity and tolerations, live in
+YAML. Imperative doesn't expose every spec field. And by the way, affinity and
+tolerations, we'll come to those terms in detail eventually. Those refer to how
+you're scheduling pods. You may have pods that should not run on certain
+hosts. You may have workloads that have to run on particular nodes or hosts. We
+use these properties to control that schedule and placement. Likewise, multi-
+container pods, where you have an app pod with maybe a TLS sidecar, maybe a
+logging sidecar, these are going to require YAML, multiple container specs. So the
+through line here is that Kubernetes supports on-the-fly, imperative creation for
+some resources in Kubernetes, but not all. Network policy, persistent volumes,
+DaemonSets, those are also YAML only. Now on the exam, remember that your
+PSI lockdown browser does support Kubernetes docs, the Kubernetes blog, Helm
+docs, and the gateway API docs, but you don't have access to Google or Stack
+Overflow, and certainly no ChatGPT. So, you want to know those docs pages, so if
+you have to look up a particular parameter or a YAML clause, you can find that
+easily. The tip is to use the dry-run flag plus explain to generate and complete
+these YAML manifests. That's the bridge. Generate a starting YAML config with
+dry-run, then use kubectl explain to look up on the fields you need to add. We'll
+cover both of these in the next learning objective, and of course, our demo
+forthcoming.
+The dry-run-to-YAML pipeline
+Rule of thumb here that saves you minutes on every exam task. Use imperative
+first and fall back to YAML configs only when required. Now, of course, in
+production, you're going to want to have all your Infrastructure as Code, but
+again, in a troubleshooting emergency, and certainly on the exam, you'll have
+troubleshooting and it might be an emergency if you're running short on time. You
+want to get really fast with using these targeted, surgical kubectl commands. Our
+next learning objective is how does the dry-run-to-YAML pipeline bridge speed
+and flexibility. Dry-run is a flag on kubectl create and kubectl run that builds the
+resource manifest locally without sending it to the API server. Combined with -o
+yaml, you get a complete, valid Kubernetes manifest in your terminal for free. You
+redirect it to a file, edit what comparative couldn't express, then use kubectl
+apply. This gives you the best of both patterns. Core mental shift for the
+exam. We're not writing YAML from scratch, we're generating it with dry-run and
+modifying it. Professional Kubernetes admins almost never write manifests from a
+blank file. They dry run a close enough imperative command, save the output,
+open it in vim or nano, and edit three or four fields. 5 seconds of generation, 20
+seconds of editing. Exam tip, every minute you save on YAML authoring is
+a minute you spend on verification. Under a two-hour exam clock, that trade is
+always correct. Let's take a closer look at this dry-run-to-YAML pipeline. Although
+I have more than three steps on this flow chart, we're really talking about three
+steps, generate, modify, and apply. Let's look at it one step at a time here with
+sample kubectl commands. Here we're running a busybox container image with
+dry-run, and specifying YAML as our output, and redirecting to a YAML
+file. Again, the point here is that we're not touching the cluster at all at this
+point. Zero API server traffic works even if you're pointed at the wrong
+cluster, although, as I said, you always want to verify your context. What's nice
+about this, as I keep repeating, is that a simple one-liner kubectl command gives
+us a complete valid Kubernetes manifest structure with API version, kind,
+metadata, spec, all filled in with the values provided on our imperative command
+line. It's an acceptable starting point, in other words. We then can add in missing
+fields like resources, labels, node selector, or tolerations. Open it up in vim, add
+the fields that imperative couldn't touch, and once you apply, this is what we do
+imperatively to run a deployment, kubectl apply using the -f parameter and point
+to your YAML file. This will create the resource from your edited manifest, simple
+as that.
+kubectl explain: your offline API reference
+Now kubectl explain is your offline API reference. It's the fastest way to look up
+any field in your deployments. You can descend into the spec. one path at a
+time. You ask what fields does a container have, and the command returns an
+answer into your terminal with no browser needed. Explain --recursive prints the
+full field tree for nested discovery. That recursive flag expands every nested field
+in one output. This is useful when you know the general area, but not the exact
+field name that you're after you can pipe to grep for a fast search. Now if you
+don't know what grep is, you want to look at some Pluralsight training on bash
+fundamentals. You do need to have intermediate expertise working in a bash
+environment, and from a text editor's standpoint, I would strongly recommend
+that you get comfortable with vi or vim. Don't count on nano editor being
+available on the exam. It's better to just sit down, grit your teeth, and learn vi. It's
+not intuitive, but once you understand it, it's going to be a valuable skill in your
+tool bag. Then we've got explain pod.spec.containers.resources for resource limit
+field paths. This is a specific example. Resource requests and limits live
+under pod.spec.containers.resources.requests in the API. Knowing the exact path
+is what he exam tests. And as you can see at the bottom of this slide, I have
+kubectl api-resources. This is a sidekick command. It lists every resource type
+your cluster knows about, full names, short names, API versions, namespaced or
+not. It's the starting point when you don't remember a resource's exact
+name. Context switching between terminal and browser kills your momentum. You
+don't always want to leave the terminal, explain keeps you in flow. Right. I gave
+you a tip in the previous module that you'll want to take your CKA exam on the
+largest single monitor you can to take advantage of that screen real estate, so
+you've got less window overlap between your terminal and browser. Our third
+learning objective is on querying resources efficiently. Default kubectl get output
+is verbose and human-readable. For scripting, filtering, or pulling one specific
+field, you need label selectors, JSON path, or custom columns. Each of these
+adds precision and speed. When you're under pressure on the CKA exam, query
+precision beats brute force. These five patterns let you slice the cluster exactly
+how you need it. First, label selectors. Start with labels. They're your primary
+filter. Here, this command returns only pods matching both labels. Think of labels
+as tags on files in Windows Explorer. You're not opening everything. You're
+filtering first. Now filter with field selectors. Filter by object state instead of
+metadata. This is runtime reality, not design intent. Use this when you care about
+what's actually happening, not how it was labeled. Third, minimal
+output. Sometimes you don't need a table, you need speed. This command
+returns just resource names. It's perfect for piping into other commands or
+scripting under time pressure. Custom columns. Here we shape the output to
+match your mental model. Now you're seeing exactly what matters. What is
+running where. It's like building your own dashboard on the fly. Finally, with
+chronological debugging, order tells the story. This command shows what
+happened first and what happened next. When debugging, time is your root
+cause engine, the query patterns that separate fast admins from slow
+ones. Default output is for humans, selectors and JSON-path are for speed. CKA
+exam tip, JSON path syntax is tested. You need to know the difference between
+dot notation and bracket notation, and know that field selector for non-label
+fields like status.phase is separate from selector. Both show up. I'll show you these
+on the exam.
+Context management: the silent exam killer
+Fourth learning objective, the silent exam killer. Why is context switching the
+number one CKA exam gotcha? Well, the exam gives you a number of clusters
+and specifies a context per task. Forget to switch and you run correct commands
+against the wrong cluster. We want to avoid that. Now, how do contexts actually
+work on exam day? Well, you're going to see on your exam, can't say exactly how
+many tasks, over a dozen, less than 20 I would say performance-based tasks over
+two hours. No multiple choice, all hands on, and context switching applies to
+every single one. Each task specifies a context. It'll say use the cluster, kind CKA
+lab, or similar. That's your first instruction. So you need to execute the context
+switch before you read the rest. Kubectl config get-contexts shows all clusters
+with the active one marked with an asterisk, and so what I want on your exam is
+for you to stop reading the task after it mentions the cluster name. Go ahead and
+switch and verify that you're in the right context, then continue reading the
+actual work. The three commands that own your context workflow, kubectl
+config use-context switches to the correct cluster. This is your primary
+command. Takes a context name from get-contexts, makes it active. Everything
+you run after this points at the new cluster. Let me give you the formal definition
+of a Kubernetes context. Kubernetes context is a named configuration in your
+kubeconfig file that defines a specific combination of cluster, user credentials,
+and your namespace for kubectl operations. Specifically, it determines which
+cluster you're talking to and what identity every time you run a command. All
+right? Kubectl config set-context -current -namespace=production sets the
+default namespace. This changes the active context default namespace so
+you stop typing -n production on every command. It's a huge time saver when a
+task asks you to do multiple operations in one namespace. Then we have kubectl
+config current-context that shows the active cluster context. This is our
+verification command. It prints the active context name. Run this after every use-
+context to confirm the switch actually happened.
+Setting up your CKA lab environment
+Time to put every pattern into practice in one continuous demo. Okay, it's time for
+us to bridge theory into practice. This is our demo on mastering kubectl
+workflows. I'm here in VS Code. I've got my ps-cka github repo, that's our course
+exercise files, cloned down, and I've navigated into the repo under src\ cka
+lab, and I'm going to run kind-up to bring our kind cluster up. I'm going to make
+two here, a standard one control plane, two workers for our topology. This time, I
+will show kubeadm commands running in the background, and we're going to
+choose number three here for course one, module two, our on-rails demo for
+kubectl workflows. And here I want us to quickly review what kind is doing for us.
+We're pulling kind's Docker images that have Kubernetes already built in. And
+when we use kind to bootstrap a cluster, it's using kubeadm under the hood;
+however, it is using a proprietary CNI called kindnet for simplified pod networking,
+kubeadm to join, and then we'll have a kubeconfig in our home directory like we
+normally do. Now don't worry, in this learning path, eventually we're going to
+learn all about how to use calico and other CNIs, and I have a whole course
+devoted to bootstrapping clusters with kubeadm. And I want you to pay attention
+when you run this on your computer. We can see the YAML manifests rolling by
+where we can see API kind of cluster configuration in Kubernetes version 135, and
+you'll notice here we're using kubeadm API under the hood. Kind is just running a
+top-level abstraction. We finally get to our tutorial down on the end where
+we're going to look at imperative creation, dry-run-YAML, declarative apply,
+kubectl explain, resource querying and context awareness. Let's start with create
+a pod. Imperative kubectl is the name of the game here, and that's why we're
+starting this demo with kubectl run. This is the absolute fastest way to get a
+container onto the cluster. Look at the syntax. It's clean, it's readable, and most
+importantly, it's imperative. We aren't telling Kubernetes how to do it, we're telling
+it what we want. By omitting the image tag, we're defaulting to NGINX
+latest, which is fine for a quick lab test, but keep in mind that for the exam, you'll
+also need to pin to a specific version. The confirmation pod NGINX created is
+your high five from the API server. It means your request is officially in the etcd
+database. But remember, created doesn't mean running. Right now behind the
+scenes, the scheduler is looking for a home, and the kubelet on a worker node is
+reaching out to pull that image. We've initiated the lifecycle now we need to
+track it.
+Investigating deployments
+We're ramping up. If kubectl run is a quick tactical strike, this command chain is
+the heavy artillery. With one line of code, we've just asked the API server to
+manage five distinct objects. Look at the sequence. First, kubectl create
+deployment. This doesn't just spin up containers, it sets a reconciliation loop in
+motion. The deployment creates a replica set, and the replica set is the policy
+officer that ensures exactly three pods stay alive. If you delete one, the replica
+set replaces it before you can even finish your next command. Then comes the
+magic, kubectl expose. By pointing it at the deployment, the service
+automatically steals the labels. It sees the pods are labeled app=web, so it sets its
+own selector to match. This is the service-to-pod contract that makes networking
+possible without you ever having to track an individual IP address. Notice the
+DNS benefit here. By naming the service web, we've just registered
+web.default.svc.cluster.local in the cluster's internal phone book. Any other pod in
+this namespace can now reach these three NGINX instances just by typing
+web. That's zero-touch service discovery. And in the CKA exam, being able to wire
+this up in seconds is a massive force multiplier. We're keeping the momentum
+high. If you can handle these four commands, you've just mastered a massive
+chunk of the RBAC and configuration domains for the exam. Look at the
+efficiency. In the time it would take to look up a YAML template for a secret or a
+role we've created both, plus a config map and a role binding. First, we handle
+application data. Config maps are for your non-sensitive settings. Think
+environment variables or feature flags. Secrets, specifically the generic type, are
+for sensitive data. Push back, don't let the name secret fool you. In a default
+cluster, these are only base64 encoded, not encrypted. They're secrets in the
+sense that they're isolated from config maps, but they aren't truly secure without
+further configuration. Then we hit the Role-Based Access Control, RBC
+duo. We've created a role, though what can I do, defining permissions like get and
+list on pods? But a role is just a floating set of permissions until we use a
+role binding to glue it to a user, like Jane. Notice the syntax. Verb is the action,
+resource is the target. On the CKA exam, you'll often be asked to fix a user's
+permissions. Doing it here at the command line is your shortcut to success. One
+line, zero syntax errors from messy YAML indentation. This is the secret sauce for
+the CKA exam. If you remember one command from this entire course, make it
+this one. Dry-run=client -o yaml is how you bridge the gap between imperative
+speed and declarative precision. In the exam, you'll often be asked to create a
+resource with a specific complex requirement, like a custom command or a
+resource limit that isn't supported by a simple flag. Instead of searching the docs
+for a YAML template and fighting with indentation, you can use this command to
+hallucinate a perfect manifest. You're essentially asking the kubectl client to
+show you what it would send to the API server without actually doing it. Now look
+at the output. This is a clean, version-accurate deployment manifest. You can see
+the hierarchical structure, the metadata that identifies the object, the spec
+replicas that defines the scale, and the spec template, which is essentially a pod
+manifest nested inside the deployment. By redirecting this output to a file using
+the greater than symbol, you get a starter manifest that's 100% syntactically
+correct. You then open it in vim, add your specific extra configuration, and apply
+it. This workflow eliminates 90% of the mapping errors that cause students to fail.
+It's fast, it's accurate, and it's the mark of a professional administrator.
+Testing kubectl apply
+This is the heart of the declarative model. We're closing the loop from that dry
+run we just did. We take the generated YAML, pipe it to a file, then we use kubectl
+apply. Look at the console output for those two back-to-back apply
+commands. The first one says created. The second one says unchanged. That
+single word, unchanged, is the definition of idempotency. It means you can run
+your automation scripts 1,000 times, and if the desired state matches the actual
+state, Kubernetes won't touch a single container. There's no churn, no accidental
+restarts, and no configuration drift. Now focus on the kubectl get all output. This
+is a common CKA tool, but all is the most misleading alias in the entire
+ecosystem. Look at what's missing. Where are the config maps we created? Where
+are the secrets and the RBAC roles? They aren't there. All only shows you
+functional workload components like Pods, services, and deployments. The CKA
+exam will often ask you to apply the manifest at path X. When you see that, you
+use kubectl apply -f. That's the professional GitOps-ready way to manage a
+cluster because it keeps your record of your intent in a file rather than just
+firing off ephemeral commands into the ether. We've gone from a blank slate to a
+fully populated environment in minutes. If the dry run command is your best
+friend for speed, kubectl explain is your best friend for survival. During the exam,
+you're allowed to use the official docs, but why waste time context switching to a
+browser when the entire API schema lives right in your terminal? Look at this
+output. By using the recursive flag, we aren't just seeing the description of the
+strategy field, we're seeing the entire nested tree. It shows us exactly where
+maxSurge and maxUnavailable live inside the hierarchy. Notice the kind inversion
+at the top. This is pulled directly from the cluster's live open API schema, so it's
+always 100% version accurate for the environment you're currently in. If you're in
+the middle of a task and you can't remember if it's max-surge or maxSurge
+uppercase S or exactly how many levels deep it sits under spec, don't guess. Run
+explain. Also, exam tip. Pay attention to the type enum. It shows Recreate and
+RollingUpdate. Knowing that RollingUpdate is the default and that it defaults to
+25% for both surge and unavailability is the kind of deep track knowledge that
+helps you troubleshoot a deployment that's hanging during a rollout. This isn't
+just a help menu, it's the cluster's internal manual.
+Querying pods with label selectors
+Labels are the administrative glue of Kubernetes. Without them, your cluster's
+just a pile of anonymous containers. When we use -l app=web, we're applying a
+label selector to filter the API's response. On the exam, if a question asks you to
+list Pods for a specific tier or environment, this is the flag you grab. Notice the --
+show-labels flag. I call this the sanity check flag. It's easy to run a filter and get an
+empty result because you had a typo in the key or value. By showing the labels,
+you can verify exactly what the API is seeing. In our output, we see the app=web
+label we defined earlier, but notice the pod-template-hash. That's an internal
+label the deployment controller injected so it can track which Pods belong to
+which specific version of your code. Keep in mind that selectors are incredibly
+flexible. You can filter for labels that don't exist or use set-based logic like 'env in
+(prod, staging)'. But for the exam, the simple key=value pair is your bread and
+butter. If your selector returns an empty list, don't panic. It's not a system error. It
+just means your filter was so restrictive that nothing made the cut. Refine your
+query and go again. The CKA exam is going to ask you to query specific data like
+a list of Pod names or the nodes they're running on, and it often requires a very
+specific output format. That's where jsonpath and custom-columns become your
+best friends. Under the hood, they use the exact same logic, but they serve two
+very different masters. Look at the first part of the output. That raw space-
+separated string of names is generated by jsonpath. It's messy to look at, but it's
+perfect for automation. If you need to pipe a list of Pod names into a shell loop for
+logging or deletion, this is the format you want. Notice the syntax. We have to
+specify items[*] because we're telling kubectl to reach into the array of results
+and grab every name it finds. Now look at the custom-columns table below it. It's
+using the same paths, but notice we dropped the item[*]. That's because custom-
+columns implies a per-item context. It's already iterating for you. This is the
+ultimate tool for visual clarity. You can build your own status board showing only
+the name, the node, and the status. In a high-pressure exam scenario, being able
+to instantly see which Pods are on which nodes without the noise of the default
+output is a massive cognitive relief. Master the dot notation once, and you can
+shape the API's data into whatever form you need. If you're dealing with a cluster
+that's acting up, kubectl get events is your flight data recorder. The default event
+list is often a jumbled mess, which is why we're using the --sort-by flag. By pinning
+the sort to the creation timestamp, we ensure that the most recent activity, the
+actual story of what just happened, is at the very bottom of the list. Now if you
+look at what you just saw, I'm listing the output columns, but somehow the output
+columns are truncated out of the output. I apologize for that. So just map in your
+head last seen, type, reason and so on. Specifically now, look at the type
+column. In this healthy run, everything is normal. On the exam, you're scanning
+this column for warning. A warning event is the cluster screaming for help. It's
+where you'll see failed scheduling if your nodes are full or error image pull if you
+fat fingered an image name. The reason and message columns tell the tale. You
+can see the exact sequence. The scheduler assigned the Pod to a worker, the
+kubelet pulled the image, and finally the container started. Notice the object
+column. Events aren't just for Pods. You'll see them for ReplicaSets, deployments,
+and even nodes. Now events are ephemeral. They typically only live for about an
+hour before the API server grooms them away. So this is our live diagnostic
+window. If a Pod is stuck and pending and kubectl get pods isn't giving you
+enough info, come here. The answer is almost always in the last 10 lines of a
+sorted event log.
+Managing current context
+This is the most critical habit you'll build for the CKA exam. You can be a
+Kubernetes genius, but if you're in the wrong context, you're failing the task. In an
+exam environment, you'll be juggling many different clusters. Using kubectl
+config get-contexts is how you orient yourself before you fire off a single
+command. Look at the current column. That asterisk is your absolute source of
+truth. It tells you exactly where your kubectl commands are landing. The context
+isn't just a cluster name, it's a triple. It links a specific cluster identity with your
+auth info credentials and a default namespace. Speaking of namespace, notice
+the namespace column is currently blank, meaning we're defaulting to the
+default namespace. On the exam, you'll frequently use set-context --current --
+namespace to lock yourself into a specific namespace the question requires. This
+prevents you from accidentally deploying resources into the wrong logical
+bucket. My Warner's law for the exam is simple. Every single question begins with
+a context switch command provided in the instructions. Run it, then run this
+command to verify the asterisk moved. Never trust your memory when the clock's
+ticking. Let's check back in with Priya after the workflow patterns are in
+place. Priya reports, "Remember those 12 resources I needed before stand-up? I
+just did it in under a minute. Imperative commands, context switching on
+autopilot -- that is exactly the muscle memory that separates a confident admin
+from someone who panics under the clock." Let's close with four habits that each
+map to an exam domain where you can't afford to be slow. First, mastering the
+imperative toolkit. Six commands that we've covered today cover 60% of exam
+tasks, kubectl run, create deployment, expose, create configmap, create secret,
+type them until your fingers beat your brain. Second, build the dry-run reflex,
+generate, edit, apply, that's your pipeline, and kubectl explain to handle
+everything else. Your answer to every resource that imperative can express,
+the fallback that still beats writing YAML from scratch. Then query with precision,
+label selectors, JSONPath, custom-columns save minutes over scrolling default
+output. And lastly, switch context on autopilot. Know those context
+commands. CKA exam tip. These four habits practiced together give you a 15 to
+20% speed lift over candidates who treat kubectl as a collection of separate
+tricks. Speed is the unspoken fifth exam domain.
+Creating and managing core Kubernetes
+resources
+Four framing questions
+Welcome to our final module of Kubernetes Foundations, Creating core resources
+and building the diagnostic ladder. I'm Tim Warner, and this module is where
+everything we've built so far finally pays off. Here are four framing questions for
+the module, with each one mapping directly to a CKA exam domain. First, how
+does the Deployment, ReplicaSet, Pod hierarchy enable self-healing
+workloads? In production, you almost never deploy bare Pods. You deploy
+controllers. A deployment manages a ReplicaSet, and that ReplicaSet maintains
+your desired Pod count automatically. Second, how do ClusterIP, NodePort, and
+LoadBalancer services expose workloads differently? These three service types
+are layered, each one extending the one below it, and together, they form the
+contract between your Pods and the outside world. Third, how do namespaces,
+labels, and annotations organize resources at scale? Well, namespaces isolate,
+labels select, annotations describe. These three mechanisms are doing three
+distinct jobs, and the exam tests them separately. Fourth, how does the get,
+describe, logs, events diagnostic ladder solve every troubleshooting
+scenario? Well, this is the rung pattern CKA graders want to see you execute
+under pressure. Learn it cold, and that 30% troubleshooting domain gets a whole
+lot friendlier. Let's check in with Globomantics, where Priya is raising the
+stakes. She says, "The product catalog API needs to be live by Thursday. Get it
+running, expose it to the QA team, and make sure you know how to fix it when it
+goes down. Because it will go down. And troubleshooting is 30% of your CKA
+score -- so consider this practice for both the job and the exam." Yikes! So
+Priya's talking about what her leader told her, and it's clever of the leader to
+integrate the exam cert with this real-world fire drill. Hmm, the plot thickens, the
+plot thickens. Our first learning objective, the controller hierarchy that makes
+Kubernetes self-healing. A Pod is the smallest unit in Kubernetes, and it's one or
+more containers that share network and storage. A ReplicaSet is the controller
+that keeps any of those Pods running at all times. A deployment wraps the
+ReplicaSet and adds rolling updates and rollbacks on top.
+Bare pods vs. managed deployments
+On the left here, we have bare Pods, and on the right, we have managed
+deployments. One of these is a production pattern, the other is a debug tool. Let's
+unpack the difference. Bare Pods are created directly with kubectl run or using a
+raw YAML file, and no controller wraps them. You create the Pod, the Pod
+exists. That's the entire lifecycle. Because nothing is watching, a bare Pod that
+dies stays dead. Kubernetes doesn't resurrect it. There's no retry, and there's no
+reschedule. If you want two copies, you create two by hand. And if the node
+fails, that's more manual work. So really, creating bare Pods is just what you use in
+debugging and troubleshooting, not your production workloads. For
+production, this is managed deployments. This is our production pattern. The
+deployment is a top-level object in Kubernetes. It creates a ReplicaSet, and the
+ReplicaSet creates the Pods, three layers, one hierarchy. The ReplicaSet is a
+reconciliation engine as well. It continuously compares the desired replica count
+to the actual count and closes the gap. Delete a Pod, and the ReplicaSet creates
+a new one within seconds. Deployments also give you scaling, rolling updates,
+and rollbacks. Use kubectl scale to resize, kubectl set image for rolling
+updates, and kubectl rollout undo for an instant rollback. Every production
+workload runs behind the controller like this, whether it's a deployment, a
+StatefulSet or a DaemonSet, never bare Pods. The reconciliation loop is the
+engine that makes self-healing work, and this is how every Kubernetes controller
+operates. Understand this pattern, and you understand the whole platform. The
+ReplicaSet continuously compares the desired count to the actual count. Desired
+lives in your spec, for example, replicas=3. Actual is discovered by counting Pods
+with matching labels. The controller runs that comparison on every cluster
+event. If a Pod crashes or gets deleted, the actual count drops below desired, and
+the ReplicaSet immediately creates a replacement. No human touches
+anything. That is the core of self-healing. If an entire node fails, the kubelet
+heartbeat stops, the node controller marks the node not ready, and after the
+eviction timeout, the Pods on that node get rescheduled to healthy ones. The
+whole process is automatic. When you need to change the replica count, kubectl
+scale deployment adjusts the desired value. The ReplicaSet reacts by creating or
+terminating Pods. You don't need to edit YAML for a simple count change. And
+the big takeaway, which I want you to say with me, is that you almost never
+create bare Pods in production or on the exam. Deployments only, bare Pods or
+debug tools. CKA exam tip. Remember the division of labor here. The scheduler
+places, the kubelet executes, and the ReplicaSet reconciles. When a Pod won't
+come back after you delete it, the ReplicaSet is the first thing you inspect. Kubectl
+get rs and kubectl describe rs both reveal the controller's view of the world.
+Services and the selector-label contract
+Our next learning objective is how services expose workloads to the network. Now
+Pods are ephemeral by design. Their IP addresses change. They come and go
+constantly. A service sits in front of a set of Pods and provides a stable virtual IP
+and a stable DNS name. The service is how clients, whether other Pods or
+external users, actually find your application in a world where the back end is
+always moving. This slide shows the contract between a service and its back-end
+Pods. The service stays stable while labels in readiness determine which Pod IPs
+are actually eligible to receive traffic. The service provides a stable virtual IP, or
+VIP, for a set of Pods. That virtual IP, usually a cluster IP inside the cluster, is the
+front door your clients call. Meanwhile, the back-end Pods can come and go
+freely behind it. Pods appear in endpoint slices when labels match. Kubernete's
+doesn't send traffic to a Pod just because it exists. The Pod's IP address only
+shows up in an endpoint slice when the Pod matches the service's selector. Now
+endpoint slices are the modern replacement for the legacy Endpoints
+object. They're the scalable back-end inventory for a service. And on the exam,
+this is the first object you check when service routing looks wrong. The service
+selects Pods by matching their labels. That's the key contract. Label matching is
+the only way a Pod becomes a candidate for traffic. No matching label, no back-
+end membership, full stop. If a Pod loses its label or fails readiness, its IP is
+removed from the list. Membership is conditional in Kubernetes. If the Pod stops
+matching the selector or if it fails its readiness probe, Kubernetes pulls its IP out
+of the back-end list automatically. And lastly, if labels match and readiness
+passes, Pod IPs are included in endpoint slices. So the full rule is simple, labels
+qualify the Pod, and readiness authorizes traffic. Both have to be true before a
+Pod IP appears in an endpoint slice. This is the full request path that every client-
+to-Pod connection follows. And understanding that is essential for
+troubleshooting. The path has three hops. First, the client does a DNS lookup for
+the service name, and core DNS returns the service's cluster IP. Second, the
+traffic goes to that cluster IP, and kube proxy, which has programmed IP tables or
+IPVS rules on every node, translates the cluster IP to a back-end Pod IP. Third, the
+traffic arrives at the Pod. Four components are involved in making that work, core
+DNS, the service object, kube proxy, and the Pod itself. If any one of them is
+broken, the connection fails.
+Three service types
+We have three service types, and they're layered on top of each other. A
+LoadBalancer includes a NodePort, which includes a ClusterIP. ClusterIP is the
+default, and it's internal only. It provides a virtual IP for service-to-service
+traffic that's reachable only from inside the cluster. Your laptop can't ping it, but
+other Pods can. ClusterIP gives you a stable endpoint for Pods selected by
+labels. Clients always hit the same IP, and the service fans out to whichever Pods
+currently match the selector. This is the standard pattern for app to database
+or front end to back-end traffic. Core DNS auto creates a DNS record for every
+service in the form service-name.namespace.svc.cluster.local. Same namespace
+Pods can use the short name, but cross-namespace access needs the fully
+qualified domain name. Now NodePort extends ClusterIP by adding an external
+entry point. It opens the same high port, somewhere between 30,000 and 32,767
+on every node in the cluster. Traffic hitting a node IP on that port routes through
+the service and onto the Pods. NodePort is accessible from outside the
+cluster, assuming your node IPs are routable. This is the exam-friendly way to hit
+a service from outside, and it works in local clusters like kind and minikube. In
+kind, the extra port mappings from our previous module map to the NodePort on
+your host. LoadBalancer extends NodePort by adding a cloud provider
+LoadBalancer in front. In AWS, Azure or GCP, Kubernetes automatically provisions
+a real external LoadBalancer with the public IP. Clients hit the LoadBalancer, and
+it distributes traffic to NodePort on each node. The LoadBalancer also health
+checks the nodes and removes unhealthy ones from rotation automatically. On
+kind, however, LoadBalancer services stay pending forever because there is no
+cloud provider. That's expected behavior, not a bug. You can't verify service
+connectivity from your laptop because ClusterIPs are only routable from inside
+the cluster. Every test has to originate from inside a Pod. Every service gets a
+DNS record automatically, as I mentioned, in the form
+servicename.namespace.svc.cluster.local. Core DNS watches the service objects
+and creates the records for you, so there's no manual DNS config for you to worry
+about. Same-namespace Pods can use the short name. If you're in the same
+namespace as the service, just my-service resolves correctly, which can save you
+a lot of typing. This works because every Pod's /etc/resolv.conf lists search
+domains, including your namespace.svc.cluster.local and cluster.local, and the
+short name gets expanded against those. Now cross-namespace access is
+different. From namespace A, calling a service in namespace B requires the fully
+qualified domain name. All of this testing has to run from inside a Pod, not from
+your host. Your host sits outside the cluster network. The command pattern here
+is kubectl run debug with the BusyBox image, the --rm and -it flags and --nslookup
+my-service. That spawns a throwaway Pod, runs the DNS lookup, and cleans itself
+up on exit. Swap nslookup for wget, and you go beyond DNS resolution and test
+end-to-end connectivity, confirming that DNS resolved, the ClusterIP responded,
+and a Pod back end actually answered.
+Namespaces, labels, and annotations
+Our next learning objective is organizing resources at scale. Let's get the precise
+definitions down here because these distinctions matter for the exam and for
+your production operations. Namespaces scope resource names and enable
+RBAC policies. A namespace is a Kubernetes object that partitions the
+cluster. Resources with the same name can coexist in different namespaces
+without conflict. RBAC roles are bound at the namespace level, and that's how
+you grant a team access to just their piece of the cluster. Labels are for
+selection. A label is a key value pair in metadata.labels. Services select Pods by
+label. ReplicaSets manage Pods by label. Network policies allow traffic by
+label. Labels are the wiring that connects objects to each other. Annotations, on
+the other hand, carry metadata but do not affect scheduling or routing. An
+annotation stores arbitrary data, things like build, commit SHAs, change tickets or
+owner emails. Kubernetes controllers ignore annotations entirely. They're for
+humans and for external tooling, nothing more. For querying, kubectl get pods
+with the -A flag spans all namespaces. This is useful when you can't remember
+which namespace a Pod lives in. For filtering, compound selectors like the kubectl
+get pods example you can see on screen right now use commas to and
+conditions together. You can also negate with env not equals production, and
+you can use set-based operators like tier, not in parentheses, front-end
+parentheses. The -l flag uses the full label selector syntax. Our fourth and final
+learning objective in this module and the single most valuable skill in this entire
+course is the diagnostic ladder. Four commands executed in order answer every
+what's broken question you'll ever face in Kubernetes. Get tells you the current
+status, describe tells you why the status exists, logs tells you what the application
+itself said, and events tell you what the cluster as a whole did. Four rungs, each
+one revealing a deeper layer than the last. You start at the top and work down
+until you find the root cause. Rung 1 is get. Kubectl get pods shows you status,
+ready, restarts, and age. If the status is anything other than running, that's your
+first signal. CrashLoopBackOff means the container started but keeps
+dying. Pending means it never scheduled in the first place. Rung 2 is
+describe. Kubectl describe pod dumps events specific to that Pod, including
+scheduling decisions, image pull attempts, probe failures, and volume
+mounts. 90% of the questions that start with, why did this not start, get answered
+right here. Rung 3 is logs. Kubectl logs returns exactly what the app itself wrote
+to stdout and stderr. If the container started and then crashed, the exit reason
+lives in the logs. Application-level errors show up on this rung. Rung 4 is
+events. Kubectl get events orders the last hour's cluster events chronologically
+across every resource. Reach for this rung when the problem spans more
+than one object like a node failing, a PVC binding delay or a resource quota
+rejection.
+Container output streams and multi-container pods
+Container output management is a dedicated CKA competency. The exam
+explicitly tests your ability to retrieve and interpret container logs, so let's cover
+the mechanics carefully. Kubectl logs reads stdout and stderr that were captured
+by containerd. Apps write to stdout and stderr, containerd captures both
+streams, and kubectl logs retrieves them on demand. That's exactly why logging
+to stdout rather than to files is the cloud-native pattern. For multi-container Pods,
+you have to specify the container with the -c flag. Forget the -c flag on a multi-
+container Pod, and kubectl errors out with the message a container name must
+be specified. The --previous flag shows output from the last terminated
+container, and it's essential for CrashLoopBackOff. The current container
+instance is barely alive, but --previous reaches back to what the
+previously crashed instance said before it died. That's where the real error
+message lives. The --follow flag, often shortened to --f, streams output in real
+time. It's a live tale of a running container, and it's your friend during active
+debugging or live demos. Put it all together, and you have a dedicated CKA
+competency. The curriculum explicitly lists understanding container logs and
+how to retrieve them, so you need to know every flag on kubectl logs. This is your
+complete kubectl logs reference, with each pattern solving a specific debugging
+scenario. The basic case is kubectl logs my-pod, single container Pod, no
+container flag needed. It retrieves the current running instances, stdout and
+stderr. The multi-container case is kubectl logs my-pod -c app-container. The -c
+flag picks the container. If you forget it on a multi-container Pod, kubectl prompts
+you interactively for the container name. Always use -c explicitly so you avoid the
+prompt. For a crash loop, use kubectl logs my-pod --previous. The --previous flag
+reaches back to the last terminated instance, and it's your go-to root cause tool
+whenever you see CrashLoopBackOff. For live debugging, use kubectl logs -f my-
+pod. The -f flag streams output as new lines arrive, or you hit Ctrl+C to stop. This
+is how you watch a Pod's behavior during an active test. If you're not sure which
+container names are available, run kubectl describe pod my-pod. Describe lists
+every container in the Pod, including init containers and sidecars. That's how you
+find the right value for the -c flag.
+Setting up your CKA lab environment
+It's time to put everything together in a live demo. Let's look at the full lifecycle
+all in one session. All right, let's get this demo on the road. This is core resources
+in the diagnostic ladder. And as usual, we're in VS Code. I've got the PS-CKA repo
+from GitHub cloned. I've got my terminal open. I'm already under \src\cka-lab,
+and I'm going to bring up two scripts. We need the multi-cluster topology, so I'm
+going to do .\kind-multi-up. And that gives us, as you can see up here, two
+clusters. And it gives us a great opportunity to practice checking context and
+switching context, because as I've said several times and I'm sure I'll continue
+to, super important for your CKA success to just have that be part of your core
+muscle memory. All right, looks like we're good to go. I've got two contexts
+available, as you can see here, kind-cka-dev and kind-cka-prod. And I'm going to
+immediately start kind up so I can also create our CKA exam topology too, another
+cluster that we'll use for this demo. I won't show kubeadm commands while it's
+building, and we want to choose 4 here, which corresponds to course 1 module
+3. This demo, as we can see, covers important CKA patterns, self-healing,
+services, endpoint slices, namespaces, DNS, and the diagnostic ladder. So let's
+press Enter to begin. This is bare Pods versus managed deployments. And as you
+can see, when you're working imperatively, you can separate commands with a
+semicolon if you're sure that you know what you're doing. On the CKA exam, you
+need to be surgical about how you create workloads. We're starting here with two
+commands that look similar but have a fundamental difference in ownership. First,
+I'm using kubectl run to create a standalone Pod. By explicitly setting --
+restart=Never, I'm telling Kubernetes, don't wrap this in a controller. It's a bare
+Pod. If it crashes or if the node it's sitting on disappears, it's gone. Like a 70s
+slasher movie, there's no sequel for this Pod. Next, I'm using kubectl create
+deployment. This is the professional way to do it. The single command actually
+creates a hierarchy, a deployment that manages a ReplicaSet, which in turn
+manages our two Pod replicas. Looking at the kubectl get pods -o wide output,
+check the names. The standalone Pod is just named standalone, but the
+managed Pods have those random alphanumeric suffixes. Those hashes are your
+visual cue that these Pods are owned. If I were to delete one of those managed
+Pods, the ReplicaSet would see the gap and spin up a replacement
+immediately. That's the self-healing magic that the CKA curriculum expects you
+to master for the workloads and scheduling domain.
+Exploring Kubernetes self-healing
+Self-healing and the reconciliation loop. Now we're getting into the heart of the
+workloads and scheduling domain. I'm going to delete both the bare Pod and one
+of our managed Pods. To keep the demo moving, I used --grace-period=1 to
+bypass the standard 30-second wait for a graceful termination. Once the
+command finished, look at the compound output in the terminal. I've separated
+the two distinct object types with a dashed line. Above the line we see the
+Pods. Note that the standalone Pod is gone. It was unmanaged, it died, and there
+was no controller to mourn it. But look at the Pods with the app=managed
+label. We still have two, one is an elder Pod with a few minutes of age, but the
+other has a brand-new timestamp. And then we have the ReplicaSet, the
+resurrector. Notice the DESIRED, CURRENT, and READY columns. This is the
+reconciliation loop in action. The moment I deleted that Pod, the ReplicaSet saw
+that CURRENT was 1 while DESIRED was 2. It didn't wait for a ticket or an
+administrator. It immediately fired off a request to the API server to create a new
+Pod to satisfy its manifest. Now for the CKA exam, you've got to understand this
+hierarchy. The deployment manages the ReplicaSet, and the ReplicaSet manages
+the Pod count. If you delete a Pod and it pops back up automatically, now you
+know exactly which object is responsible. In the CKA exam, you have to
+understand how traffic actually reaches a Pod. While Pod IPs are ephemeral,
+services provide the stable cluster IP and DNS name your apps need. In this
+segment, I'm using kubectl expose to create a ClusterIP service. But I want you to
+focus on the second half of the output, the endpointslice. While older guides talk
+about the legacy Endpoints object, Kubernetes 1.35 relies on
+endpointslices. They're more scalable and support modern features like dual stack
+networking and topology-aware routing. Look at the first get endpointslices
+result. You see two IP addresses. Those are the internal IPs of our two managed
+Pods. Now watch the transition after kubectl scale. I've bumped the replica count
+to 4. After a brief sleep to allow those Pods to pass their readiness checks, the
+endpointslice automatically updates. We now have four IPs listed. Now again, I
+know that when you see all the commands mashed together, it's harder to
+parse. I'm doing this just in the interest of time and efficiency. In the real
+world, you may be separating these with Enter and running them separately. I'm
+using the semicolon to run one into the other. This is a critical diagnostic
+checkpoint for us. If you ever have a service that isn't passing traffic, your first
+move should be to check the endpointslice. If the ENDPOINTS column is empty
+or missing IPs, it means your service's selector doesn't match your Pod's labels or
+your Pods aren't in a ready state.
+Working with namespaces and label selectors
+In a real CKA scenario, the highest value test is a full path connectivity
+check. Your laptop can't route to a ClusterIP, so you have to go inside the cluster
+to verify your work. I'm using kubectl run to spin up a temporary debug
+Pod. Notice the flags. --Rm ensures the Pod deletes itself the moment it
+finishes, and the double dash tells kubectl that everything following is the actual
+command to run inside the container. When I run wget against the service
+name, managed-svc, I'm exercising the entire networking stack at once. For this
+to return the HTML you see on the screen, four things happened correctly. First,
+CoreDNS resolved the name, second, kube-proxy routed the request to the
+ClusterIP, third, the endpointslice provided a healthy Pod IP, and finally, the Pod
+actually served the request. If this fails, the error message is your best friend. A
+bad address means your DNS is broken. A connection refused usually means your
+endpointslice is empty. By using this single command, you've effectively verified
+about 20% of the services and networking domain requirements in 5
+seconds. Kubernetes uses namespaces to create virtual partitions within a single
+physical cluster. For the CKA exam, you've got to be comfortable switching
+between them, as many tasks will explicitly require you to work in a
+specific namespace to prevent resource collisions. In this segment, I'm creating a
+new namespace called staging. Notice when I create the catalog deployment, I
+have to pass the -n staging flag. If I forget that, Kubernetes will dump the
+deployment into default, which is a common way to lose points on the exam. I'm
+also adding a second label, env=staging, using the kubectl label command. Now
+look at the terminal output. By running kubectl get pods -A, I'm looking across the
+entire cluster. You can clearly see the managed Pod sitting in the default
+namespace and our new catalog Pods, isolated and staging. Finally, look below at
+the Compound label selector. I'm filtering for Pods that match both
+app=catalog and env=staging. In Kubernetes, a comma and a selector acts as a
+logical AND. This is a high-value skill for the troubleshooting exam domain. When
+a cluster has thousands of Pods, being able to pinpoint a specific workload using
+multiple labels is the difference between a 5-minute fix and an hour of scrolling.
+DNS resolution, short names versus FQDNs. Understanding how
+Kubernetes handles DNS is absolutely non-negotiable here. Every service you
+create gets a DNS record, and how you address it depends entirely on where
+you're standing. Here, I'm running two types of lookups from within a temporary
+Pod. First, notice the short name, managed-svc. This works here because we're in
+the same namespace. Kubernetes automatically injects a search list into every
+Pod's /etc/resolv.conf file. When you type a short name, the resolver tries
+appending suffixes like default, svc, cluster.local until it finds a match. It's
+convenient, but it's scoped to the local namespace. Now look at the second half
+of the output, the FQDN, or fully qualified domain name. This follows a strict
+pattern, servicename.namespace.svc.cluster.local. In this case, it's managed-
+svc.default.service.cluster.local. Unlike the short name, the FQDN is
+unambiguous. It will resolve correctly from any namespace in the cluster because
+it doesn't rely on that search list, guessing where the service lives. For the CKA,
+remember this rule, use the short name for quick, internal namespace
+communication. But if a question asks you to connect a Pod in the
+staging namespace to a service in the production namespace, you've got to use
+the FQDN. If you don't, your connection will drop at the DNS layer before it even
+hits the network.
+Digging into the diagnostic ladder
+Troubleshooting makes up 30% of your CKA score. To master it, you need a
+repeatable system. We'll use the diagnostic ladder, and rung 1 is kubectl get. In
+this segment, I'm deliberately breaking a Pod by using an --image tag that doesn't
+exist. NGINX does not exist. After giving the kubelet a few seconds to attempt the
+pull, I run a simple get pods. Look at the STATUS column. This is your first and
+most vital clue. You see ErrImagePull. This tells you exactly where the failure is
+occurring. The container runtime can't find the image. If you wait a few more
+seconds, this will flip to ImagePullBackOff. This means Kubernetes has tried,
+failed, and is now waiting in an exponential backoff period before trying
+again. Notice that READY is 0/1. The API object for the Pod exists, but the
+container inside it was never created, a common mistake on the exams to jump
+straight into complex YAML debugging. Don't do that. Always start at rung 1. Read
+the status, identify the failure category, and then and only then are you ready to
+climb to rung 2. We've climbed to rung 2 of the diagnostic ladder. If kubectl get
+gives you the what, kubectl describe gives you the why. On the CKA exam, you
+don't have time to scroll through 80 lines of YAML. You've got to head straight to
+the event section at the bottom. Think of the events as the cluster's narrative. It's
+a chronological diary of the Pod's life. Looking at the filtered output, we see the
+story unfold. First, Normal Scheduled. The scheduler did its job and placed the
+Pod on worker node 2. Then Normal Pulling. The kubelet tried to fetch our image,
+and then there it is, the smoking gun, a Warning Failed message explicitly stating
+NotFound for NGINX does not exist. Pay close attention to the State and
+LastState fields in the container spec. Right now, the state is waiting because of
+that back off. In a real-world scenario where a Pod's crashing repeatedly, the
+LastState field is pure gold. It'll show you the exit code of the previous process.
+For the CKA, if you see ImagePullBackOff in the status, your first move should
+always be a describe to verify the image name, the registry path, and the pull
+secrets. We've reached the top of the diagnostic ladder. Rung 3 is kubectl logs. In
+this case, look at the error container is waiting to start. That's a massive clue.
+Because the container never actually ran, there are no application logs to read.
+On the exam, if you get this error, you stop looking at the app code and go back
+to the infrastructure. It's an image secret or resource issue. However, keep this in
+your back pocket. If a Pod is in CrashLoopBackOff, it means the container did
+start but then died. In that scenario, you've got to use kubectl logs --
+previous. That flag's the only way to hear the final words of the dead container to
+see if it threw a Java stack trace or a segmentation fault before it collapsed. Rung
+4 is the cluster-wide event stream. While describe shows events for a specific
+object, kubectl get events lets you see the narrative across the whole
+namespace. I've used a field selector here to filter only for our broken Pod and
+sorted them by time. Notice the LAST SEEN and REASON columns. This confirms
+the timeline we saw in DESCRIBE, but in a clean tabular format. If you can't find
+the smoking gun in the logs, the event stream will tell you if the kublet's
+struggling, if the node is out of disk space or if the OOM killer is stalking your
+processes. Master this four-step rhythm, get, describe, logs, events.
+Testing the diagnostic ladder end-to-end
+This is the boss level for this module. In the CKA exam, you don't just manage one
+cluster, you manage several. Every task begins with the command to switch your
+context. In this final segment, I'm using kubectl config use context to perform a
+sticky switch to our development cluster, cka-dev. Notice my node count
+changes immediately. We only have one worker here. I'm running the exact same
+broken Pod scenario we did earlier. Look at the output. The status is still
+ErrImagePull, and the events still show the same 404 error. This proves that the
+diagnostic ladder is a universal law. It works the same way whether you're on a
+dev, staging or production cluster. Next, notice the one-shot command. I'm using
+the --context flag to peek at all the nodes on cka-prod without actually leaving
+my current session on cka-dev. That's a professional move for verifying resources
+across boundaries without losing your place. Finally, we practice session
+discipline. I'm cleaning up the broken Pod and switching my context back to our
+primary lab cluster. On exam day, treat your context like a loaded weapon. Always
+know where it's pointed, and always verify your current location with kubectl
+config current context before you hit Enter on a destructive command. Priya is
+back, and she has a real-world win that proves the diagnostic ladder actually
+works under fire. Priya reports, "The catalog API went down Friday night. I ran get,
+describe, logs, events -- found the bad image tag in under two minutes. Three
+weeks ago, that would have been a two-hour panic. The diagnostic ladder works."
+Yeah, I couldn't say it any better than that, Priya. Well done. That wraps our first
+course in this Pluralsight CKA skill path, Kubernetes
+Foundations. Congratulations! You've built the architecture mental model, you
+know the basic kubectl workflow patterns, and your diagnostic instincts will carry
+you through the rest of the series. I'm Tim Warner at TechTrainerTim.com. I look
+forward to seeing you in the next course. Happy studying.

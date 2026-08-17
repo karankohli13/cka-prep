@@ -1,0 +1,1166 @@
+Certified Kubernetes Administrator
+(CKA): Installing Clusters with kubeadm
+Preparing Linux hosts and container runtime
+dependencies
+Checking in with Globomantics
+Hello there. Welcome to Certified Kubernetes Administrator (CKA):
+Installing Clusters with kubeadm. My name's Tim Warner. In the previous course
+in this learning path, we used kind, a tool that runs Kubernetes nodes as Docker
+containers and hides the underlying bootstrap process for us. In this course, we're
+shifting to real Linux virtual machines and the actual kubeadm workflow the CKA
+exam tests on you. Four framing questions shape this module, and each one
+maps to a CKA exam competency and to a real production admin work. First, why
+does kubeadm require specific kernel modules and sysclt parameters? Well,
+kubeadm is the cluster bootstrap command, and it depends on Linux kernel
+features and sysctl values. By the way, sysctl is Linux's runtime kernel parameter
+interface conceptually similar to the Windows Registry. These ship disabled in
+stock Ubuntu, so we turn them on by hand. Second, what is containerd's role as
+the CRI-compliant container runtime? Containerd is the container engine that
+runs underneath Docker, and CRI is the GRPC contract Kubernetes uses to talk
+to whichever runtime is on the host, so you install and configure containerd
+before bootstrapping. Third, how do I install and pin kubeadm, kubelet, and
+kubectl at a specific version? Kubelet is the node agent that runs pods, kubectl is
+the cluster CLI, and all three binaries must run the same minor version on every
+node. So, you install from the official repository and pin the packages, so apt can't
+upgrade them. Lastly, how do I verify all prereqs across multiple nodes before
+bootstrapping? Well, one misconfigured node breaks the entire Kubernetes
+cluster join workflow, so we script a verification pass that runs on every host
+before we touch kubeadm init. Let's check in with Globomantics. This is Ravi, an
+infrastructure lead. Globomantics, of course, is a fictional company we use at
+Pluralsight for our case studies. Ravi's manager told them, infrastructure
+provisioned three bare Ubuntu VMs for your production cluster. You've got root
+access and a deadline, control plane up by end of day. Before you touch
+kubeadm, the hosts need specific kernel modules, network settings, and a
+container runtime. Skip any step and kubeadm init and it is going to fail. We don't
+want that, Ravi. Let's get you sorted out.
+Kernel modules and sysctl: the networking foundation
+Why does kubeadm require specifi kernel modules and sysctl parameters? Two
+kernel modules and three sysctl parameters form the networking foundation of
+every kubeadm cluster. Getting any of them wrong means kubeadm either fails
+fast or your cluster breaks later in ways that are much harder to diagnose. The
+overlay kernel module enables the overlay fs filesystem, which is what containerd
+uses to stack read-only image layers under a writeable container layer. This is the
+same layered-image idea used by Windows containers under the hood. Without
+overlay, loaded containerd can't start containers. The br_netfilter module wires
+Linux bridged traffic, meaning packets crossing a software Layer 2 switch into
+iptables and netfilter, which is the Linux packet filtering subsystem that acts like
+a host firewall and is what kube proxy and most CNI plug-ins use to enforce
+service rules across pods. This sysctl turns the host into a Layer 3
+packet forwarder between network interfaces. This is required because pods on
+different nodes depend on the host kernel to route traffic between them. This
+sysctl makes bridged Layer 2 traffic visible to iptables, which the official kubeadm
+documentation lists as a hard requirement for cluster networking to
+function. Persistence is what keeps these settings in place across reboots, since
+modules loaded with mod probe and sysctl set with sysctw both evaporate when
+the node restarts. Drop your module names into etc/module-load.d/k8s.conf and
+your three sysctl values into etc/sysctld/k8s.conf. Then runs sysctl system, so
+systemd, the Linuxer controller, analogous to Windows Service Control
+Manager, applies them at every boot. Oh, it's a mouthful, huh? The Windows
+analog to this is auto loading a driver at startup via the Registry under
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services name start=2. The
+cruel part of this configuration and these requirements is that misconfigs are
+silent, and this is also because kubeadm pre-flight checks can pass, and your
+pods will happily get IP addresses, but cross-node pod traffic times out without
+an obvious error message. On the CKA exam, the punishment is not the fix
+itself, but the minutes you burn troubleshooting routing, and CNI before you
+remember to verify ls mode in sysctl on every node.
+kubeadm prerequisites: what must be correct before init
+Before kubecdm initializes a cluster, it assumes the host's already correctly
+configured, and these four conditions are what kubecdm preflight verifies on
+every node. First, swap has to be disabled. Swap is the Linux equivalent of the
+Windows page file, and the kubelet refuses to run with swap enabled because
+the scheduler relies on accurate memory accounting. So you disable swap with
+swapoff and remove the swap entry from etc/fstab, the file system mount table,
+so it doesn't return after a reboot. The bootstrap worker assumes every node runs
+the same minor version of all three binaries, and version skew between the
+control plane and worker nodes causes the join to fail. Kernel modules and sysctl
+have to be configured as a networking foundation. Well, sure, this is the work from
+the previous slide, and it has to be in place before a kubeadm init runs
+because pre-flight refuses to continue without it. Lastly, kubeadm is a
+bootstrapper, not an installer. So if you install a CRI-compliant runtime such
+as containerd before a init and a CNI plug-in, by the way, if you don't remember,
+CNI stands for Container Network Interface, the pluggable component that
+provides pod networking, such as calico or flannel after a init. This is the verbatim
+shell sequence that loads the two required kernel modules, persists them across
+reboots, and applies the three sysctl values that kubeadm preflight
+expects. Modprobe is the Linux command that loads a kernel module into the
+running kernel, similar to loading a driver on demand on Windows, so this
+sequence makes both modules active for the current session without
+rebooting. The k8s.conf file is a configuration drop-in that systemd reads at every
+boot to auto load named modules, so writing overlay and br_netfilter into it makes
+the runtime change you just made survive restarts. The etc/sysctl.d directory is
+the documented home for persistent kernel parameters, and the sysctl system
+command reads every file under that directory and applies the values
+immediately so that change takes effect now and on every reboot. The lsmod
+command lists currently loaded modules, and the sysctl query confirms
+ip_forward returns one, which proves the host is ready before you move to
+containerd.
+containerd and the Container Runtime Interface (CRI)
+What is containerd's role is the CRI compliant container runtime. Remember that
+Container Runtime Interface is a contract using GRPC. GRPC, by the way, is a
+high performance, remote procedure call framework that's built on the
+HTTP2 standard that defines how the kubelet talks to whichever runtime is on
+the host and containerd replaced Docker as the default in Kubernetes version
+1.24. This infographic shows the relationship between the kubelet, the Container
+Runtime Interface socket, and the container runtime itself. The kubelet is the
+node agent that runs every pod, CRI is the standard contract between kubelet
+and runtime, and containerd is the implementation of that contract on each
+node. We'll walk through each of those layers on the next slide. Think of the
+Container Runtime Interface like a standard plug, where the kubelet is the laptop
+and the runtime is whatever you plug in. CRI defines the GRPC contract for
+pulling images and managing the container lifecycle, and containerd and CRI-O
+are the two production-grade implementations you're most likely to meet on a
+real exam virtual machine. For years, the kubelet used a built-in adapter called
+dockershim to translate CRI calls into Docker API calls, but Kubernetes version
+1.24 removed that shim and standardized on containerd, which is the lightweight
+engine that always ran underneath Docker anyway. The Ubuntu package leaves
+containerd unconfigured, so you generate a baseline config.toml. A TOML file is a
+human-readable config format with containerd config default and edit that
+baseline. A cgroup, short for control group, is the Linux kernel feature that limits
+CPU and memory per process, conceptually similar to a Windows job object and
+both the runtime and the kubelet have to agree on which subsystem manages
+those cgroups. The systemctl check confirms the service is active, and crictl info
+confirms the CRI socket is reachable. Kubernetes, as I said, doesn't run containers
+directly. The kubelet talks to a container runtime through the CRI interface, and
+on a kubeadm cluster that runtime again is containerd, can't repeat that enough
+in many ways. Apt-get is the Debian and Ubuntu package manager that's
+comparable to WinGet on Windows. This command installs the containerd binary
+in the systemd service, but doesn't write a working config file. Sudo runs a
+command with elevated privileges, similar to run as administrator in Windows, and
+this pipeline emits the baseline config and writes it to the canonical path so you
+have something to edit. Now this single edit is the most important line in the
+file because the kubeadm documentation requires that containerd cgroup driver
+match the kubelets, and a mismatch here is the number one cause of kubeadm
+init failures. Systemctl is the systemd server control command, the
+rough equivalent of set service in PowerShell and Windows, where restart applies
+your edited config and enable makes containerd start automatically on boot. You
+want to verify with criclt info. Crictl is the CRI command line client. This is the tool
+that talks directly to the runtime socket, and its info subcommand returns the
+same surface kubeadm init probes during pre-flight.
+Configure crictl before you need it
+So as I just said, crictl is the command line client for the CRI socket, and it's how
+you debug containerd directly when kubectl can't help you. This command writes
+the runtime endpoint into etc/crictl YAML, a small YAML config file, so crictl
+knows which Unix domain socket to talk to instead of guessing. Hopefully, you
+know that YAML is the indented configuration format that really is universal
+across all Kubernetes. Kubectl, you should know by now, is the high-
+level Kubernetes CLI, or command line interface. It talks to the Kubernetes API
+server, which only sees what the kubelet reports up. So when the kubelet itself or
+the runtime is broken, kubectl returns errors that point you in the wrong
+direction. On a fresh exam virtual machine, an unconfigured crictl prints
+deprecation warnings and can pick the wrong socket on a host that has more
+than one runtime present, which wastes minutes you simply can't spare. In
+closing, regarding crictl, once the endpoint is set, info dumps runtime details, ps
+lists running containers, including the Kubernetes system pods, and images
+shows what is cached on the node, which is the same trio you'd reach for with the
+Docker CLI. How do I install and pin kubeadm, kubelet, and kubectl at a specific
+version? Three packages, one version pinned on every node. Kubeadm is the
+bootstrapper, kubelet is the node agent that runs the workload, and kubectl is
+the administrator CLI. An app repository is a package source, and the GPG key
+proves the packages are authentic. So you download the key, de-armor it, and
+add the package's k8s.io repository to app sources. GPG is the open-source
+signin tool that plays the same role as Authenticode on Windows. Apt-mark hold
+tells apt to refuse upgrades for these three packages, which is the documented
+protection against an unattended app-get upgrade silently breaking your
+cluster. Dpkg is the lower-level Debian package tool, and dpkg -l prints the
+installed versions. And d-pkg -l prints the installed versions so you can confirm
+the columns line up across the control plane and both workers. A standard apt-
+get install pulls the latest version from the 135 channel and installs all three
+binaries together, which is what you want because version skew across the three
+is unsupported, as I've mentioned earlier. Now, this behavior surprises every new
+operator, where kubelet starts, but crashes until kubeadm init configures it. It is
+correct, because the kubelet hasn't got a config yet, so systemd restarts in a loop
+until kubeadm init writes to var lib kubelet config.yaml.
+Verifying prerequisites across all cluster nodes
+How do I verify all prerequisites across multiple nodes before bootstrapping? A
+cluster is only as strong as its weakest node, so the goal of this verification pass is
+to find the one misconfigured host before kubeadm tells you about it in the worst
+possible way. The control plane and both workers have to be configured
+identically, because any deviation causes pre-flight failures during kubeadm, init,
+or join. I know I've mentioned this a lot, friends, but it's important. I know I've been
+in adult education for 30 years, the repetition is particularly important. We want
+to make sure to lock all this stuff in for your exam success. A short bash
+script, which you may or may not know is the Linux equivalent of a PowerShell
+PS1 on Windows, that runs the next three checks and exits on first failure, turns
+this process from a manual drudge into something you can run on every node in
+seconds. How about checking swap? Swapon --show lists active swap areas, and
+an empty output means swap is off, which is what kubelet requires, while any
+non-empty line means you still have cleanup to do in /etc/fstab. The systemctl
+check command confirms the service is in the running state inside systemd, and
+crictl info confirms the CRI socket is healthy, and the runtime answers queries
+from the kubelets perspective. The dpkg output should show the same v135
+version on all three packages across every node, and the --high flag in the status
+column proves the hold is in effect.
+Validating our CKA lab environment
+Time to put everything we covered into practical application. We're going to
+provision three Ubuntu virtual machines using vagrant. Vagrant is a HashiCorp
+tool that scripts virtual machine creation similar to using PowerShell to drive
+Hyper-V. We'll configure every prerequisite and verify all three nodes are ready
+for kubeadm init. So, in the demo, we'll walk through the vagrant file. We'll load
+and persist the kernel modules, configure sysctl. We'll ensure that containerd's
+cgroup driver is sorted out. We'll install and pin the Kubernetes packages, and run
+the verification pass so by the end of this demo we're ready to build our
+cluster. Hey there, let's turn theory into practice. You'll remember when we
+checked in with Globomantics, Ravi was given three bare Ubuntu VMs, root
+access, package mirrors configured, and a deadline to get the Kubernetes control
+plane up by the end of the day. But before he can type kubeadm init, every one
+of those nodes needs four things in place, kernel modules loaded, sysctl tuned, a
+container runtime with the right cgroup driver, and the Kubernetes package is
+installed and pinned and that's what we're doing right here. Remember, the
+course repository is in GitHub, timothywarner-org/ps-cka. And in that folder
+hierarchy, you can see in my terminal here under src\cka-lab, I have a number of
+PowerShell helper scripts here And we can use cka-up to build the virtual
+machine environment, cka-down to tear it down, and those are wrapping vagrant
+commands. I don't want to get off onto a tangent here. The bottom line is I have a
+Hyper-V virtual machine environment. If you have Windows and if you have
+Hyper-V available, you can install Vagrant for free, cd into the directory here, and
+run any of these files and have it go. Let me open up vim to show you the vagrant
+file. This is a HashiCorp technology that allows you to control hypervisors
+declaratively. So basically what it's doing a lot of different checks is it's building
+out three virtual machines. Let me Esc+:+q. You do have to know vim to be
+successful on your CKA, by the way. And I want to do a cka validate to verify
+that my virtual machines are up and running. If you pause your video and read
+through the script, what it's doing, it's basically making sure that my control plane
+node, which is an Ubuntu box I call control1, and I have two workers, worker1 and
+worke 2, that they're all ready for Kubernetes, that they're all ready for me to
+bootstrap the cluster with kubeadm, which we'll do in the next module. What this
+demo is about is validation, that's the main thing. So I validated all three of our
+nodes. I am going to work let me switch over. I've SSHed into my control1, worker1,
+and worker2. And if you're wondering, well, what were the IP addresses there, we
+can do cka-info and that'll give us the IP of the nodes, their status, as well as the
+SSH command. In my environment, the vagrant file creates a user named
+vagrant, and that's why the SSH commands are saying vagrant@ in this case. Let's
+go over to control1. We'll start by confirming that we're at the root prompt
+on control1, so I'll run hostname and whoami. Control1's the node, vagrant's the
+user, so next, let's verify that our appropriate kernel mode drivers are
+installed. Lsmode is Linux equivalent to get Windows driver, and it basically
+answers which kernel mode modules are loaded right now. We want overlay and
+br_netfilter. Overlay is what containerd uses to stack image layers, and br_netfilter
+is what makes bridge Layer 2 traffic visible to your Ubuntu machine's iptable's
+firewall. This is, in turn, how kubeproxy enforces service rules and how CNI plug-
+ins enforce network policies.
+Verifying kernel modules and sysctl settings
+Next, let's verify that modules are persisted for next boot. We would expect two
+lines, which we see here. Lsmod proves that they're in the kernel right now, and
+this file proves they're in the kernel every boot from now on, autostart in other
+words. Systemd reads etc/modules-load.d at startup and autoloads every module
+listed and any conf file underneath it. So we've got runtime and persistence is the
+bottom line, and the exam's going to test both. Next, let's verify that the three
+sysctls are set. Windows lens for you, sysctl is Linux version of Set-NetIPInterface
+plus registry tuneables all in one tool, and we want all of these to return
+one. Ip_forward turns the host into a Layer 3 forwarder so pods on different nodes
+can route to each other. The two bridge values make bridge Layer 2 traffic visible
+to iptables, and all three are zero on stock Ubuntu, and they've got to be one
+before we run kubeadm init. A zero here is going to be a silent failure, and we
+absolutely don't want that. Next, we'll cat out k8s.conf. Etc/sysctl.d is the
+persistence half, a drop-in folder applied at boot, the same way Windows would
+persist a registry value versus a one-shot net sh command that dies on reboot. It's
+the same two-layer pattern. Sysctl query proved the values are live,
+k8s.conf proves that they survive at reboot. CKA loves testing the etc/sysctl
+path. If they give you a misbehaving cluster where pods on different nodes can't
+reach each other, the first thing to check is sysctl net.bridge.bridge-nf-call-
+iptables. That one parameter is the difference between iptables seeing
+your bridged pod traffic and iptables ignoring it. Value of one means it's working,
+value of zero means that kubeadm's pre-flight check is going to fail. Now let's
+prove containerd is running and configured with system cgroup true. Systemctl is
+the Linux equivalent of get service or sc.exe in Windows. Systemd is the Service
+Control Manager equivalent. No pager just means don't shove output through
+less. We want the active line to read active running and the loaded line to include
+enabled, confirming that it auto starts on boot. Next, let's invoke crictl. Crictl is
+like the Docker CLI, but pointed at a CRI socket instead of the Docker daemon,
+same talk-to-the-container-engine-directly idea, lower in the stack than
+kubelet. Well, we're expecting JSON output starting with a curly brace, but I got a
+permission denied error. That's a good point. I'm going to do a sudo -i to make
+sure that I'm in a persistent root state, then I'll try the command again. There we
+go. The runtime talks, crictl info is the CRI's way of saying, I'm here, here's my
+runtime version, here's my socket. And if this prints JSON, as it just did, you have
+a working CRI-compliant runtime. Let me clear the screen.
+Pinning Kubernetes software versions
+Cgroups, also called Linux control groups, are how the kernel meters CPU,
+memory, and process IDs per process. The closest Windows analog is a job
+object. Linux has two cgroup drivers, c group fs and systemd. Kubelet and
+containerd must agree on which one, the way two services on Windows must
+agree on the same SCM contract. And we see true here, that's exactly what we
+need. This is the entire reason this module exists. Containerd ships with
+SystemdCgroup = false by default. Kubelet on every modern Linux distro uses
+systemd as its cgroup driver. So, a mismatch here means the kubelet might
+appear to start, kubeadm init appears to succeed, and then pods crash loop with
+errors, pointing you at the wrong layer for hours. Grep here is how we prove that
+the fix is in. See? This verification is important. Let's confirm next that containerd
+loaded that config. We expect SystemdCgroup = true again. This is belt and
+suspenders. The config file says true, and this confirms that containerd actually
+loaded that value into its runtime state. This SystemdCgroup flag is the single
+most asymmetric trap in cluster install. Five characters in a config file, that's all it
+is. Get it right, the cluster comes up in 90 seconds, get it wrong, you'll spend an
+afternoon Googling kubelet crash loop over and over and over again. Next, we
+need to prove that etc/crictl.yaml exists and points at the containerd socket. We'll
+do that by catting out crictl.yaml. We expect to see two lines here. Crictl is the
+lower-level cousin of kubectl, where kubectl talks to the Kubernetes API server,
+crictl talks directly to the CRI runtime passed Kubernetes straight to
+containerd. Without this YAML file, crictl scans common paths and prints a
+deprecation warning every time. In fact, let's make sure, let's look at our info, crictl
+info, and we'll pipe that, looking at the five first lines of the file. Notice what's not
+here, no deprecation warning, so we're good. Let's verify an empty list that we've
+got no containers yet, that's certainly expected at this stage. Crictl ps, no
+container running simply because there's no cluster yet. We haven't run kubeadm
+init. Let's also verify no images with crictl images. Again, nothing. In the next
+module, kubeadm init will pull the control plane images here, etc-d, API server,
+the scheduler, controller manager, kubeproxy, and then this list will populate. It's
+a useful before or after check. All right, next, let's prove that the three core
+Kubernetes packages, whoops, let me type clear correctly, are pinned. We want
+to pin their version and hold the version against apt upgrades so that when our
+colleague or if our enterprise update software runs, we're not going to put these
+critical Kubernetes files out of sync with what we expect. Dpkg is Debian Linux's
+package database. The closest Windows analog is get package or WinGet list. The
+ii prefix means installed configuration intact, what WinGet would just show is
+installed. Well, on my machine, my grep in the pipeline bombed out. It didn't find
+ii, which is fine. I came back and ran the dpkg just against those three
+applications, and we can see we've got exactly what we need. They're running
+the correct version that's consistent for the exam. Now let's make sure that we've
+got all three packages held against updates. We're going to do that with apt-mark
+show hold. Perfect. So this means that we can update this box and it will
+not update these Kubernetes core files. We want to keep those nice and
+predictable, because without it, the next time somebody runs apt upgrade y as
+part of a routine patch window, the cluster jumps from 135 to 136 silently, the API
+server restarts with a new minor version, and your kubeadm upgrade plan gets
+done for you badly, so not cool. Let's take a look at the paging file or swap
+file. Let's make sure that swapon --show returns empty output. No lines here
+means no swap file. Linux swap is the Windows page file, it's disk-backed virtual
+memory, but kubelet refuses to schedule against swap because the scheduler
+needs deterministic memory accounting. On Windows-side Kubernetes, the page
+file gets the same side eye for the same reason. Now, here again, the stock
+Ubuntu ships would swapon by default, so this is something that in my vagrant
+provisioning, we actively disabled in etc/fstab. Next, time to invoke systemctl a
+couple of times. From a Windows lens these sysctl commands are equivalent to
+get service and checking for start type and run status. There are two orthogonal
+questions. Does the service start on the boot, and is it running right now? And
+absolutely, they're enabled. And basically what this is telling us is that systemd
+will start kubelet on every boot and that kubelet is not currently running, which is
+exactly what's in our vagrant file and exactly as expected because we haven't
+bootstrapped our cluster. Now please understand that you're going to need to
+run these checks not just on what will be your control node, but see I have
+connections here to worker1 and worker2 as well. We want to do these same
+checks over there, too. Let me clear the screen again.
+Checking out with Globomantics
+Now let's make sure we've got connectivity to those other nodes. I'll try a ping
+with a count of three on worker1, just simple host name resolution here, and I'll try
+the same thing with worker2. How about making an ssh connection to one of
+those boxes? I'll accept the key. I will provide my password, and I've got
+connectivity, which I'll now exit. See? So there you have it. We're ready to
+rock. And as far as cluster management, like I said, if I want to go back to my host
+machine here, we've got a number of good scripts, helper scripts in there. Let me
+do *.ps1, and I would encourage you to check out those PowerShell scripts. And
+you know, if you are fully committed to Linux shell scripting and if you don't want
+to mess with PowerShell, there's little to no friction in you supplying any of these
+helper scripts to your favorite gen AI and asking that AI for help in refactoring the
+ps1 into an ssh analog that does the same thing. It shouldn't be too big of a
+deal. Now, I fully understand that for the purposes of CKA, you'll be on Ubuntu all
+day long, and that's why for the rest of the course and beyond, we'll be working
+not in kind and not so much on Windows, but within the Ubuntu machine
+specifically here. Last little tip I have for you, if you want to go directly to
+vagrant, there are a number of vagrant commands that are relevant here. If we
+wanted to destroy our VM environment, including nuking the virtual machines,
+that would be vagrant destroy, especially with the -f flag. If you just want to stop
+the virtual machines that are in your group, you can run a vagrant halt. And when
+your machines are down and you want to restart, vagrant up, but make sure that
+you provide the flag --provider=hyperv to tell vagrant in advance that we're
+dealing with a Hyper-V environment. And one of the beautiful things about
+vagrant as a hypervisor controller is that it's fully idempotent, that it will make
+sure that if your configuration in your lab drifted at all, the next time you run
+vagrant up, you can bring it back into that desired state. Now check the course
+exercise files because I also have some snapshotting commands in there as well
+where I've created some helpers, in fact, right here, cka-snapshot.ps1, that can
+help you manage Hyper-V snapshots to do before and after environments so you
+can keep practicing over and over and over again. Let's check out with
+Globomantics now. Ravi says, all three nodes passed the pre-req check. Kernel
+modules loaded, sysctl configured, containerd running with the right driver, and
+my packages are pinned. I'm now confident these hosts aren't going to surprise us
+when we initialize the cluster. Good job, Ravi. Four takeaways from this module
+that apply equally well to the CKA exam and to your production Kubernetes
+cluster work. Loading the modules at runtime is half the job, because etc/
+modules/load.d is what makes them survive a reboot, and the exam tests this
+from memory. This is the hardest bug in the module to diagnose, cgroup
+alignment, because pods start and then misbehave while the logs don't point at
+the cgroup mismatch directly. An unattended or rogue apt get upgrade is exactly
+the kind of incident that can ruin your Friday afternoon, and the --hold flag is the
+documented protection against it comparable to pinning a package version with
+WinGet on Windows. Don't skip this, run a pre-req check script on all your
+nodes. One misconfigured node derails the entire cluster. Verification here is not
+optional because the seconds you save skipping it are dwarfed by the time you
+lose debugging a failed kubeadm init or a cubeadm join. With these four habits in
+place, your Kubernetes infrastructure layer is ready to rock. And in our next
+module, we'll cover the actual kubeadm init and join workflow on top of the
+foundation we just built.
+Bootstrapping a cluster with kubeadm init and
+join
+Checking in with Globomantics
+Hey there. Welcome to Bootstrapping a cluster with kubeadm init and join. I'm
+Tim Warner. In the previous module of this course, we prepared three Ubuntu
+virtual machines with kernel modules loaded, sysctl tuned, containerd configured
+with the SystemdCgroup driver, and the Kubernetes packages installed and
+pinned, every prerequisite in its place. This module is the payoff. We'll run
+kubeadm init on the control plane node and walk through the bootstrap
+process. As usual, we have four framing questions that shape this module, with
+each one mapping to a CKA exam competency under cluster
+architecture, installation, and configuration. What does kubeadm init actually
+create under the hood? As we'll learn, kubeadm init generates a self-signed
+certificate authority and writes the four control plane static pod manifests. By the
+way, a static pod is one the kubelet runs directly from a file on disk, similar in spirit
+to a Windows service launched from a manifest rather than scheduled by anyone
+above. It drops kube config files into etc/kubernetes and prints a join command
+for the workers. Which kubeadm init flags are critical for the CKA exam? Well, a
+small number of flags drive almost every cluster init scenario you'll see on the
+exam, the most consequential is pod-network-cidr, the IP block that pods will
+draw addresses from which has to match what your CNI plug-in expects. How
+does the bootstrap token secure the node join process? Kubeadm join uses two-
+way verification, where a short-lived bootstrap token authenticates the worker to
+the API server, and a CA certificate hash lets the worker confirm it's talking to
+the real control plane rather than a man in the middle. Lastly, we've got, how do I
+set up kubectl access after we initialize the control plane. Kubeadm writes an
+administrator kube config at etc/kubernetes/admin.conf that's root only by
+default. A kube config is a YAML file that bundles cluster
+endpoints, certificates, and user context conceptually similar to a saved
+remote desktop RDP file with credentials baked in. This is so you can copy kube
+config into your home directory, show it, or change ownership, and then kubectl
+will work. Let's check in with Globomantics. Diana is the senior site reliability
+engineer at Globomantic Robotics, and she's run kubeadm init enough times in
+production to know exactly which flag breaks clusters most often. She reports,
+our three VMs are prepped and containerd is running. It's time to bootstrap
+now. Get the pod-network-cidr flag right on init, or we'll be tearing it down and
+starting over. Also, the CKA exam gives you one shot at this with a timer running.
+What kubeadm init creates
+What does kubeadm init actually create under the hood? Kubeadm init does six
+things in sequence, and you need to recognize each artifact on disk
+to troubleshoot a failed bootstrap during the exam. Kubeadm generates its own
+certificate authority, or CA, on first run, and that CA's private key signs every
+other certificate in the cluster. Losing /etc/kubernetes/pki key means rebuilding
+the cluster rather than rotating credentials. A static pod is one the kubelet runs
+directly from a YAML file on disk with no scheduler involved. Kubeadm drops four
+manifests here for kube API server, etc.d kube controller manager, and kube
+scheduler. Admin.conf is the cluster's root kube config at etc/kubernetes/
+admin.conf with root-only permissions until you copy it to your system's home
+directory. This is why kubectl returns connection refused before the copy
+step. Kubeadm issues a separate client and server certificate for each control
+plane component, plus the kubelet's own client certificate, so PKI ends up with
+around 15 pem files, all signed by the CA from step one. The kubelet's pod
+manifest path flag points at etc/kubernetes manifests, so the moment kubeadm
+writes those four YAML files, the kubelet picks them up and starts the control
+plane. That's how Kubernetes bootstraps itself without a scheduler to schedule
+its own scheduler, if that makes sense. Kubeadm prints a complete join command
+at the end of a init, including a short-lived bootstrap token and the SHA256 hash
+of the CA certificate. Save that line or regenerate it with kubeadm token create
+print join command. Bootstrapping a production Kubernetes cluster requires
+a predictable multi-stage lifecycle that kubeadm init executes through a series of
+discrete phases. For the pre-flight phase, the tool validates the host environment
+to ensure that swap is disabled, ports are open, and the CRI is fully functional. For
+the certs phase, kubeadm generates a complete X509 cryptographic identity and
+public key infrastructure required for secure communication across the
+cluster. Now let me state parenthetically that Kubernetes does that for security
+and convenience, but many businesses then swap in their own internal PKI. For
+the kubeconfig phase, the system writes the necessary config files containing the
+credentials required for the cluster components and the administrative user to
+authentic to the API server. For the kubelet start phase, the utility writes the
+environment file and starts the node agent so it immediately begins hosting
+cluster services. For the control plane phase, the engine creates the static pod
+manifests that instruct the local kubelet to automatically spin up the API
+server, controller manager, and scheduler. For the etcd phase, the process
+initializes the local, single node database instance as a static pod to serve as the
+cluster's distributed data store. For the upload-config phase, the controller saves
+the installation parameters into a config map within the cluster to streamline
+future maintenance and updates. For the bootstrap-token phase, the framework
+creates the cryptographic tokens and generates the exact join command
+required to securely attach worker nodes. Mastering these individual phases is
+critical for debugging initialization failures and navigating complex cluster
+lifecycle tasks in production and on your exam.
+kubeadm init flags that matter on exam day
+Which kubeadm init flags are critical for the CKA exam? Four flags drive almost
+every kubeadm init scenario on the exam, and there's no in-place on due for a
+bad init. Getting these right the first time is the entire game. This statement tells
+the cluster which IP block to allocate pod addresses from, 192.168.0.0/16 is
+Calico's default with the Tigera operator. Set 10.244.0.0/16, Flannel's default, and
+then install Calico and pods get IPs but cannot route across nodes. Silent timeout
+too, not a clean error. The IP worker nodes connect during kubeadm join. It has to
+be a routable interface on the control plane. The default picks the first non-loop
+back interface. That's fine on a single NIC VM, but dangerous on a multi-homed
+host. Be careful about that. This statement tells kubeadm exactly which control
+plane image versions to pull and which kubelet config to generate. The exam
+stem will name a specific version, such as v135X that you have to honor. This
+statement declares a DNS name in front of the API server so you can later put a
+load balancer between clients and multiple control plane nodes for high
+availability. that's HA. Setting it during the single node init makes future HA a five-
+minute change instead of a certificate reissue. Be proactive, in other words. The
+site or mismatch failure mode here is presented in one line. CIDR is Common
+Internet Domain Routing, it's the compact way in which we refer to IPv4 network
+addresses. The cluster bootstraps cleanly here. The IP allocator hands out
+addresses, and kubectl looks healthy until you try to send a packet from one pod
+to another on a different node. Again, silent timeouts that take about 40 minutes
+to diagnose under exam pressure. Flags work for a home lab, but the v135
+professional move is the declarative configuration file. It's the only path that
+scales cleanly into high availability, HA, and locks the Kubernetes API server's
+settings early. Here we omit the v1 beta 4 and it configuration. Plus, cluster
+configuration is a YAML template you edit rather than memorizing 19 command
+line flags. The declarative equivalent of pod-network-cidr matching the CIDR, the
+Tigera operator installs by default in the next model. This networking.podSubnet
+statement that matches Calico is the declarative equivalent of pod-network-
+cidr, matching the CIDR the Tigera operator installs by default in the next
+module. The localAPIendpoint statements, the routable IP on the control plane
+node that workers hit during kubeadm join, in this lab, the static address vagrant
+assigns to our control1 host. Control plane endpoint 6443, this is the most
+important line on the slide. The control plane endpoint is a DNS name that today
+resolves to one IP, and farther along in the course, we'll have it resolved to a
+load balancer in front of three control plane nodes. Now, as I said in the previous
+slide, setting this property now writes that name into every certificate SAN
+list, that's where you've got multiple host names on a certificate. So, HA later is
+going to be a configuration issue and not a certificate reissue issue. The
+apiServer.certSANs, this is a little bit more detail, a certSAN, SAN stands for
+Subject Alternative Name, and it appears on the API server's TLS certificate. Any
+client connecting with a name or IP not in this list gets a certificate error. The
+DNS name, node IP, and cluster service IP cover every realistic client. The --
+upload-certs flag tucks the control plane certificates into a secret with a two-
+hour time to live, or TTL, so additional control plane nodes join later
+without manual certificate distribution. Regarding the mkdir stuff, these
+commands move the admin kube config into your machine's home directory. The
+chown statement rewrites ownership so kubectl reads the private key without
+sudo. And finally, kubeadm join with token, the command workers run, and the
+next slide we'll look at token mechanics. The same DNS name from control plane
+endpoint appears here, which makes the future load balancer swap, as I just said,
+transparent.
+Bootstrap tokens and kubeadm join workflow
+The CKA exam blueprint lists implement and configure a highly available control
+plane is an outright stated objective, and the single decision that determines
+whether HA later is a five-minute change or five-hour certificate mess is
+made right now during single node init. Today, our lab runs one control plane
+node and two workers. But the course path puts three control plane nodes
+behind a load balancer in our next course, and the design decision on this slide
+shows us how to make it painless. If you run kubeadm init without control-plane-
+endpoint, the API server's certificate SAN list contains only the nodes IP. So,
+introducing a load balancer in front of your multiple control plane nodes will
+break TLS verification on every kubectl, every kubelet, and every kubeproxy at
+once. The remediation is kubeadm certs renew plus reissuing every kubeconfig in
+the fleet. The fix? One line in init.yaml, setting control-plane-endpoint to a DNS
+name such as k8s.globomantics.local:6443. In the init configuration file is a single
+line, and it writes the DNS name into the certificate SAN at issuance. Ten seconds
+of typing today to save yourself a headache tomorrow. So today, the name
+k8s.globomantics.local resolves to 192.168.56.10 in a single control plane node
+scenario. Eventually, the same name will resolve to HAProxy fronting three
+control plane nodes, while every existing kubeconfig and every kubelet
+keeps working because the certificate SAN is valid. The CKA exam expects you to
+know this design move, even if you never stand up HA in the exam itself, because
+the cost of skipping this is the kind of mistake that the exam loves to ask about
+indirectly. It's real-world practice stuff. How does the bootstrap tokens secure the
+node join process? Bootstrap tokens are how kubeadm makes a multi-node
+cluster secure without requiring you to copy certificates around manually, and
+the workflow uses two-way verification to prevent both a rogue worker from
+joining and a man-in-the-middle from impersonating the API server. The token is
+printed as part of the kubeadm join command in the init output, has the literal
+format of a six-character ID, a dot, and a 16-character secret, and expires
+automatically after 24 hours. As I said earlier, TTL stands for time to live, the same
+concept the Windows DNS resolver uses for cached records. The kubeadm join
+command passes both the token and the SHA hash, that's a SHA256 hash by the
+way, of the CA certificate, where the token proves the worker has permission to
+join and the CA cert hash proves the API server it's talking to is genuine. Without
+the discovery token CA cert hash check, an attacker on the network could
+redirect the join traffic to their own API server and harvest the bootstrap token, so
+the hash is the worker's anchor of trust. This token create statement is the single
+most useful command in the entire module because lost or expired tokens are
+the most common exam-day frustration, and I'll put that production frustration.
+And this one line emits a complete ready-to-paste kubeadm join
+command, including a fresh token and the correct CA cert hash. A new
+worker doesn't need kubectl, but every fresh control plane shell does, and the
+admin.comf copy step is the one that always trips operators up on their first day
+working with clusters. The init output scrolls past quickly, and losing it costs you
+the five minutes it takes to regenerate. So, the discipline is to copy the entire join
+line into a scratch pad the moment the init succeeds.
+From init to ready: the Kubernetes bootstrap flow
+How do I set up kubectl access after initializing the control plane? After kubeadm
+init succeeds, you need kubectl access to verify cluster state and join worker
+nodes. The cluster is deliberately incomplete here because the CNI plug-in isn't
+installed yet. Admin.conf is the cluster's root kubeconfig and contains both the
+CA certificate and the client certificate signed by the CA. Kubeadm places it at
+etc/kubernetes/admin.conf, readable only by route, so kubectl is your regular
+user returns connection refused until you fix the ownership. The standard fix is to
+mkdir in your home folder and run these commands. The change ownership, or
+chown, step makes the client certificate readable by your user instead of
+requiring sudo on every kubectl call. A NotReady condition after init is correct,
+not a failure. The kubelet's running and the API server's healthy, but the node
+reports network plug-in NotReady because no Container Network Interface plug-
+in is yet installed. We'll get into CNI in the next course, by the way. The four
+control plane static pods are running because they use the host network and
+don't need pod networking. CoreDNS is pending because it needs a pod IP from
+the CNI before it can start, and kubeproxy will show container creating for the
+same reason. The kubelet's pod manifest path flag points at etc/kubernettes/
+manifests, as I mentioned earlier. And those four files there, kubeapiserver.yaml,
+etc.d.yaml, kubecontroller.manager.yaml, and kubescheduler.yaml, represent the
+entire control plane definition. Editing one triggers an immediate kubelet-driven
+restart, which is useful for troubleshooting but can be dangerous with a
+typo. Let's zoom out and look at what kubeadm actually does between
+three prepared Linux hosts and a usable Kubernetes cluster. The init command
+generates the CA, issues every certificate signed by it, writes those four static
+pod manifests for kubeapi server, etc.d/kubecontrolmanager, and
+kubescheduler, and the kubelet picks them up from etc/kubernetes/manifests
+and starts the control plane. At this point, the API servers answering requests,
+etcd holds cluster state, and the scheduler and controller manager are
+running, but no worker nodes have joined and no pod network exists, so the
+cluster can't run a user workload. Kubeadm join authenticates each worker with a
+bootstrap token,verifies the API server's identity with the hash, then writes the
+worker's kubeletconfig and registers the node with the API server. The kubelet
+refuses to mark a node ready until a CNI plug-in can assign pod IPs, which is why
+every node sits in NotReady, and the cluster is intentionally incomplete until we
+close the loop. So that part, the networking CNI, is really the cliffhanger here that
+I'm intentionally holding off mostly until our third and final module. We'll have
+three NotReady nodes, four control plane static pods running, CoreDNS pending,
+and one kubectl apply away from a working cluster.
+Creating our kubeadm init manifest
+Time to put everything we just covered into practice on three real Ubuntu virtual
+machines. The demo seeds a declarative init config with kubeadm config, edits
+four lines for pod subnet, advertise address, Kubernetes version, and control
+plane endpoint. We'll run kubeadm init. We'll set up kubectl from admin.conf, join
+worker1 and worker2, and we'll confirm all three nodes appear, all of them
+NotReady, all kube system control plane static pods running, and core DNS in a
+pending state. We'll close with kubeadm token create print join command
+and snapshot the cluster so we can start in the third and final module from a
+known good baseline. Well, here we are. We have three Ubuntu VMs control1,
+worker1, and worker2, with every prerequisite verified, the kubelet crash looping
+on every node, which is totally correct because we don't have kubeadm init yet
+to give it a configuration to read. That's what we're doing. We'll start by seeding
+and editing our init configuration template, and we'll edit it in VI. As you can see,
+I've shifted my user context into root mode, and I'm verifying that I am on the
+control plane node and I am in fact root. Now, in the real world, you'll use sudo. I'm
+using sudo -i so don't have to type sudo on every other command. Does that
+makes sense? Now, as I've taught you quite a bit in the theory part of this
+lesson, the ability of Kubernetes to emit preconfigured YAML files is a big deal. So,
+I'm running kubeadm config print init-defaults and putting them into init.yaml, as
+you can see here. And now we're going to open and edit that file in vim. First
+thing I'm going to do here is type :set number to toggle line numbers on the
+file. Next, I'm looking to make four key replacements to the file. First, do / to
+search to look for 1.2.3.4, I for edit mode, and I need to change the advertise
+address to 192.168.50.10. Next, we'll hit I to go into edit mode again. And we need
+to add a new line under 34, where we declare the clusterName. Of course, the
+default is Kubernetes. We need controlPlaneEndpoint: 192.168.50.10:6443. This is
+the most important line in the file right now. Let me hit Esc to get out of edit
+mode. Today, it's an IP, 192.168.50.10. This is control1's address, and that's the
+honest representation of a control plane cluster. Eventually, in this skill path, we'll
+get into high availability, and we're going to swap this for a DNS name pointing
+at HAProxy in front of three control plane nodes. Setting this now, even as the IP,
+writes it into every certificate SAN list and bakes it into kubeconfig. Speaking of
+which, we need to make another adjustment, again, I for INSERT mode, and we're
+going to edit apiServer here, indent two, and define certSANs, again two-space
+indentation, 192.168.50.10 and 10.96.0.1. The last edit we need to make is after
+serviceSubnet. We'll indent two and do podSubnet:192.168.0.0./16, which matches
+Calico. Escape to get out of INSERT mode. Excellent. To save our changes, :wq+
+Enter. Let's run a grep statement to go inside init.yaml and make sure that
+we've included the appropriate sections. So, advertiseAddress 192.168.50.10 tells
+the API server which network interface to bind on, control1 static cka init IP,
+so workers in kubectl can actually reach 6443. PodSubnet reserves the CIDR
+Calico will hand out to pods later in the next module, and it must match Calico's
+expected range, or pods will get IPs that don't route. ControlPlaneEndpoint is the
+stable URL every worker join and every kubectl call dials. We're setting it now as
+an IP as I already explained, and we'll make a change to DNS when we're ready
+for a control plane high availability. And then lastly, certSANs pins extra IPs into
+the API server's TLS certificate, so kubectl can hit the API via control1's nic and
+via the in-cluster Kubernetes service cluster IP, 10.96.01, without cert name errors.
+Initializing the Kubernetes cluster control plane
+It occurred to me before we bootstrap with kubeadm init, I have a mistake in my
+YAML file. So let's go back into vim. I want to make sure here, let's do a search
+with / for nodeRegistration. There we go, INSERT mode. We need the name to
+reflect our control plane, not node, but control1, very important. Esc:+wq, and now
+we're ready to run kubeadm init, and passing in the init.yaml config file. And we
+also have a flag called --upload-certs that I'll talk more about. --Upload-certs
+stores the control plane TLS material in the kubeadm cert secret in kubesystem,
+with a two-hour TTL. And this allows additional control plane nodes to join later
+without us scp-ing certs by hand. From a Windows perspective, think of upload
+certs as pre-staging a PFX into a shared group policy distribution point, rather
+than walking the PFX to every domain controller over RDP. Now, a lot just
+happened on our terminal screen here. So what we've got in summary is pre-
+flight checks, we scroll back, let's take a look. Running pre-flight checks, then
+we've got certificate generation, then we've got static Pod manifests written to /
+etc/kubernetes/manifests, and we have the kublet starting, and we've got a join
+command at the bottom. I definitely want to copy this into my clipboard, and I
+suggest you do the same. Next, let's confirm what landed on disk. Let me clear
+the console, and we'll run three ls commands. Yikes, those are kind of ugly. Let me
+do it separately. So first, we've got /etc/kubernetes/pki. We should see a bunch of
+PEM files for the CA, the API server, etcd, kubelet, front-proxy, etc. And the
+Windows lens here is that etc/kubernetes/pki is the cluster's certificate store. The
+closest Windows analog would be the local machine my-certificate-store, but flat
+pem files rather than the MMC view. Next we've got ls, actually I'll just Up-
+Arrow. Let's check manifests, and we can take a look at one of these static Pod
+manifests directly. We'll cat out 30 lines. We can see that these Kubernetes
+manifest files all contain the same root keys. There's always going to be an
+apiVersion, a deployment kind, metadata, and spec, with the specification being
+where all the details are. A static Pod manifest is the YAML equivalent of a
+Windows services registry definition under hq local machine. The idea is we edit
+the file, the controller, kubelet here, detects the change and restarts the
+service. Look at --advertise-address. Let me actually do :line number
+again. Whoops, I did a cat and not a vim. Sorry about that line number. I thought
+that I was in vim for a second. Never mind, as I was saying, look at --advertise-
+address. That's the line kubeadm wrote from our init.yaml edit, and every flag we
+set declaratively shows up here as a literal command line argument. And that's
+why troubleshooting matters. If kubeadm init produced the wrong CIDR, this file
+is where you'd see the wrong value, and a one character edit, plus a kubelet
+pickup will fix it. On the exam, when a question says the API server is
+misconfigured, this is where you go. Read the manifest, find the bad flag, edit the
+manifest, and watch kubelet auto restart. Now the fix here, if you want to dump
+your kubeadm init and start over, is going to be kubeadm reset --force. I don't
+want to do that here, but you'll need to do that on every node and start over.
+Managing kubeconfig
+Now, let's exit our whoami root. Let's do an exit. I needed to do it a couple
+times, but it's important that I switch back to my normal user because what we're
+going to do next is copy our admin.conf into our user's home directory. So, we'll
+make a directory called .kube in our $HOME folder, and then we will copy /etc/
+kubernetes/admin.conf to $HOME/.kube/config. There, you're probably going to
+see some messiness with Linux. It's one of the bugaboos that if you aren't
+case sensitive or if you miss a control character, you're going to get all turned
+around. I had a leading backslash in front of $HOME, so we're going to copy, we
+just copied the file admin.conf into my kubeconfig. Next, I need to change
+ownership of the file, which I can do with chown, and I will use sudo for that. And
+then, we'll ls our $HOME directory .kubeconfig. Again, I'm getting some weird
+escaping going on here, but there's the file. And you can see that my vagrant
+user owns it, that's exactly what we want. Our file owner and group are both
+vagrant, not root, and this is going to be what makes kubectl work without sudo
+from now on. Let's verify kubectl works and the cluster is in the expected
+NotReady state, shall we? Kubectl get nodes, kubectl get pods, and in the
+namespace, kubesystem. Both core DNS Pods are pending, and that is
+correct. The kubelet refuses to mark a node ready until a CNI plug-in can assign
+pod IPs, and core DNS needs a pod IP to start. Kubeproxy runs in host networks,
+so it comes up running with no CNI, but core DNS is the canary. We don't have
+anything to fix here. The moment we install Calico in the next module, it'll resolve
+itself. So, you see that so far there's been some really picky areas in Kubernetes
+setup. Now, if you didn't happen to copy that join command from earlier, I
+mentioned this in the theory part of this lesson, you're going to want to memorize
+this command, kubeadm token create --print-join-command. That gives you the
+full join command, including the shared secret. So I'll want to put this into my
+clipboard one more time, and we can absolutely save this file to a text file, and we
+should really. I'm keying this file into my tmp directory as join-cmd.text.
+Joining the Kubernetes worker notes to the cluster
+You ready to join our workers to the cluster? Now, I do have separate sessions
+going for worker1 and worker2, but I'm going to stay on control1 because SSH is
+something that you absolutely need to know how to do. So, we're going to ssh
+into worker1. I'll accept its certificate. And now that I'm here, I can run kubeadm
+join, and there's 50.10 the control plane. There's our join token, an there's the
+certificate authority cert hash. And my problem, we can read that right in the
+plain text is permission. So I'll Up-Arrow, and I'll just throw sudo in front of that
+command. We've got two-way verification here. The token authenticates the
+worker, proves it has permission to join, and the CA cert hash authenticates the
+API server and proves the worker is talking to the real cluster, not a man in the
+middle. It's belt and suspender stuff. And that sudo is super important,
+kubeadm writes /etc/kubernetes/kubelet.conf, and needs root to do it. In this
+case, we've got success. This node has joined the cluster. Now, I can exit out of
+this SSH connection, Up Arrow, and now we can do the same thing on
+worker2. Well, that completed successfully so now on the control node we can
+run kubectl get nodes, and now we see both control1, worker1, and worker2. I just
+simply did the same thing, I SSHed into worker2, and I ran sudo kubeadm join and
+did the same thing that we did with worker1. Let me try get nodes with -o wide to
+give us more information. And let me zoom down to make it a little bit easier for
+you to see all the columns. Three nodes, all NotReady, all correct. So our control
+plane is up, and both workers joined on the first attempt. And once we install the
+CNI plug-in, that'll flip all these to ready in about 30 seconds. Let's run a quick
+health check on the kube-system namespace. I will just throw in namespace
+kube-system, and we'll also do a wide on that one. Whoops, I didn't mean get
+nodes, I meant get pods. Easy to miss, easy to miss. So these are our static Pods
+that form the basis of our Kubernetes control plane. We've got three kubeproxy
+daemon set pods, one per node running. We've got four control plane static pods,
+etcd, apiServer, control manager, and scheduler all running. Read the post init's
+state like a diagnostic snapshot. Static Pods running on the control plane means
+the control plane is healthy. CoreDNS pending means no CNI, that's
+expected. Kubeproxy running is host network doesn't need a CNI. Three nodes
+NotReady, expected again because of no CNI. None of this is a problem to fix,
+again.
+Checking out with Globomantics
+Let's check out with Globomantics. Diana confirms the cluster is exactly where it
+should be after kubeadm, init, and join. She says three nodes in our cluster, all
+showing NotReady. That's exactly where we need to be. The control plane's
+healthy, certs are in place, and both workers are joined, and they did so on the
+first attempt. We're one kubectl apply command away from a running
+cluster. Thanks, Diane, well done. Four takeaways from this module that apply
+equally well to the CKA exam and to production cluster work. A mismatch in your
+CNI addressing, particularly network addresses, breaks cross-node pod
+communication silently. This is the number one kubeadm gotcha. There's no error
+message and no obvious symptom, pods get IPs, kubectl looks healthy, and
+packets simply failed to cross-node boundaries. Memorize the Calico default of
+192.168.0.0/16 and verify it matches your init config before you run anything
+else. The init output is the single most information dense screen on the entire
+exam, and it tells you exactly where the certificates landed, which manifests were
+created, which kubeconfig to copy, and how to join workers, save it the moment it
+appears. This is the trap question on every kubeadm scenario. The CKA exam will
+ask you to bootstrap a cluster and then verify the state, and if you misread
+NotReady is a problem you have to solve, you waste minutes on a remediation
+that's not needed, and it's by definition expected. The Kubernetes version SKU
+policy is the documented contract, and a worker running v134 kublet against a
+135 control plane refuses to join or behaves erratically. The apt-mark hold we did
+in the previous module is the operational defense against silent version drift in
+Kubernetes clusters.
+Installing a CNA plugin and validating cluster
+health
+Checking in with Globomantics
+Hi there. Welcome to installing a CNI plug-in and validating cluster health. I'm
+Tim Warner. This is the final module of our course. The cluster we bootstrapped in
+the previous module has three nodes, all of them not ready, and CoreDNS is
+pending. The fix is one helm chart away, but picking the wrong CNI plug-in or
+mismatching the CIDR turns a 30-second install into potentially hours of
+debugging with, as we discussed in the previous module, invisible silent
+failures. Let's proceed. As usual, four framing questions that shape the
+module, each one maps to a CKA exam competency across two domains, cluster
+architecture, installation, and configuration, as well as servicing and
+networking. Why do nodes stay not ready until a CNI plug-in is installed? Well, a
+node reports NotReady whenever the kubelet can't complete its readiness
+checklist, and the missing checkbox after a clean kubeadm init is always, or
+almost always, Pod networking. As you know, CNI stands for Container Network
+Interface, and this is the pluggable component that gives every pod an IP
+address and stitches together pod-to-pod routes across nodes. CNI is to
+Kubernetes, what a virtual switch plus DHCP server is to Hyper-V, but split into
+pieces a third-party plug-in can implement. Calico is the default choice for CKA
+practice because it supports network policy. This is the Kubernetes object that
+locks down pod-to-pod traffic. We also choose Calico here because it works
+cleanly with kubeadm and is the most widely-deployed CNI in production. A
+clean install means more than just nodes ready. You verify all kube system pods
+that are running, core DNS resolves names from a test pod, pods on different
+nodes can reach each other, cluster info shows healthy endpoints, and a sample
+deployment can be scheduled. The whole list takes around 30 seconds of typing
+and can be the difference between a usable cluster and a cluster that looks
+usable. Lastly, troubleshooting is a full 30% of the CKA exam, so we intentionally
+break the cluster on cam, walk the diagnostic ladder of kubectl get, then
+describe, then logs, then events, then journalctl, then crictl, and recover. The
+point here is the workflow, not the specific failure. Let's check in with
+Globomantics. Robert leads the monitoring team. And from his dashboard, the
+cluster's on fire. Every node is not ready, every core DNS pod is pending, and the
+on-call alerts are stacking up. The thing is that Robert doesn't quite understand is
+that the architecture and the topology is not actually broken. The control plane is
+fine. The static pods are running. The API server is answering requests. Etcd is
+healthy. The only missing piece is networking.
+Comparing CNI plugins: Calico, Flannel, and Cilium
+Why do nodes stay NotReady until a CNI plug-in is installed? Now let's look at
+what the CNI actually does and why every node stays NotReady without it. A CNI
+plug-in is the component the kubelet invokes whenever a pod's scheduled. And
+the plug-in's job is to allocate a pod IP from the cluster's pod CIDR block,
+Common Internet Domain Routing. We're thus configuring the host routes that
+let that pod reach others, and this is the entire reason every node reports
+NotReady after kubeadm init. The kubelet's readiness checklist includes, can I
+assign Pod IPs? And the answer is no until a CNI binary exists on the node, which
+is why the not ready condition shows network plug-in NotReady as its specific
+reason. CoreDNS is the cluster's internal DNS server, and this is roughly
+comparable in role to a Windows DNS server inside an Active Directory site. And it
+runs as a deployment that needs Pod IPs to start, no CNI, no Pod IPs, no
+CoreDNS, no service discovery. A DaemonSet is a Kubernetes workload type that
+runs exactly one pod on every node in the cluster. Think of it as a per-node agent,
+the way a Windows service installed on every domain-joined machine is a per-
+host agent. This is the correct shape for a CNI implementation because every
+node needs its own networking agent. In sum, Kubernetes delegates networking
+to plug-ins, as we've seen with CNI defining the interface. Kubernetes
+intentionally doesn't ship with a built-in CNI because the platform owns
+scheduling and lifecycle, and the network is the plug-in's job. Three popular CNI
+choices, and for CKA prep, you want the one that gives you clean networking
+basics, plus network policy coverage, and that's Calico. Calico supports network
+policy, is common in self-managed clusters, and is therefore a strong default for
+our CKA practice. Calico implements the network policy API, which the CKA exam
+tests in the services and networking domain, and as I said, is the most widely
+deployed CNI in self-managed production clusters. The default CIDR is
+192.168.0.0/16, the install is documented by the Tigera operator via Helm, and the
+project is actively maintained. Flannel is lightweight and simple, good for basic
+pod networking, but it has no network policy. So, Flannel is the simplest CNI to
+install, and it runs cleanly on small clusters. But because it doesn't implement
+network policy, it can't answer half of the services in networking domain that we
+need to understand and use on the exam. So therefore, Flannel is useful to
+recognize on the exam by name, but it's not the right choice for our prep.
+Cilium gives us advanced eBPF networking, strong visibility and policy
+features, but is more complex than what most CKA candidates need. Specifically,
+Cilium is the modern frontier CNI built on eBPF, and eBPF is a Linux kernel
+technology that runs sandboxed programs inside the kernel, comparable in spirit
+to the Windows filtering platform, but more general. And it ships excellent
+observability and policy, however, it's overkill for CKA practice. You should know it
+exists though, because exam questions sometimes will name check it. So in
+summary, our trade is simple. Calico presents the right balance of real production
+tool and stable on a three-node lab. And every later course in this Pluralsight site
+skill path, I'll assume Calico is the CNI underneath installing, so it once here pays
+off through the whole skill path.
+The six-point cluster validation checklist
+What is the cluster validation checklist after CNI installation? I'm going to give
+you a six-point cluster validation checklist here, three on this slide and three on
+the other. These first three checks answer the most important post-CNI question,
+did the cluster actually become usable, or did we just paste a manifest and hope
+for the best with our fingers crossed? Once the Calico daemon-set has one pod
+running on each node, every node's kubelet finishes its readiness checklist, and
+the node transitions from NotReady into Ready. If a node still shows NotReady
+more than two minutes after Calico installs, the Calico node pod on that specific
+node is the place to look. After CNI installs, CoreDNS gets a pod IP and transitions
+from Pending to Running. Kubeproxy moves from container creating to running
+on every node, and every control plane static pod stays running. The kubectl get
+pods and kube-system view is the fastest way to see the whole picture. This
+CoreDNS check proves the entire DNS chain works end to end. We pin
+busybox:1.28 because newer busybox images have a broken nslookup that lies
+about resolution success, and that's the kind of foot gun that costs you a
+question on the exam if you grab whatever tag the latest happens to point at. By
+the way, busybox is a tiny Linux utility container, and version 1.28 is the last
+release whose nslookup behaves predictably for in-cluster DNS testing. Pin the
+tag in every script. These last three checks move beyond basic readiness and ask
+a harder question, can the cluster actually support real workloads without hidden
+instability? This check proves the CNI's cross-node routing is configured
+correctly. Deploy a pod with a node selector pinning it to worker1, deploy another
+pin to worker2, and ping one pod's IP from the other. A successful ping means the
+CNI is correctly programming routes or encapsulating traffic through an overlay
+so packets cross the node boundary cleanly. The cluster-info subcommand prints
+the API server's URL and the CoreDNS service URL. And if either resolves, but
+doesn't respond, you have a control plane problem rather than a CNI
+problem. This is the 30-second smoke test you run after every cluster change. The
+-A flag lists every namespace, and the goal is zero pods and CrashLoopBackOff
+or Pending across the entire cluster. A pod in CrashLoopBackOff is a container
+the kubelet keeps restarting after it exits, which is the Kubernetes equivalent of a
+Windows service set to automatic restart that keeps failing immediately on
+start. Either state means that something is wrong, and the next step is kubectl
+describe on the affected pod. Why this matters for the exam? The
+troubleshooting domain is 30% of the exam, as I said, and most troubleshooting
+questions start with one of these signals, a NotReady node, a Pending pod, or a
+service that returns no endpoints. Owning the six-point checklist is the difference
+between a question that takes you 2 minutes and one that takes you 15.
+Inside the Tigera operator: how Calico lands on every
+node
+This infographic shows the Tigera operator gets Calico onto every node in the
+cluster. You install the operator once with Helm, the operator reads
+the Installation custom resource you apply next, and it deploys the calico-node
+DaemonSet, one pod for node, plus calico-kube-controllers as a deployment, all
+of which adds up to a fully working pod network. The operator pattern is itself an
+exam-relevant concept because v135 of the CKA curriculum explicitly
+tests extending Kubernetes with operators. For completeness, I want you to know
+that Helm is a package manager for Kubernetes that packages multiple resources
+into a single deployment unit called a chart. This helps us automate application
+deployment and management. Tigera, I've mentioned it several times, T, I, G, E, R,
+A. This is the enterprise software company behind Project Calico, and Tigera
+operators specifically refer to Kubernetes custom controllers that automate the
+deployment, lifecycle management, and operational configuration of Calico and
+Tigera security components within a cluster.
+Diagnosing kubeadm bootstrap failures
+For years, every Calico tutorial said kubectl apply -f calico.yaml. That installs an
+unmanaged blob you can't upgrade cleanly, rol lback, or version pin. The v135
+CKA curriculum expects Helm or customize for cluster deployments, so we're
+going to use Helm here. Helm, as I said, is the Kubernetes package manager. Repo
+add points Helm at Tigera's official chart repository. Repo update fetches the
+current index. Here, we create the tigera-operator namespace, deploy the tigera-
+operator into it, and pin the chart to v3.32.0 so a rerun lands on the same
+release. The operator then watches for an installation custom resource and rolls
+out the rest of Calico from its spec. The -w flag streams updates as they
+happen. Each node transitions NotReady to Ready within 30 seconds or so of the
+operator coming up. The operator runs in tigera-operator, workload runs in Calico
+system. This watch shows Calico node coming up on every node, plus Calico
+kube controllers in the deployment. The grep line shows us filtering kube-system
+to the two CoreDNS pods, which flip Pending to Running the moment Calico
+assigns IPs. Here is the real is-the-cluster-usable test. The query asks CoreDNS to
+resolve the API server's internal service name. A working response proves CNI,
+kubelet, kubeproxy, and CoreDNS are healthy end to end. As I mentioned earlier,
+we pin busybox:1.28 so we have a working nslookup. The expected output will end
+with address 10.96.0.1 kubernetes.default.svc.cluster.local, and this is because
+10.96.0.1 is the default cluster IP for the Kubernetes service in the default
+namespace. That exact address echoed back means every layer of cluster config
+is working. How do I diagnose common kubeadm bootstrap failures? Let's look at
+common failure modes after kubeadm init's each having a specific diagnostic tool
+associated with them. This is the troubleshooting foundation for that 30% of
+your CKA exam in the troubleshooting domain. Kubelet runs as a systemd service
+on every node, and journalctl reads systemd's binary log store. -U scopes output
+to one service, -f tails it live. Common errors here include fail to load kubelet
+config, that would be a bad kubeadm init, cgroup driver mismatch, that's
+SystemdCgroup not set in containerd, the headline failure from our previous
+module, and CRI socket unavailable, that means containerd is down. How about
+the runtime layer? Crictl is the CRI command line client that talks directly to
+the container runtime socket below kubectl in the stack. When kubectl errors are
+confusing and journalctl points at the runtime, crictl info confirms the runtime is
+alive, and crictl ps lists running containers. Every kubeadm-managed certificate
+has an expiration, and the control plane stops working when they lapse. Kubeadm
+certs check expiration and prints every cert in days remaining. The set rotates on
+kubeadm upgrade, but a long-running cluster that never upgrades will eventually
+fail this check. Kubectl describe node prints the full condition table, plus
+recent events on the node. The fastest way to see whether a not ready node is
+reporting network plug-in NotReady, disk pressure, memory pressure, or
+something more exotic. The canonical troubleshooting workflow for the CKA
+exam is this latter method that we learned about in the previous course in the
+skill path. Start at kubectl get and walk down until you find the failing layer. Most
+CKA exam questions resolve at describer or events. Every rung matters when the
+failure is deeper.
+Verifying the Kubernetes networking stack
+Well, it's time to bring the cluster to life. In this demo, we'll install Calico with
+Helm and the tigera-operator pinned to version 332.0. We'll watch every node
+transition from NotReady to Ready, verify the six-point cluster validation checklist
+end to end, including the busybox DNS test. Then, we'll intentionally stop kubelet
+on worker1 to simulate a node failure, walk the diagnostic ladder of kubectl
+get, then describe, and then journalctl. We'll recover by restarting the kubelet
+service and close by deploying an NGINX deployment exposed through a
+NodePort service to demonstrate that the cluster can indeed carry real
+workloads. Well, the previous module left us with three NotReady Kubernetes
+nodes and a Pending CoreDNS. In this demo, we're going to install a CNI. The fix
+specifically is two kubectl create -f lines against upstream tigera manifests, plus a
+little bit of patience. First, we'll prove the pod CIDR alignment right now. The API
+server manifest carries service cluster IP range, but not podSubnet. Kubeadm
+stores the full cluster configuration, including podSubnet in the kubeadm-config
+config map and kube-system, that's the authoritative source, and 192.168.0.0/16 is
+our in our cluster config, and that's the pod CIDR. We're aligned. Next, let's show
+the node condition that's blocking Ready And I'll zoom out so we can see those
+columns a little bit better, NetworkPluginNotReady in plain English. The kubelet's
+readiness checklist has one unticked box here, it can't find a CNI plug-in. This
+isn't a runtime problem, as I've said many times before, nor a certificate problem,
+nor kubelet bug, it's just an unfilled dependency. We'll also confirm that CoreDNS
+is pending for the same reason. CoreDNS is a deployment that needs a pod IP to
+start, no CNI, no IP, no CoreDNS. Service discovery is offline until we fix the CNI.
+Our goal here is to install Calico via the tigera-operator, and we'll see the
+NotReady to Ready transition happen before our eyes. Now the exam is going to
+have us do this manually the way I'm showing you now, but we also need to keep
+enterprise practice involved. Helm is something we'll talk about in time. Let's run
+this curl statement against GitHub, and the expected result of HTTP2 200 OK
+tells us that the Tigera v3.29.1 manifests are reachable. So we're looking for two
+manifest URLs, both pinned to Tigera 3.29.1. And with that, it's time to use kubectl
+create as opposed to kubectl apply. Create is imperative, apply is
+declarative. Here we go. Kubectl create -f, and we're going to install the tigera-
+operator directly from the source in GitHub here. Tigera-operator is a single long-
+running pod in the tigera-operator namespace that watches for an installation
+custom resource and reconciles Calico's components into existence. It'll roll out
+Calico node as a Daemon-Set, one per node, and Calico kube controllers as a
+deployment. We declare what, like the CIDR range, the operator decides
+how. Kubectl create -f is the Linux Kubernetes equivalent of install package on
+Windows. Fetch the manifest, apply it, no package manager in the middle. We've
+got one more kubectl create to go though, and away we go. So that's the install of
+the CRI, it's two kubectl create lines. The first one drops the tigera-operator and
+its CRDs into the cluster. This one that's that just ran right now reconciles. It
+declares the installation custom resource the operator was watching for, and now
+we're rolling out Calico node and Calico kube controllers.
+Installing the Tigera Operator and Calico CNI
+Speaking of waiting for transition from NotReady to Ready for our nodes, let me
+clear the screen and let's try kubectl namespace tigera-operator wait, we're
+waiting for the condition Ready, and then we'll do a kubectl get nodes. Now,
+before you start freaking out like I did, looking and asking why there's multiple
+worker1s and worker2s, the -w is a Watch flag that streams updates as they
+happen, it's similar to get event log wait in Windows or any tail-style PowerShell
+loop. The tigera-operator has to be ready before it rolls out the Deamon-Set. We
+can verify that all of Calico's own pods are healthy. Let me Ctrl+C to stop the
+looping, and let's just run namespace of calico-system to see what's going on
+with our CNI. Let me try that one more time. There we go, yeah, I wondered if this
+trailing de was going to cause a problem. Nope. The -o wide adds the node
+column so you can visually confirm the Daemon-Set shape, three Calico node
+pods, one each on control1, worker1, and worker2. That's the Daemon-Set pattern,
+the same shape as kubeproxy. Calico kube controllers is the single
+deployment that handles IP address management, policy, and node controller
+state for the whole cluster. Operator managed, versioned pinned, and upgradable
+cleanly. Let's check our node health. I'll clear the screen again. Kubectl get nodes,
+and then let's do kubectl get pods, name of kube-system. Remember, kube-
+system is the internal reserved namespace name for your Kubernetes component
+specifically. Things are really shaping up, look at that STATUS column. Well, it
+looks like now that CNI is up, it's time for us to do a test. And let's take advantage
+of the good-old busybox image in order to do an nslookup on kubernetes.default,
+10.96.0.1 is the CoreDNS service cluster IP, 10.96.0.1 is the API server's internal
+service IP. Seeing both addresses echoed back proves the entire chain's
+healthy. Kubelet schedules the test pod, Calico assigns it an IP,
+kubeproxy programs the iptable's rules, CoreDNS receives the query, and the
+cluster service registry answers. We've got five layers and one nslookup. Let's do
+a cluster info report next with kubectl cluster-info, 192.168.50.10.6443 is the
+control plane endpoint you'll remember, remember init.yaml? We're going to
+replace that with a DNS name when we get to high availability. Let's make sure
+that we've got no stuck pods anywhere in our cluster. Nope.
+Validating pod-to-pod network connectivity
+Let's now spawn a pod and test networking further. We're going to put this pod
+on the worker1 node, as you can see in the code. Let's then wait for a Ready state
+and then capture the pod's IP into a shell variable, which we can see right
+here. Notice that the pod picked up an IP address in the proper range. Let's clear
+the screen again, and now let's try another network test. We're going to spawn a
+one-shot pod with kubectl run. We'll put it on worker2, and we will also ping the
+first pod we created, W1. Our past criteria here is 0% packet loss. Any loss means
+CNI is up, but routing's broken, most likely a firewall or a BGP peering issue. Let's
+now clean up that first pod with kubectl delete pod pod-w1. So what we saw is an
+illustration of how the CKA exam grades you on these sorts of tests. A node
+Ready status doesn't necessarily prove pods can talk to each other, only an
+actual ping does. Pin two pods to different nodes, capture one IP, ping it from the
+other. Three echo replies, cross-node routing is therefore confirmed. Now let's
+practice the Kubernetes troubleshooting ladder on a real failure. We'll stop the
+kublet on worker1, walk the ladder, and recover. We're going to stop the kubelet
+on worker1, so what we'll do is ssh vagrant@worker1. Excellent. And inside worker1
+now, I'm gonna do a sudo systemctl stop kubelet. Systemctl stop is the rough
+equivalent of stop service in PowerShell. And if we exit the session to come back
+to control1, we can try kubelet get nodes -w for streaming. and we can see now
+that worker1 is reliably showing up as NotReady because we stopped the
+kubelet. Kubelet sends a heartbeat as it happens every 10 seconds, the controller
+manager waits 40 seconds. In a Kubernetes v135, the node monitor grace period
+is that without a heartbeat before flipping the node's Ready condition, and so
+now, we can see the STATUS column is showing NotReady. How do we walk the
+diagnostic ladder? Well, let's Ctrl+C to stop that output. Clear the screen. First
+we'll try kubectl get nodes. This tells us that one node is NotReady, doesn't say
+why, and that's why we climb to the next rung, which is kubectl describe node
+worker1, and we'll just head that with top 40 lines. And specifically, we want to go
+under Conditions. This tells us that the kubelet stopped phoning home. We now
+know which subsystem stopped responding. The cluster API view is exhausted,
+let's climb to rung three. We can see that describe gives us the why. Kubelet
+stopped posting node status as the cluster telling you exactly which subsystem
+stopped responding, so we don't need to guess anymore. Let's get back into
+worker1, and I'll clear the screen again. Let's check the status of kubelet on this
+box. The kubelet, as we can see, is inactive, dead, not crashing or
+restarting. Inactive dead is the smoking-gun keyword for a manual stop or clean
+exit. If it had said activating auto restart, the failure mode would be a config-
+driven crash loop instead, and we'd dig into var lib kubelet config.yaml or the
+drop-in unit file. Next rung, let's try journal. So we'll do a, sudo journalctl for
+kubelet, and let's just look at 20 entries. Journal is our log viewer, and we can see
+again the service was stopped cleanly. No panic. In production though, this is
+where you'd see the real failures, failed to start container, disk pressure, cgroup
+driver mismatch, CNI config uninitialized, that sort of thing. So, cluster view first,
+then we drop into the node, get and describe, live in kubectl, systemctl, and
+journalctl live on the host.
+Troubleshooting with the diagnostic ladder
+How do we recover? Well, let's clear the screen and do a sudo systemctlo start
+kubelet and then sudo systemctl status kubelet. Just look at the tip of the head
+of the file there, Active, running, that's exactly what we want. Kubelet is back. Let's
+go back to control1, and let's do a kubectl get nodes and wait, so we can wait for
+them. Looks like they're already showing ready. Nice. So, four steps, every
+troubleshooting question on the CKA exam follows this shape. Kubectl get
+identifies the failed resource, kubectl describe plus journalctl diagnosed the
+failure mode, systemctl start is the fix, and then we run or rerun kubectl get to
+verify. It's important to practice this loop in a real shell. Let's finish up by proving
+the cluster can carry actual traffic. We'll set up NGINX web server 3 replicas
+exposed via NodePort. A Kubernetes deployment is the equivalent of a Windows
+Service fabric application with a target replica count. The controller maintains
+the desired state, restarting or rescheduling pods as needed. A NodePort service
+opens a TCP port on every node in the cluster. This is equivalent to a Windows
+firewall rule, plus a port forwarding mapping. Let's now hit the service from the
+control plane node. It echoes the actual port being translated here, 3395, and we
+get three OK responses, one NodePort with each node responding. That is
+kubeproxy's load balancing hard at work. The service abstraction handles the
+routing. Kubeproxy programmed iptables or IPVS rules on every node. So a
+request hitting any node's IP on that port reaches one of the three NGINX pods
+regardless of which node it lives on. We have a fully working cluster here. Let's
+clean up our environment. We'll clean up our demo workload, which is going to
+consist of a deployment and a service called NGINX, and we're done.
+Checking out with Globomantics
+Time to check out with Globomatics, where Robert confirms the monitoring
+dashboard is green. He says the cluster is indeed green across the board. Nodes
+are ready. CoreDNS is resolving, pods communicating across nodes, and NGINX
+web server is serving traffic through a NodePort. We broke it, we diagnosed it,
+and fixed it. This cluster is ready for workloads. It's a huge morale and
+confidence booster when you understand more about Kubernetes internals to
+the level that we've been discussing in this course, because you're then going to
+be much braver and more confident when you are facing these failure
+conditions. You'll know what went wrong, how to fix it, and why it happened in the
+first place. Let's review our four takeaways from this module that bridge the
+Globomantics narrative to the CKA exam. Every node says NotReady until a CNI
+Daemon-Set pod starts on it. Full stop, end of story. That's the single most
+testable concept in the cluster architecture CKA domain. And on the exam, a
+NotReady node after a clean kubeadm init means install or fix the CNI rather than
+anything more elaborate. Calico implements the NetworkPolicy API that the exam
+tests in its services and networking section. It accepts 192.168.0.0/16 by
+default, which lines up with the kubeadm init configuration from our previous
+module, and it's the CNI every later course in this Pluralsight skill path assumes
+underneath. The six-point validation checklist is the same surface you exercise on
+the exam to verify a cluster's healthy, and running at once after Calico installs
+builds the muscle memory you need to run it under time pressure when a
+question stem says verify that the cluster is functional. Thirty percent of the
+exam's troubleshooting, I think I've told you that 30 times by now, and the latter
+of kubectl get logs, events, journalctl, and crictl is the same workflow for every
+failure mode. Practice it in a real Linux shell, not by reading about it. Well, our
+course is now complete. You went from three bare Ubuntu virtual machines to a
+fully-validated Kubernetes cluster serving traffic through a NodePort
+service, every step using the same kubeadm workflow the CKA exam tests under
+pressure, kernel modules, sysctl tuning, containerd with SystemdCgroup, and the
+Kubernetes packages installed and pinned. The declarative init configuration
+with pod subnet, control plane endpoint, certSans, then admin.conf into
+your $HOME directory, then kubeadm join on both workers, helm install of Calico
+via the tigera-operator, the six-point cluster validation checklist with the busy ox
+DNS test, intentional kubelet break and fix, and an NGINX workload through a
+NodePort with infrastructure prep, init and join, and CNI installation as muscle
+memory, you've covered at this point roughly 40% of the surface area of the CKA
+exam. The remaining courses in the skill path build on the cluster you just stood
+up, and the same diagnostic ladder you practiced here is the workflow you'll lean
+on for the rest of the path. I want to thank you very much for your time,
+dedication, and effort. I look forward to seeing you in the next course. In the
+meantime, I'm Tim Warner, and if you want to stay in touch, you can find all of my
+training here at Pluralsight by searching my name. You can connect on LinkedIn
+or my website, TechTrainer Tim.com. Happy studying to you.

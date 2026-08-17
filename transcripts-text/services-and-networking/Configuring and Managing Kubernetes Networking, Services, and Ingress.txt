@@ -1,0 +1,1781 @@
+Configuring and Managing Kubernetes
+Networking, Services, and Ingress
+Course Overview
+Course Overview
+Hi everyone. My name's Anthony Nocentino, Enterprise Architect and Founder of
+Centino Systems. Welcome to my course, Configuring and Managing Kubernetes
+Networking, Services, and Ingress. Are you a systems administrator or developer
+that needs to deploy workloads in Kubernetes clusters? If so, then this is the
+course for you. In this course, we'll start our journey with an introduction
+into Kubernetes networking fundamentals. We'll learn how Kubernetes cluster
+networking works, both architecturally and dive deep into pod, node, and cluster
+networking internals. And we'll also look at how cluster DNS works to provide
+name resolution services in our Kubernetes clusters. Next, we'll look at how to
+provide access to our cluster-based applications with services, looking closely at
+each of the core service types available in Kubernetes, ClusterIP, NodePort, and
+LoadBalancer, and how they build on each other to provide external access to
+services. We'll also look at how we can use service discovery methods such as
+DNS and environment variables to find services available in our cluster. And
+finally, we'll look at how we can expose HTTP-based applications in our cluster to
+external users with Ingress. We'll explore the architecture and several different
+use cases, such as TLS encryption, path-based routing, and name-based virtual
+hosts. By the end of this course, you'll have what it takes to implement and
+manage Kubernetes networking, services, and Ingress. Before beginning this
+course, you should be familiar with the Linux operating system and administering
+it at the command line. You should have a firm understanding of TCP/IP-based
+networking and also understand the fundamental concepts of containers. You will
+need to know the core foundations of Kubernetes like what a cluster is and how
+to interact with your cluster at the command line, and also application constructs
+like deployments. I hope you'll join me on this journey to learn how to configure
+and manage networking, services, and Ingress in your Kubernetes cluster, in the
+course, Configuring and Managing Kubernetes Networking, Services, and Ingress,
+here at Pluralsight.
+Kubernetes Networking Fundamentals
+Introduction, Course and Module Overview
+Hello. This is Anthony Nocentino with Centino Systems. Welcome to my course,
+Configuring and Managing Kubernetes Networking, Services, and Ingress. This
+module is Kubernetes Networking Fundamentals. In this module, we will
+introduce the Kubernetes networking model. We'll investigate a cluster network
+topology, learn how pods communicate and wrap things up with a look at cluster
+DNS. Let's kick this module off with our course overview. In the first module, we're
+going to start our journey by looking at Kubernetes networking fundamentals
+where we'll look at the Kubernetes networking model, a cluster network
+topology, pod communication patterns, and cluster DNS. In the next module, we'll
+look at how we can provide access to our Kubernetes based applications with
+services in the module, Configuring and Managing Application Access with
+Services. And then finally, we'll look closely at how we can use ingress to
+provide external access to HTTP based applications inside of our cluster in
+the module, Configuring and Managing Application Access with Ingress. In
+this module, we'll begin with the Kubernetes networking model where we'll
+discuss the need for a networking model, how it works, and the benefits that it
+provides to simplify pod based applications and their configurations. Next, we'll
+introduce how a cluster and pods all fit together on your network and dive deep
+into an example cluster network topology. After that, we'll look at pod networking
+internals learning how pods get access to network and how they can
+communicate to each other. Then we'll introduce the container network interface,
+or CNI, which is used to define and implement standardization in the
+container networking space. And then finally, we'll dig into how Kubernetes
+provides DNS services to the cluster with cluster DNS.
+Introducing the Kubernetes Network Model and Cluster
+Network Topology
+Kubernetes defines a networking model that enables simplicity inside of
+applications, and so let's dig into the elements of that now. This Kubernetes
+networking model defines some rules that we have to live by when we build our
+network topologies to support our Kubernetes infrastructure and
+applications. And this first rule is that all Pods can communicate with all other
+Pods running on all nodes. This essentially means that anywhere in the
+cluster, regardless of the underlying Arc topology, all Pods need to be able to
+reach each other and communicate over the network. The next rule is that agents
+on a node can communicate with all Pods on that node, or more
+precisely, software running on that node can communicate with the Pods that are
+running on that node. And so things like the kubelet and kube-proxy are able
+to contact the Pods that they need to orchestrate. The final requirement is that
+there is no network address translation. Essentially, what we need to have
+happened is that all Pods need to be able to have reachability to all other Pods
+on any node using the Pod's real IP address. Why do we need these rules in the
+Kubernetes networking model? Well, we want to be able to provide developers
+simpler and consistent networking when deploying applications, hiding
+implementation details, but still providing secure and robust networking that's
+managed by administrators. We want developers to be able to define and
+consume networking resources and code as part of their deployment
+manifests. And having that requirement that Pods be able to talk to each other on
+all nodes means that potentially clusters can span subnets, cloud fault domains,
+or availability zones very, very easily. This all culminates in simpler service
+discovery and application configurations. Services and Pods will be able to find
+each other using their real IPs registered in DNS or as environment variables. Now,
+with all that theory behind us, let's see this in action and check out a Kubernetes
+cluster network topology. When you're deploying Kubernetes cluster, you're
+going to see three different network names thrown around. And I'm not going to
+lie, when I first got started with Kubernetes, I found this to be really challenging
+and confusing, and so let's dig into this so you don't suffer that same fate. First
+up, you're going to start off with the network and have some nodes in your cluster
+attached to that network. This is the node network. This network is likely in your
+data center or a virtual network in the cloud. Each node will have an IP address
+assigned from this network, and the nodes will have reachability between each
+other and other resources on your network. Next up is the Pod network. Each Pod
+has a single IP address assigned to it on the Pod network. And depending on your
+Pod network implementation, the IPs could be from the node network, but more
+commonly, the IPs will be assigned from a dedicated pool of IPs called the Pod
+CIDR range. In the cluster that we built together in the course, Kubernetes
+Installation and Configuration Fundamentals, we chose to implement the Calico
+Pod network using a Pod CIDR range of 192.168.0.0/16. Pods started in our cluster
+will get IPs from that range. Next is the cluster network. The cluster network is
+used by services using the cluster IP service type. IPs for services on this network
+are allocated IP addresses from the range specified in the service cluster IP
+range parameter that is part of your API server and controller manager
+configurations. And so these are the three network types that you'll see in your
+Kubernetes cluster, the Pod network, which is where Pods live, the node
+network, which is the real network in your data center or cloud that your nodes
+are on, and the cluster network, which is where cluster IP services are reached
+on.
+Pod Networking Communication Patterns and Internals
+So that was our cluster network topology. Now let's dig a little deeper and learn
+how Pods communicate over the network. When you have a multi-container
+Pod, the containers in that Pod will share the same network namespace. They'll
+share a single IP and port range for their applications to run on, and so for those
+two containers in that single Pod to communicate to each other, they'll do that
+over localhost. Now, communicating Pod to Pod within a node, Pods will use an
+interface inside the Pod that's attached to a local software bridge or tunnel
+interface to communicate to each other on their actual Pod IP addresses. The
+interface names will vary depending upon the network model in use, so you'll see
+eth0, veth0, and possibly others. Now for a Pod to talk to another Pod on another
+node, Pods will communicate with each other on their real IP addresses, and so
+the network between those nodes must be able to facilitate for that for Pods to
+communicate on their real IPs, and this can be done either by Layer 2 or Layer 3
+connectivity or an overlay network. An overlay network gives the appearance of a
+single network between the nodes in a cluster, and uses tunnels or other
+mechanisms to move encapsulated Pod network packets between the nodes. This
+gives you independence from your underlying network infrastructure, but
+enables your cluster to still adhere to the Kubernetes networking model. Our
+Calico implementation of our Pod network in the lab cluster uses tunnels. The
+final Pod communication pattern that we're going to look at today is access to
+services. Services are implemented in kube-proxy, exposing services to both
+users internal and external to the cluster, depending upon the service type. We
+will dive into this in much more detail in the module, Configuring and Managing
+Application Access with Services. Looking more closely at Pod networking
+internals, containers in a Pod share a single network namespace, and just as
+we introduced, applications running as containers in a Pod will also use localhost
+to communicate to each other if needed, and they'll also share the same IP
+address and source port ranges for applications. The network namespace in a
+Pod is implemented by a special container called the pause or the infrastructure
+container. When a Pod is created and started, this container starts up first and
+sets up the network namespace for the Pod, and then application
+containers, whether it's one or more, that are running inside of that Pod will share
+this network namespace. This pause container enables application containers to
+be restarted without interrupting the network namespace inside of the Pod, since
+the network stack is initialized by the pause container rather than the application
+container. The pause container has the lifecycle of the Pod, and so when the Pod
+is deleted, this container will be deleted along with it.
+Container Network Interface - CNI
+Kubernetes is a container orchestrator and defines a network model. Now the
+implementation of that network model is abstracted out of Kubernetes, and
+Kubernetes uses the Container Network Interface, or the CNI, to implement
+container and Pod networking in a cluster. The CNI defines a standard
+specification for managing container networking and is used across multiple
+container orchestration platforms. In Kubernetes, Kubernetes interfaces with the
+CNI, and the CNI interfaces with your container runtime and the base
+operating system to set up the networking for your containers and Pods, adding
+or removing networking resources as needed. And so operations like setting up
+namespaces, interfaces, bridge or tunnel configurations, and IP addressing are all
+responsibilities of the CNI. In Kubernetes, CNI plugins are used to implement the
+Kubernetes networking model. And in our lab cluster, we've configured the Calico
+CNI plugin and implemented an overlay network based on IP tunnels. CNI plugins
+like Calico and others are usually deployed as Pods controlled by daemon sets
+running on each node in the cluster. And there are many other CNI plugins
+available. Which plugin should you use for your production cluster? Well, each
+CNI plugin provides different capabilities and value to your network such as
+management, network policies like QoS, encryption, traffic segmentation, and so
+on, and so you're going to have to decide on which CNI plugin to use based on
+your requirements and its capabilities. On nodes, the kubelet controls the local
+network configuration and its configuration defines a network plugin. And this
+can be either CNI or Kubenet. When the kubelet is configured for CNI, it will load
+the CNI plugin and its configuration. And in our lab, that's Calico, which uses
+tunnel interfaces to implement that Pod network. If it's set for kubelet, the node's
+going to be configured with routes and bridges inside the BaseOS, rather than
+tunnels to implement a Pod network. In our upcoming demo, we're going to look
+at both network solutions, examining our on-prem cluster, which uses the Calico
+CNI plugin, and then we'll look at an Azure Kubernetes Service cluster that uses
+kubenet as the network plugin. Check out this link here for a further discussion
+on which CNI plugins are available for your Kubernetes Pod network.
+Lab Environment Review
+Before we kick off our first demonstration in this course, let's review the lab
+environment. We initially constructed this lab in the course, Kubernetes
+Installation and Configuration Fundamentals. Now our virtual machines are going
+to be the same. They're going to be Ubuntu 22.04, VMware Fusion VMs with 2
+vCPUs, 2 GB of RAM, and 100 GB of disk space with the swap disabled, as
+required by the kubelet. For this lab, you can use any underlying hypervisor that
+you want. I just so happen to be using VMware Fusion. Now, to take DNS out of
+the equation in our lab, I have hostnames set for each server and specified in a
+host file on each of the virtual machines in the lab. As for the virtual machines
+that make up the lab, we're going to have one control plane node, c1-cp1, where
+we'll be driving all of our demonstrations from. We'll SSH into c1-cp1 and use
+kubectl locally on that server. In addition to the control plane node, we're going
+to have three nodes in our lab, c1-node1, c1-node2, and c1-node3, and they're all
+going to be statically IP addressed with the addresses shown here on the
+screen. Now if you need help constructing this lab, head over to my course,
+Kubernetes Installation and Configuration Fundamentals, and you'll get
+bootstrapped with this configuration. I also want to call out that c1-cp1 used to be
+called c1-master1 in this series of courses. We have since renamed it to c1-cp1
+to keep up with current terminology in Kubernetes. So if you see c1-master1 in a
+demo, know that it's functionally the same as c1-cp1.
+Demo: Investigating Kubernetes Networking - CNI
+Network Overview
+Let's dive into our first demo and investigate some Kubernetes networking. We're
+going to look at two key scenarios today, our local lab cluster, which uses the
+Calico CNI plugin, and an Azure Kubernetes Service cluster, where we're going to
+look at the network configuration using the kubenet network plugin. Alright, so
+let's get started with our first demo of investigating Kubernetes networking. And
+we're going to start off by opening an SSH connection into c1-master1 and look at
+the network configuration from that node. And the first thing that we're going to
+do is look at the CNI plugin and how it operates and brings together all the nodes
+in the cluster to provide a Pod network, and so let's go ahead and walk through
+that process now. So jumping down to line 10, I have kubectl get nodes -o
+wide, and what that's going to do is give me a listing of all the nodes and their
+internal IPs. And so there we can see the IP addresses of each individual node,
+so c1-master1 has an IP of 172.16.94.10, and then .11, .12, and .13 for the remaining
+nodes in our cluster. So with that we have what's called the node network, and
+that's the real IPs that are in our data center that these nodes run on. And so let's
+start up a basic deployment inside of our cluster, and this deployment has three
+replicas, and that'll place one Pod on each node in our cluster. In addition to the
+deployment, we're going to front end that with a service. Now let's move forward
+and look at the network information for those Pods. If I do a kubectl get pods -o
+wide, I'm going to see all of the IPs that are allocated to the Pods that are up and
+running. And so there we see the Pod name on the left, our hello-world Pods, and
+the IP information here on the right, 192.168.222.211, .131.29, and .206.98. Each of
+the Pods has an individual IP address on the Pod network. Now, way back when
+we built our cluster together in the course, Kubernetes Installation and
+Configuration Fundamentals, we specified that we wanted the PodCIDR network
+to be 192.168.0.0/16, and so these IP addresses are going to be allocated from
+that address space. The IP address allocation is controlled in this scenario by the
+Calico plugin. It's in charge of allocating the IPs from that PodCIDR range. Next,
+let's look at the IP configuration inside of a Pod, and so let's grab a Pod name and
+store that in an environment variable. And once we have that Pod name, let's
+open up a shell to that Pod and look at the IP configuration inside of the Pod. If
+we do an ip addr inside of the Pod, inside of that Pod I see one Ethernet
+interface. And so at the bottom there we see 192.168.222.211, so that's the real Pod
+IP inside of the Pod. And so this individual pod will be able to reach all of the
+other pods on the network using its real address without any network address
+translation. Now, moving forward in the demo, so that's inside of the Pod, let's go
+ahead and exit outside of that Pod and look at some more network information
+available for the individual nodes in our cluster. And so I'm going to use my
+favorite command, kubectl describe, and I'm going to describe an individual
+node, c1-master1, and then pipe that into more. We're going to walk through some
+of the network information that's part of this output. And so the first thing I want
+to call out is in the annotations we have two. We have projectcalico.org/
+IPv4Address: 172.16.94.10/24. That's the real IP address of this node. Then we have
+a second annotation, projectcalico.org/IPv4IPIPTunnelAddr: 192.168.19.64. That's
+the IP address of the tunnel interface that's associated with this node. And so the
+Calico network is going to use tunnels to exchange information between the
+nodes in the cluster so that the Pods running on the nodes in that cluster can use
+the real IPs independent of the underlying infrastructure. Pod traffic will go into
+the tunnel on one node and pop out of the tunnel on the destination node where
+that other Pod is living on that the Pod is trying to communicate to. So,
+moving forward in the output here, if we go down a little bit further, there we see
+the actual network address information associated with this node. So we were
+looking at annotations a second ago, this is the address information associated
+with the node API object for this particular node. So we see Addresses: InternalIP:
+172.16.94.10. We also see the Hostname c1-master1. Now moving further, we have
+additional network information available inside the node. There we have
+PodCIDR, and then PodCIDRs, plural. Now, normally what PodCIDR is, is the range
+of IPs that are going to be assigned to Pods that are started on this
+node. Well, that's not quite the case inside of the Calico Pod network, and
+we'll look at that in a second, and we'll see that the Pod's IPs are going to be
+allocated from that global class B pool. Now we're going to compare this with
+kubenet, which does use these ranges for allocating IPs from. Now you might be
+wondering why there are two ranges here, PodCIDR and PodCIDRs plural. Well, if
+it's PodCIDR, you're going to be using a single IPv4 or IPv6 range to allocate from,
+and that's going to be indicated in the PodCIDR field. And if we look at PodCIDRs
+plural, if you're using IPv4 and IPv6, then those would be the ranges that will be
+allocated from, so you have one of each stored in that PodCIDRs plural object
+field. Alright, so let's go ahead and break out of this output here.
+Demo: Investigating Kubernetes Networking - CNI
+Overlay Network Routing
+And move forward and look at some more network information about what's kind
+of going on inside of this Calico network. So if I do a kubectl get pods -o wide to
+look at the IPs associated with the individual Pods, like how can we figure out
+how traffic goes from c1-master1 maybe over to c1-node1 for a Pod running on
+that node? And the way that it does that is with routes. And let's look at the
+routing information on c1-master1. And with that output there, we can see we
+have several routes defined. Now, I want to focus on those last three routes in the
+routing table. So there we see 192.168.131.0 with a gateway of c1-node2. So any
+traffic destined for that network is going to get sent to c1-node2's IP address. How
+is it going to get there? Via the tunnel interface over here on the right, that's the
+target or destination interface that packets will go down if they need to reach
+that particular subnet. We can also see, here, that there's routes defined for the
+other networks running on each node in our cluster. And so with these
+routes, that's how this individual node is able to determine where to send this
+information. So if traffic is generated on c1-master1 and it needs to get to a Pod
+on c1-node1, it's going to go into the tunnel interface based on this defined
+route. Let's go to move forward and look at that individual tunnel interface. If I do
+an ip addr, there we see tunl0, or tunnel, has an interface of type ip and ip. It's got
+an IP address of 192.168.19.64. So this is a real interface on this server that's going
+to receive the traffic. It's then going to receive that traffic and send it into
+a process that's going to encapsulate it and send it on to the target node that's
+defined. And so let's look at this from the other perspective, let's say we have to
+communicate to c1-node1. So let's open up an SSH session into c1-node1. On this
+side, let's look at the IP addresses that are available. If I do an ip addr on c1-
+node1, there we see I have a tunnel interface on this system as well. So there we
+see 192.168.222.192. So this is the other side of the tunnel. Traffic is going to come
+in on the real interface of the node, which is, if we scroll up, we'll see is 172.16.94.11
+and then get de-encapsulated and passed on into the Pod. And let's go see how
+that happens. And so in the route information here, we have the routes for the
+Pod networks that are running on each node. So there we see a different
+perspective because now we're on c1-node1. We have a route back to master1
+and then also nodes 2 and 3. We also have two additional routes on the bottom
+there. Where do those routes come from? Well those routes are for Pods that are
+running on this individual node. And so as traffic comes in on that tunnel
+interface, it's going to get de-encapsulated, it's going to find the route for the
+Pod that it needs to get to, then get passed on into that individual Pod. So let's
+go ahead and log out of c1-node1 and get a shell back into c1-master1. So a quick
+recap. Pod traffic moving between nodes is passed via tunnels, and this traffic
+goes into tunnel interfaces based on routes defined on the nodes. Once that
+traffic has reached a destination node for the Pod that it's trying to reach, then
+there's going to be a route on that node that defines an interface that's exposed
+into the Pod.
+Demo: Investigating Kubernetes Networking - Kubenet
+Network Overview
+So let's move forward into our next demo and look at an Azure Kubernetes service
+network using the kubenet network plugin. Now in comparison, we want to look
+at what we did with Calico. Calico uses routes and tunnels. Well, kubenet is
+implemented slightly different where it's going to use bridges and routes in the
+underlying infrastructure and let's walk through how this all works inside of
+Kubenet in our AKS cluster. The first thing that we're going to do is switch our
+context into Kate's cloud. The cluster that we're switching to is the cluster that
+we built together inside of AKS in the course, Kubernetes Installation and
+Configuration Fundamentals. Now this demo isn't specific to AKS, this could also
+be run in GKE and any other clusters that are using the Kubenet network plugin.
+So the first thing that we're going to do after switching our context is to stand up
+a simple deployment again, and in this scenario, we're going to start a collection
+of pods inside of our AKS cluster creating three replicas using our hello world
+container. Then next, we're going to check out the node configuration. We'll do
+a kubectl get nodes -o wide and then look at the network information for
+the nodes that we have up and running in our cluster. This is a 3-node cluster so
+on the left there, we see the node name so we see ending in 000, 001, and
+002. We also have the IP information associated with the individual nodes. So
+there we see 10.240.0.4, .5, and .6. These are the real IP addresses associated with
+these nodes in our Azure virtual network and Azure Kubernetes Service Cluster is
+just a collection of virtual machines behind the scenes, so underneath this AKS
+cluster is really three virtual machines that are up and running having a
+traditional networking configuration and there we can see that with the internal
+IPs. So let's use kubectl describe nodes to look a little closer at the network
+configuration of the individual nodes as it is tracked by the API server for these
+individual node objects. So we don't have any annotations associated with the
+networking configuration, so there we just see the standard
+annotations associated with an AKS node inside of Azure. If we go down a little bit
+further, we'll have that networking configuration for the nodes. So there we see
+addresses and in the host name ending in 000 and then the real IP of the node
+itself, 10.240.0.4. Now I want to move down a little bit further and call out that the
+PodCIDR ranges are going to function a little bit different than they did in
+the Calico configuration. In the Calico configuration, the IP addresses
+are allocated across the entire Class B space, regardless of which node a pod was
+running on. In this implementation in Kubenet, that PodCIDR range is going to be
+used to allocate IPs to the pod started on the individual node. So pods started on
+this node here will get allocated from that address space 10.244.0.0/24. If we
+move forward and look at another node, so I'm going to go down, here we see its
+a node ending in 001, if we look at the PodCIDR range for this individual
+node, we'll see that it's going to be, go down a little bit further, there we see the
+PodCIDR range for this node 10.244.2.0/24. So pods started on this node will
+come from that range and this pattern applies to all of the nodes in this network
+model using Kubenet. So now on that last node in 002, let's go and check out its
+PodCIDR range. There, we see 10.244.1.0/24. So let's go ahead and break out of
+here and check. We stood up a basic workload running three pods. Let's go
+ahead and run kubectl get pods -o wide. There are the three pods that are up
+and running, and the IP address is going to be allocated from the PodCIDR
+ranges on the individual nodes. So there we see in that first pod, it's running on
+the node ending in 001, it's PodCIDR range was 10.244.2.0/24, and that individual
+pod's IP is 10.244.2.171 and that pattern is across the remaining nodes.
+Demo: Investigating Kubernetes Networking - Accessing
+an AKS Node with SSH
+So let's clear our console and start out fresh and move forward into our next
+demo and give privileged terminal access to an AKS cluster node via SSH, and I
+have a link here on line 99 that describes that process in detail. But in short, the
+technique involved starting a Pod on a node in the cluster and giving access to
+that Pod as root. And that's what we're going to do here on lines 100 and 101. So
+first, what we're going to do is get a node name and store that in an environment
+variable NODENAME. And then on line 101, we're going to use kubectl debug to
+start a privileged container on the node that we want to get SSH access to, and
+so let's walk through that code together. Kubectl debug node/ and then the node
+named variable, which we retrieved on line 100. We'll then specify the -it
+parameter for an interactive terminal to the container that we're starting on that
+node. Then we'll specify the image that we want to start, and so this is a Microsoft
+container that's published in the Microsoft Container Registry, which is a base-
+ubuntu with a tag v0.0.11. This tag might change versions, so check the
+documentation if this image no longer works or is not available. And so we'll run
+that code together on line 101. And what this will do is will start a Pod, which will
+start a container with privileged access to the node that we want to have access
+to. And so here at the bottom, I have a terminal session open to the node ending
+in 000 as root. And so this is how you can get privileged terminal access to an
+AKS node in your cluster.
+Demo: Investigating Kubernetes Networking - Kubenet
+Network Routing and Bridging
+Moving forward in our demo, now that we have privileged access to a node, let's
+look at its networking configuration in detail. If I ask this node for its routes, I have
+a smaller set of routes available to me now than when compared to the Calico
+network, because we're using routes and bridges rather than routes to tunnel
+interfaces. And so the first line there we see the default route for the regular
+interface, and then that second line we see 10.240.0.0. That's the node
+network, so that's the local virtual network that these virtual machines are
+actually attached to. Next, we see 10.244.0.0/24 to cbr0. Let's kind of unpack that
+a little bit. So we logged into the node ending in 000. Its PodCDR range was
+10.244.0.0/24, so there we see the route for that information sending traffic to an
+interface cbr0, which is the local bridge. And so as traffic comes into this node
+and it's destined for a Pod running on this node, it's going to hit that route and
+get passed onto that bridge, which is where the Pod is going to be attached to, or
+the individual containers running on this node. Now, what we don't see here is
+routes to the other PodCIDR ranges on the nodes in our cluster, so we don't see
+10.244.1.0 or 10.244.2.0. Where's that routing information? Well, that routing
+information is going to be defined on the virtual network in our cloud, and so in
+our case, inside of Azure, that's going to be a route table that's associated with
+this particular virtual network that these individual nodes live on. And so I have a
+link here that's going to show us that information, so let's go ahead and switch
+over to that screen. Now, inside of this route table configuration if I scroll down a
+little bit, we'll see information describing the routing infrastructure into the virtual
+network. And so for traffic to move between the nodes to get to the individual
+Pod networks, we have to have these routes defined, and so there we can see a
+collection of routes for each individual PodCIDR range on the individual
+nodes. Now, with that first route there with the node name ending in 000, we see
+the address prefix of 10.244.0.0/24. That's the PodCIDR range hosted on that
+node. We see the next hop address of 10.240.0.4. That's the real IP address of that
+node on the node network. And so as traffic leaves a node destined for a Pod IP
+on this prefix, that traffic will find this route on the virtual network and be sent to
+the correct node hosting that PodCIDR range, and in this case that's going to be
+the node ending in 000. And we also see routes for each other node in our
+cluster. Now, since this is an AKS cluster, Azure is going to handle this
+configuration for us. As we add and remove nodes to our cluster, we're going to
+get routes for each of the node's PodCIDR ranges with the next hop addresses
+pointing to the node's real IP on the node network. So let's swing back over to our
+terminal and look at some more information inside the nodes, so we still have an
+SSH connection open on this individual node. If I do an ip addr and I scroll up a
+little bit in this output here, I want to call out two specific interfaces. So there we
+see eth0, which is the Ethernet interface of the virtual machine 10.240.0.4, right,
+it's got an IP address on the node network. Then we also have cbr0, which is the
+bridge that's running on this node that the pods are attached to, 10.240.0.1, so it's
+got a real IP address on the Pod network. If we go ahead and bring a shell back
+up and bring some more code into view, I'm going to install the bridge-utils
+package so I can use this brctl show command. And what that's going to do is
+show me the interfaces that are attached to that software bridge that's running
+on my node. And so with this output of this bridge information here, we see that
+there are four virtual Ethernet interfaces. There are four Pods that are currently
+running on this node, and each of those Pods has an eth0 interface inside of that
+Pod that's paired with an individual virtual Ethernet interface that's attached to
+this bridge outside of the Pod. And so that's how Pods are able to attach to the
+network. Pods will send their packets to the IP address of the bridge, and
+then that will route them onto the node network with those defined routes
+that we saw inside of our Azure virtual network. And so let's see how that
+works. So let's exit out of here and get on to c1-master1 again. Alright, so there we
+have our SSH connection open to c1-master1. So now what we're going to do is
+grab PODNAME from our deployment, and then we're going to look at the IP
+stack information of that individual Pod, so kubectl exec -it, using the PODNAME
+variable I want to execute the ip addr command. So this is going to be the IP
+address of that individual Pod, so there we see 10.244.2.171. So that's being
+allocated from the PodCIDR range on the node that this individual Pod is running
+on. Now the next thing I want to do is ask for the routing information from that
+same Pod. If I look at the route information inside the Pod, I have only two routes. I
+have a default route which sends all information out to 10.244.2.1. That IP is going
+to be the IP address of the bridge cbr0 inside of that node, and so when traffic
+wants to leave our Pod, it's going to hit this default route and then get forwarded
+to the interface cbr0, which will then forward it on to the node network, and then
+the node network will route the traffic based on the destination address in the
+packet, and if it's a Pod, it will use a defined route in the virtual network to find
+the correct node to be routed to. And so with this network configuration here, this
+is how you can see that all pods are able to communicate to each other with
+their real IPs on the Pod network. So that's a wrap for this demo. Let's go ahead
+and delete the deployments we created in this demonstration. We'll delete the
+deployment in the AKS cluster, and then switch context and delete the
+deployment in our on-prem cluster.
+Cluster DNS and Custom DNS Server and DNS Client
+Configurations
+So now that we know how packets move around a Kubernetes cluster, the next
+element of Kubernetes networking fundamentals that we're going to cover today
+is cluster DNS. Kubernetes provides DNS as a cluster service. The default
+configuration has a deployment running two Pods providing load balancing and
+robustness for that DNS service. The DNS server used is CoreDNS. Now by
+default, Pods deployed in your cluster are configured to use this internal cluster
+DNS service. In a DNS server, DNS records are created for resources deployed in
+your cluster. Services will get DNS A records and quad A records based on if
+they're IPv4 or IPv6. And namespaces will get DNS subdomains created for
+them. In this module, we're going to focus on the DNS service and how it works
+and how it's configured. In the next module, we're going to look closely at the
+types of DNS records created inside the DNS server for different service
+types. The DNS service is core to service discovery inside of Kubernetes. As
+resources and services are created, Pods in a cluster can reference resources in a
+cluster by their DNS names. Now from a configuration standpoint, we can
+customize the configuration of the DNS service, and a common customization is
+configuring specific DNS forwarders for DNS zones that aren't hosted in the
+cluster DNS service locally. And we can also customize the DNS client
+configuration in our Pods. Perhaps you want to override cluster DNS and point to
+a specific DNS server or provide a custom DNS suffix search list in our
+configurations, and let's look at some code examples for both of these. With
+cluster DNS, one of the core operations that you might need to do is to control
+where the DNS service is forwarding to. So perhaps you need to send DNS
+requests to another internal DNS service in your environment, and let's walk
+through how to do that now. The configuration for CoreDNS is stored as a
+ConfigMap named coredns in the kube-system namespace. Accessing this
+ConfigMap will give you this configuration information here. This ConfigMap is
+mapped as a volume into the Pod's file system at /etc/coredns with the file
+named Corefile. Now by default, the cluster DNS service will forward to DNS
+servers to find on the local node at etc/resolv.conf, and so here we see the code
+forward and then a dot for all DNS zones to /etc/resolv.conf. If you want to
+change our configuration to point to a specific forwarder, we can change that line
+to point to an IP address, and so here you can see we're changing that to
+1.1.1.1. Now DNS configuration is a much deeper topic that I'm showing right
+here. To dig into more complex DNS configurations for CoreDNS, check out this
+link here. But I do want to call out that regardless of the change that want to
+make to our CoreDNS configuration for our cluster DNS service, those changes
+are going to be implemented inside of this ConfigMap. So, now that we've
+covered how to configure the CoreDNS server inside of our cluster DNS
+service, now let's talk about how we can configure DNS client configurations
+inside of a Pod. Now, inside of a Pod spec here we have the standard Pod
+definition. To control the DNS configuration of a Pod, we have two key elements
+to work with, DNS policy and DNS config. DNS policy defines how a Pod's DNS
+client configuration acts, and our options here are default, cluster first, cluster
+first with host net, and none. To define a Pod-specific DNS configuration and
+ignore the DNS configuration coming from the cluster, we'll want to set the
+dnsPolicy to None. The default setting is cluster first, which forwards DNS queries
+for the cluster domain suffix, which is cluster.local by default, to the cluster DNS
+service. And we'll use the node's DNS servers for all other domain queries. Another
+option here is default, which tells Pods to inherit the name resolution
+configuration directly from the node that it's running on. Default is actually not
+the default setting. The default setting is cluster first, and so if we don't define
+anything, that's the functionality that we'll have. Now with the dnsPolicy set to
+None, that enables us to be able to define a DNS configuration in the dnsConfig
+part of our Pods spec, and then we can go into the DNS specific configuration
+details defining things like nameservers and also search suffixes.
+Demo: Investigating Cluster DNS
+Let's get into a demo where we're going to look at investigating the cluster DNS
+service where we'll look at how it's deployed and how it's configured. Then we'll
+configure CoreDNS to use custom DNS forwarders by adding the config map
+used for the CoreDNS server configuration. Next, we'll look at pod DNS
+configuration and deploy a pod with a DNS server outside of the cluster. And
+then finally, we'll look at the DNS records automatically created for pods and
+services. Let's get started. So here we are with an SSH connection open to c1-
+master1 and let's start off our demo by investigating the cluster DNS service. And
+so on Line 7 here, I have kubectl get service --namespace from kube-system and
+that's going to give us a listing of all of the services that are available in kube-
+system and there is only one, the one that were interested in, the service for
+kube-dns. It's service type is cluster IP and it has an assigned cluster IP
+of 10.96.0.10. It's a multiport service so here in the Port section, we can see it's
+running on Port 53 on both the UDP and TCP protocols. It also has an additional
+port 9153 running on TCP. So let's go ahead and move forward in our demo and
+use the command kubectl describe deployment to look closely at our CoreDNS
+deployment and that's going to be the controller that manages the deployment
+of our CoreDNS pods in our cluster. And so to do that, we can use kubectl
+describe deployment coredns from the namespace kube-system and I'm going to
+pipe that output into more. And so once we have that output at the bottom
+here, let's kind of go through some of the important information that's available in
+this output. And so there we see name is coredns and then the namespace kube-
+system. Going in a little bit further, we see replicas that 2 are desired and that 2
+are currently available. And so with this default configuration, we're going to get
+two pods up and running supporting our CoreDNS service. Going down a little bit
+further in the output inside of the pod template here in the Container section, we
+can see some arguments are defined and so they receive -conf pointing to etc/
+coredns/Corefile and that's the configuration file that will configure our CoreDNS
+service and let's look a little more closely at where that file comes from
+exactly. And so here, in the Mount section, we can see that there is a mount
+at etc/coredns and that's coming from a volume named config-volume. Inside of
+the Volume section, we see config-volume. That volume is of type ConfigMap and
+its name is CoreDNS, and inside of that ConfigMap, and we saw this in
+the presentation portion of the course, the Data section is named CoreFile. So
+going back up, that's where we get the configuration file for our CoreDNS service
+from the volume etc/coredns, and from the ConfigMap in that Data section
+named CoreFile. Alright, so let's go ahead and break out of here and take a peek
+at that Configmap. So on Line 15, we can do kubectl get configmaps from the
+namespace kube system, the name of the ConfigMap is CoreDNS and I'm going
+to output that the YAML. And so inside of here, we see apiVersion v1 data
+CoreFile and so that's where that file name comes from. Now inside of the data
+section for that CoreFile is the CoreDNS configuration and this is the
+default configuration for our CoreDNS server. Inside of there, we can see that the
+Forward section is going to forward all domains and use the forwarders defined in
+the local etc resolve.conf on the node that the pod is going to be deployed on. So
+let's go ahead and break out of this output here and look at how we can
+customize our CoreDNS configuration.
+Demo: Configuring CoreDNS to Use Custom Forwarders
+and Custom Pod DNS Configuration
+Alright, so let's go ahead and bring some new code into view. And so what we're
+going to do here is configure CoreDNS to use custom forwarders, and we're going
+to use two different types. We're going to forward to a specific upstream
+forwarder, and we're also going to configure what's called a conditional domain
+forwarder. And so let's go ahead and look at the YAML
+file, CoreDNSConfigCustom.yaml. Now inside the YAML file, we'll see the
+definition for our ConfigMap so there we see API version v1, kind ConfigMap, and
+the name is CoreDNS. And inside of the Data section, there we see Corefile.
+Corefile is the file that's going to be exposed as a mount inside of the pod at etc/
+CoreDNS. Now on Line 8, there we see the start of a server block. Inside of that
+server block is the core configuration for our CoreDNS server. Going out a little
+bit further, we can see on Line 18, I'm defining a forwarder. And so for all DNS
+domains that aren't hosted locally on this DNS server, those requests be
+forwarded onto 1.1.1.1. A little bit further down, now we're adding what's called a
+conditional forwarder and so we have an additional server block to help us
+with that, and so there you see centinosystems.com. And so for any requests of
+that domain, those DNS requests will be forwarded to the forwarder 9.9.9.9. So
+let's go ahead and jump back over to our driver script here and push
+that configuration out and we can do that with kubectl apply -
+f CoreDNSConfigCustom.yaml in the namespace kube-system. Let's go ahead
+and run that file there, and at the bottom. we can see ConfigMap CoreDNS
+configured. Now that's going to update the config map right away. What that
+doesn't do is update the configuration file in the pod right away. It takes a second
+for that volume based ConfigMap exposed as file to refresh that file. And so, I'm
+going to show you a technique on how you can figure out when your DNS
+configuration gets refreshed. We can use kubectl logs --namespace kube-system
+with a selector for k8s-app=kube-dns --follow and what that's going to do is follow
+the application logs in both of the pods that are up and running. Now after a
+minute or two, what we'll do is we'll get a log entry in this file showing us that the
+configuration has been reloaded, meaning that the file inside of the pod has been
+updated. CoreDNS sends that update and reloaded the DNS server, and there at
+the bottom, we can see log entries for each pod now that its configuration has
+been updated and we see that reloading is complete. So let's go to Ctrl+C to
+break out of that log follow and move forward in our demo. So now that we made
+a configuration change, the next thing that we want to do is to make sure that
+our DNS service still works. Now if we did something wrong in our configuration,
+we would've saw it in our kubectl logs that we were just looking at, but I want
+to make sure that we still have DNS resolution. And so, let's go ahead and grab
+our service IP for our kube-dns service and use nslookup to do some domain
+queries. So let's go ahead and do a query for www.pluralsight.com on the
+specific service IP. There we can see the address that we're requesting against
+is 10.96.0.10 and we got some DNS information back. Let's do another query for
+www.centinosystems.com against our DNS cluster service IP, and there we can
+see against the server 10.96.0.10 and we got an answer back, and so we know our
+DNS configuration is up and running. Now the next thing that I want to do before
+we move along into the next portion of the demo is to put our DNS configuration
+back. And so, inside of CoreDNSConfigDefault.yaml, what I'm doing is putting
+everything back to default and we're going to use. On Line 17 there, you can see
+we're going back to etc/resolve.conf. I just want to make sure that our cluster
+goes back to its normal configuration before we move on into the next set of
+demos. Let's go ahead and push that ConfigMap update out and there we
+see configmap/coredns configured, and so that still will follow that same
+process, it'll take a minute for the ConfigMap to update the file that's exposed
+into the pod, and then we'll see our DNS configuration restart as it senses that
+there was a new file updated inside of the pod. And now for the next demo, what
+we're going to work on is configuring a pod's DNS client information. And so, let's
+look at DeploymentCustomDns.yaml. Inside of here, we have a basic deployment
+that starts up a couple replicas, and we're going to drill down into the
+pod template spec, and instead of there, you can see we have a DNS
+policy defined. The DNS policy is set to none. Inside of that, we have on Line 21 a
+DNS configuration where we're defining a specific name server, in this case,
+9.9.9.9. So let's jump back over to our driver script here and we'll push that out, so
+we'll do a kubectl apply -f DeploymentCustomDns.yaml, and there at the bottom,
+we can see our deployment has been created. And so, I want to verify that that
+actually has taken effect inside of the pod and what we'll do is we'll grab one of
+the pod names using kubectl get pods with that selector query there, throw that
+in an environment variable, let's double-check to make sure that we have one, so
+we'll do echo $PODNAME, and there we can see one of the pods that we have.
+And so to verify the DNS configuration, I want to read the configuration of etc/
+resolve.conf inside of the pod and you can do that with kubectl exec -it passing
+in the environment variable for the PODNAME --cat, which is the program that we
+want to execute and giving it the parameter etc/resolve.conf, and what we're
+going to get is the contents of that file written to standard out and there we can
+see name server inside of the pod is set to 9.9.9.9 overriding the default
+configuration, which is cluster first. Moving forward, let's go ahead and clean up
+from this demonstration and do a kubectl delete -f DeploymentCustomDns.yaml
+and that's going to delete our deployment and delete the service and get us
+back to a good starting point in our cluster.
+Demo: Examining Cluster DNS Records for Pods and
+Services
+Moving forward into our next demo, let's look at the DNS records created for both
+pods and services. We're going to start off by creating the deployment, we're
+going to do that here on Line 64 with the manifest Deployment.yaml. Inside that
+manifest, there is a deployment that creates three replicas of our Hello World
+app. Additionally, also in that deployment manifest is a service Hello World. So
+let's check out the pods created by that deployment. Here, we can see that three
+pods are up, running, and ready in our cluster. And so with that, let's check out
+the DNS configuration associated with those pods in our cluster. We'll go ahead
+and grab our service IP for our DNS service once more and put that in an
+environment variable SERVICEIP. And so for each pod in the cluster, it's going to
+get an A record and it's going to get an A record in the format of a dashed
+representation of its IP address, and so here on Line 77, we see 192-168-206 -XX
+and so I have that as a placeholder for one of the pod IPs. So in the listing below
+we can see the first pod has a pod IP of 192.168.206.124. So let's go ahead and
+type that in right here on Line 77, and so this is going to be the format of the A
+record created for each pod in the cluster so each pod will have its pod IP on the
+front end here, then it's going to be followed by the namespaces that they
+received .default for the namespace, the type of resource .pod, and then our
+domain name for our cluster is cluster.local, and so this is representative of the
+entire A record of this particular pod
+192-168-204-124.default.pod.cluster.local. And so we're going to use a tool called
+nslookup to ask our DNS service what the IP address of this particular pod is. So
+every pod will have an A record associated with it and so we could do this for
+each of the pods in the cluster if we needed to. So let's go ahead and run that
+code on Line 77 to get the address associated with that DNS A record. And so in
+the output below, we can see the DNS server is at 10.96.0.10, that's the service IP
+for our DNS server. We ask that DNS service to give us the data associated with
+that A record, and so we see that at the bottom here, and so in the output, we see
+the name and there is the whole A record again, and then the data associated
+with that, the address 192.168.206.124. So let's go ahead and move forward to the
+next part of this demo, we're going to do the same thing, but for services this
+time. And let's go ahead and get a listing of the services in our cluster. We can do
+kubectl get service and we see there is two services up and running hello-world
+and the Kubernetes service. And so we can use nslookup again to get the
+address information associated with that A record. Now the format of that A
+record is going to be like this. We see hello-world, that's the name of the
+service. Again, we're in the default namespace so we see .default, and then .svc
+since this is a service, and then our cluster domain is cluster.local. And so we can
+use this to get the address of this particular service for service discovery in our
+applications and so let's go ahead and use nslookup to see the IP address
+associated with this service. On Line 83, I have nslookup with the FQDN for the
+Hello World service, and then again, we're going to use the service IP
+environment variable for our cluster DNS service. When I run that code at the
+bottom, we can see that A record again so the name is hello-
+world.default.svc.cluster.local and then the IP address associated with
+that service, 10.105.93.207. And so we can use this method to discover the IP
+addresses of services in our cluster. In our kubectl get service listing above, we
+can see that for the service, hello-world, that the cluster IP address is indeed
+10.105.93.207. And so let's go ahead and move forward and wrap this demo up
+with kubectl delete -f to delete the resources that we had created in this demo.
+Demo: Additional Cluster DNS Demos
+Now at the bottom of the demo code here, I have some additional code for
+you, the viewer. In a demo above, when we deployed custom DNS forwarders
+together, I deployed the configuration and ransom sample DNS queries to see if
+our DNS servers were still up and running. But what you didn't see is if those DNS
+queries were hitting the right forwarding servers, and I've confirmed that with the
+technique below. And so the code here uses tcpdump on a node that's running
+one of the core DNS Pods. And in that packet capture, you'll be able to see the
+DNS traffic leaving the network and being sent on to the correct forwarders
+based on the query. I'm giving you this code here so that you can complete the
+verification process if you like. And I also have some sample packet capture
+information for you to review and compare with your results.
+Module Review and What's Next!
+So here we are at the end of our module, and we certainly covered a lot. We
+looked at the Kubernetes networking model and why it's needed. We next looked
+at an example cluster network topology and learned all the different network
+types in our cluster, the Pod network, cluster network, and node network. We then
+learned the networking internals inside of a Pod and also how the Container
+Network Interface, or CNI, brings value to Kubernetes by giving you
+pluggable network solutions based on your requirements. And I've wrapped
+things up with a tour of the cluster DNS service. So here we are at the end of this
+module. Join me in the next module, Configuring and Managing Application
+Access with Services.
+Configuring and Managing Application Access
+with Services
+Introduction, Course and Module Overview
+Hello, this is Anthony Nocentino with Centino Systems. Welcome to my course,
+Configuring and Managing Kubernetes Networking, Services, and Ingress. This
+module is configuring and managing application access with services. In this
+module, we will learn how to configure access to applications in our cluster using
+services. We'll explore the different types of services and their use cases. We'll
+dive deep into service networking internals and close out the module with how
+we can use various methods to discover services available in our cluster. We
+started the course off with networking fundamentals, now let's move forward and
+learn how we can use services to access our cluster-based applications. In this
+module, we will begin with understanding services, where we'll discuss the need
+for services and how they work to provide persistent access to Pod-based
+applications. Next, we'll look at the types of services that are available
+in Kubernetes and the various use cases for them. After that, we'll look at service
+networking internals, learning how services are implemented inside of our cluster
+at the network level. And then finally, we'll dig into service discovery and how
+services can be found by using DNS names or environment variables.
+Understanding Services in Kubernetes
+Services in Kubernetes provide persistent access endpoints for clients, and the
+reason that this is needed is it adds persistency to the ephemerality of pods. As
+pods come and go during scaling or controller operations, the number of pods or
+their network configurations can change and services provide a networking
+abstraction with the persistent virtual IP address and DNS name so you point
+your users or your applications to this service IP or DNS name for access to the
+services provided by your underlying pods, and then the service will load balance
+that incoming traffic to the underlying backend pods. And as pods come and go
+due to those controller operations, services are automatically updated to reflect
+those changes and the load balancing configuration is updated to match.
+Services use labels and selectors to determine which pods are a member of
+which service in a cluster. A controller will monitor which pods satisfy the
+selector, and for each pod that matches the selector, an endpoint object is
+created consisting of the pod IP and the target application port. Each matching
+endpoint is added to a list of endpoints supporting the services and then this list
+is used to load balance traffic across all the pods supporting that service. The
+implementation of services is the responsibility of the kube-proxy. The kube-
+proxy exposes the services onto the network. The default and most commonly
+configured way this is implemented is with IP tables. Other options include IPVS
+and user space proxy mode. Kube-proxy runs as a pod controlled by a
+DaemonSet, and so you'll have a kube-proxy pod running on each node in your
+cluster. As services and their endpoints come and go, kube-proxy watches the
+API Server and the endpoint objects available and will update the local
+configuration to match the desired state, and in the default configuration, this
+means setting IP tables rules to support the service configurations that are
+needed for the pods running on that node. For more information on the labels
+and selectors elements of services and how that all pieces together, be sure to
+watch my course, Managing the Kubernetes API Server and Pods. In this module,
+we're going to focus on the types of services, how they work, and also service
+network internals. Let's take a look at services in action. So let's say in our
+cluster, we create a deployment that creates four pods and we frontend that
+with the service, and in this case, the service is going to be TCP port 80, better
+known as HTTP. Our cluster is going to allocate a persistent IP address and DNS
+name for this service and that's where we're going to point users to at this IP
+address. The IP address being allocated for the service depends on the service
+type and that's the focus of the next part of the module when we discuss service
+types. In the services configuration, we're going to define a label selector. In this
+case, let's say our label selector is the letter A. Now in our deployment in the pod
+template spec, we're going to define a label for each pod created that matches
+the label selector in the service, and for the pods that match that label selector,
+those pods IP and port pairs are going to be registered as endpoints in the
+service and used for load balancing traffic to. Now if we remove a label from a
+pod, it's no longer going to be load balanced to. Keep in mind this is independent
+of a deployment and replica set controllers which monitor the number of pods,
+that pod will still be there, it'll just no longer be low balanced to. Now this is just a
+high-level overview of how labels and selectors work with services, and for the
+deep dive into that topic, be sure to head over to my course, Managing the
+Kubernetes API Server and Pods.
+Introducing Service Types and Understanding ClusterIP
+Internals
+Now it's time to dig into the types of services available in Kubernetes and their
+use cases, and today we're going to look at ClusterIP, NodePort, and
+LoadBalancer. Each exposes a service to the network in a slightly different way
+for varying use cases. These three services are the core way to expose
+application services inside of a crew-managed cluster. There are additional
+service types and implementations available, and we're going to cover those later
+on in this module when we talk about service discovery and DNS. The ClusterIP
+service is the first service type that we're going to look at today. Let's say in our
+cluster we deploy some Pods, and these Pods are going to get IPs on the Pod
+network. When we define a service of type cluster IP, it's going to get an IP
+address assigned from the cluster network. That IP comes from a range of
+addresses that are specified in the service cluster IP range parameter on both
+the API server and controller manager's configuration. And so in our example
+here, the IP address allocated is 10.1.22.10, and our service is listening on port 80.
+Qproxy will configure the needed iptables rules for the servers on all nodes in the
+cluster, defining the service's cluster IP address and port, and also implementing
+the load balancing rules to the back-end Pod endpoints. These iptables rules are
+defined on all nodes in the cluster. If traffic is a load balance to a Pod endpoint
+that's not on the current node, that traffic we route across the Pod network to the
+correct node to reach that Pod endpoint. If the Pod is on a current node, traffic
+will be sent directly to that Pod endpoint on a local node. So if we want to access
+the service, we'll send traffic to the ClusterIP address and port from inside a
+cluster. For traffic destined to the ClusterIP, the iptables rules on that node
+will intercept the traffic before it leaves a node. A Pod endpoint IP will be
+selected from the iptables load balancing rules, and then iptables will send that
+traffic to that selected Pod IP address over the Pod network. The ClusterIP
+address is completely virtual and exists only inside iptables on the node. For our
+discussion today, we're going to focus on Qproxy running in iptables mode as
+that's the most common implementation. ClusterIP exposes the service on a
+cluster internal IP address and is only available inside of the cluster. It's also the
+default service type if you don't specify one in your service's configuration, and
+it's the foundation that the other service types are built upon, which we'll explore
+next in this module. A common use case for ClusterIP is for applications
+or services that don't need to be accessed outside of the cluster or if we're going
+to provide access via other means like Ingress, which we'll explore more in the
+module Configuring and Managing Application Access with Ingress.
+Understanding NodePort Internals
+The next type of service that we're going to talk about is NodePort. Let's say we
+have a cluster running some pods, and this time, we define our service type as
+NodePort. What's going to happen is on each node, kube-proxy is going to
+expose our service on the real IP of the node on each node in the cluster, and so
+in this case here, 172.16.94.11 and 12. A NodePort port is assigned to the NodePort
+service, and by default, the port range is 30,000 to 32,767. This port can be
+dynamically allocated by the cluster or statically defined into the service
+configuration. Our port here is 32,235. When you create a NodePort service, you
+will also get a cluster IP service and port allocated and kube-proxy configures
+that service on each node as well just like we looked at in the previous example.
+With NodePort, traffic can come from outside of the cluster and can be sent to
+any cluster node's real IP address on the NodePort services port, and so this
+example here, 32,235. When the traffic is received on the node, kube-proxy will
+route that traffic request to the internal cluster IP service and then a cluster IP
+service will route that traffic to the pod endpoints just like we examined in the
+previous slide. NodePort is commonly used when you need to integrate with
+external load balancers, and in a second, we'll see how the NodePort service type
+is used in cloud scenarios for load balancing. NodePort is also used in
+development scenarios and desktop based clusters where you don't have access
+to load balancer services, but want to expose your application outside of the
+cluster onto the node network.
+Understanding LoadBalancer Internals
+The next service type that we're going to look at is load balancer. In our cluster, if
+we start up some Pods and define a service type as load balancer, what we're
+going to get is this. Our cluster is going to interact with our cloud provider and
+provision a Cloud Load Balancer. That load balancer is going to get assigned a
+real public IP from our cloud provider and will point users at that public IP
+address for access to the services defined in our cluster. When you create a load
+balancer service, you also get a NodePort service and ClusterIP service in your
+service configuration. That load balancer is part of our cloud's infrastructure and
+is external to our cluster. That load balancer sends traffic to the services in your
+cluster by accessing the NodePort service on the node's real IPs. That NodePort
+service sends the requests to the cluster IP service, which in turn sends the
+request to the underlying Pods, just like we looked at in the previous
+scenarios. And so if you log into your cloud load balancer, you'll see your nodes in
+a load balancing pool. You'll find health probes on the NodePort service, and
+you'll also find load balancing rules distributing the traffic to the NodePort
+service on each node in your cluster.
+Defining Deployments and Services
+When it comes to defining services and manifests, they really work hand-in-hand
+with deployments and so let's see how that all comes together in code. Inside of
+our deployments pod template spec, we're going to define some labels. So in this
+case here, you can see the label is run hello-world. Each pod that's created from
+this deployment will have that label. Now in the service's definition in the spec,
+we'll define a type. In this case, we're going to be using cluster IP. We'll also have
+to define a selector and we use the label run hello-world. The pods that match
+this label selector will get endpoints created automatically and registered in the
+service, which will then affect that desired state on the nodes kube-proxy
+configurations. Now I do want to call out that you could have more labels in a
+deployment for other reasons, but you will have to have labels that match the
+services selector for that pod to be a member of the service. Now for ports, we
+can define one or more ports for a service, and so in this example here, we can
+see that our port is port 80. Now this port is for accessing the service so users will
+be pointed at this port. And then there is protocols which can be TCP, UDP, or
+SCTP, in this case, we're using TCP. And then finally, there is target port, which is
+the port of our container-based application in our pods, in this case it's 8080. Now
+that's a declarative configuration in code. If we needed to create services
+imperatively at the command line, well the first thing that we'll do is create a
+deployment. And so here you can see kubectl create deployment, we give it a
+name hello-world, and we define an image. This will create a deployment with
+one replica. We can then scale that replica if needed. Then to expose that
+deployment with a service, we can use this command, kubectl expose
+deployment then a deployment name hello-world, the port that we want to send
+users to, so in this case, port 80, and then a target port for the container based
+application and then we can define a type, it could be load balancer, NodePort, or
+ClusterIP, in this case, we're using NodePort.
+Demo: Exposing and Accessing applications with
+Services - ClusterIP
+Alright, so let's get into our first demo in this module and look at exposing and
+accessing applications with Services. We're going to look at three scenarios here:
+ClusterIP, NodePort, and LoadBalancer. Let's get started. So here we are with an
+SSH session open to c1-master1, and let's start going through some of those
+demonstrations where we're going to expose some services with our various
+service types, and we're going to start off with ClusterIP, and the very first thing
+that we're going to do together here is create a deployment imperatively at the
+command line. So here we see kubectl create deployment hello-world-
+clusterip, and we're using our Hello World app image, so let's go ahead and run
+that code to create that deployment, and there at the bottom we can see our
+deployment was created. So the next step that we want to do to expose that
+deployment as a service is use the kubectl expose command. So here on line 13,
+we see kubectl expose deployment, then we define the deployment's name. So
+there we see hello-world-clusterip. On the next line, we're defining the
+parameters for the deployment. So there we see --port=80, that's the port that
+we're going to access the application on, and then we see --target-port on
+8080, that's the port inside of our container-based application inside of our
+pods. And then the final parameter is --type ClusterIP, so let's go ahead and run
+that code and create that service together, and there at the bottom we see
+service/hello-world-clusterip exposed. If we didn't specify --type as a parameter
+to the kubectl expose command, the default type will be ClusterIP. So, moving
+ahead in our demo, let's go ahead and bring some more code into view here, if we
+do a kubectl get service, there we can see in the listing our ClusterIP service, and
+so let's walk through the output here together. We see the name, hello-world-
+clusterip and the type, which is ClusterIP, and then we see our Cluster IP
+address, 10.98.171.177, and that will persist for the lifetime of this service. Since it's
+a Cluster IP service, we have no external IP, and there we see the port 80/TCP. So
+let's go ahead and grab that SERVICEIP and store that in an environment
+variable for reuse, and so on line 22 here let's go ahead and run that code and
+grab that IP as a parameter, and we'll echo it out just to make sure that we have
+our correct value, and there we can see our IP, 10.98.171.177. So to access our
+application, we'll use the curl command. So curl http://, and then we'll use that
+environment variable for our SERVICEIP, and there we can see we can access our
+application with the appropriate output at the bottom. So, let's dig a little further
+into what's behind the scenes for this particular service and look at the endpoints
+that are available. If we do a kubectl get endpoints for our service, hello-world-
+clusterip, we'll see that we have just one endpoint, and that's the pod with the IP
+address of 192.168.131.32, running an application on the target port 8080. If we do
+a kubectl get pods -o wide to look at our pods network configuration, we can see
+that this is the pods supporting the service with the IP address of
+192.168.131.32. Now, if we ever have to access an application directly, if we needed
+to actually troubleshoot an individual pod that's up and running, well, we can
+look at those endpoints and so let's go ahead and do that again, we'll do a
+kubectl get endpoints, and we can see the listing of endpoints, and if we know a
+particular pod is causing us trouble, well inside of our cluster, we can grab that
+PODIP, which we're doing here on line 38 and storing it in an environment
+variable, then we can access our application directly for that exact pod using the
+PODIP when we're inside of the cluster. So there I'm using curl against the
+individual PODIP on that container-based application's target port, which is
+8080, and so if I ever have to troubleshoot, I'm able to use this technique
+to isolate an individual pod. So, let's go ahead and extend this a little bit, let's
+use kubectl scale on our deployment to expand the number of replicas
+supporting our deployment. So let's go ahead and run that code there to scale
+our deployment up to six replicas, and so now if we look at our endpoints, we'll
+see in the listing, all of the endpoints behind the service, and so in that list there
+we can see our 131.32 pod that we started with and some additional pods have
+been added to that list. And so now if we hit our service, our request will be load
+balanced across the pods supporting the service that are registered as endpoints,
+and so there we can see the different pod names as I hit that service over and
+over again. If you want to look at that from a different angle, we can use my
+favorite Kubernetes command, kubectl describe, we'll describe the service that
+we're working with, which is hello-world-clusterip, so let's go ahead and run that
+code there. Inside of here, let's kind of walk through this core information. So,
+kubectl describe gives us that deep dive information about an object. So here we
+see the name and the namespace, and now the labels here are the labels for this
+individual resource, in this case it's the service. The selector, which is app=hello-
+world-clusterip, is what's going to determine which pods are a member of the
+service. There we see the Type: ClusterIP, we have our IP address, and then the
+port that our service is running on, and then there we see TargetPort, which is
+where our application is running, and also a listing of endpoints. So a very good
+command to get kind of a view of the whole state of our service. Now that
+selector I want to call out again as app=hello-world-clusterip. If I do a kubectl get
+pods --show-labels, then we can see that that label is associated with the pods
+that are up and running supporting the service, and so there on the right, we see
+app=hello-world-clusterip. So, let's go ahead and delete this deployment and the
+service, and clean up this part of the demo before we move into the next part of
+the demo.
+Demo: Exposing and Accessing applications with
+Services - NodePort
+So let's go ahead and bring some new code in the view, and now we're going to
+work with some node port services, creating them and accessing them. And so
+let's start off with creating the deployment again, which will start up our hello-
+world-nodeport deployment. Now on line 71 here, very similar to the previous
+command, we're going to expose the deployment, but this time we're going to
+change the type to nodeport, so that's got to run that code there. Now let's go
+down a little bit further and use kubectl get service to get the information about
+that service that was created. So in our output here, we can see the name is
+hello-world-nodeport, and the type is nodeport. We still have a ClusterIP, and so
+in this case, it's going to be 10.110.42.255. Now we have no external IP, and we can
+see the ports, we have a little bit of a different representation than what we've
+been used to when we've been looking at ClusterIP services. We have two ports
+in here separated by a colon. The port on the left is associated with the ClusterIP
+service for this particular service. Now recall, our nodeport service is actually
+backended by a ClusterIP service, and so as traffic comes in on the nodeport
+ports, it'll get routed to that ClusterIP service. The port to the right of the colon,
+30177, that's our nodeport port, and so that's where we'll send traffic to, external
+to the cluster to access our nodeport service. Let's go ahead and grab some of
+that critical information and store that as environment variables so that we can
+reuse it over and over throughout our demonstrations here. We're going to grab
+the CLUSTERIP, we're going to grab the ClusterIP services PORT, and we're also
+going to grab that NODEPORT port and store those all as environment
+variables. So it's going to run that code and move forward in our demo. Now I
+want to call out that for this particular deployment, there's only one Pod that's up
+and running, supporting our applications, so there we can see hello-world-
+nodeport. Now that one Pod is running on node c1-node1. We can hit any node
+in the cluster and it's the responsibility of the Qproxy to route that request to the
+node that has an actual Pod. And so let's go ahead and do that here. If I access
+the NODEPORT service on c1-master1 I get to our Pod. If I access it on c1-node1
+using the NODEPORT port, I get back to that same Pod. Regardless of which
+node I try to access the nodeport service on, it's the responsibility of that node's
+Qproxy to route the traffic to the ClusterIP service, which will then send
+that traffic across the Pod network to whatever node is actually hosting the Pod
+at that point in time. So let's go ahead and move forward in this demo, and just
+want to call out that we still have a ClusterIP service behind our nodeport service,
+and that's what's actually servicing the requests coming from the nodeport
+service. If we do an echo, just to look at our information error, we can see the
+CLUSTERIP, and if I try to access it, I'm accessing that same exact Pod. Cool. Let's
+go ahead and move forward and delete this information and clean that up as we
+move into the next demo where we're going to work with the service type load
+balancer.
+Demo: Exposing and Accessing applications with
+Services - LoadBalancer
+So moving forward, I'm going to switch our context from our local cluster into a
+cloud cluster because I want to be able to consume the load balancer service and
+work with an actual cloud load balancer and we don't have that capability in our
+on-prem cluster, so let's go ahead and switch context there. Now same
+pattern, we're going to create a deployment, and this time, we're going to call it
+hello-world-loadbalancer. Let's go ahead and run that there, our deployment was
+created, and now we're going to expose our deployment as a service. This time
+we're going to specify the type as load balancer so let's go ahead and run that
+code there to create our load balancer service which will then work with our
+cloud provider to provision a cloud load balancer and a real public IP. And so if I
+do a kubectl get service now, we can see I have a service that's up and running.
+Let's walk through this output together. We see hello-world-loadbalancer, that's
+the name, the type of the service is load balancer. This service too will have a
+ClusterIP. There we see it's 10.0.46.49. Our external IP is currently pending and so
+what's happening behind the scenes is Azure is provisioning that real
+load balancer and a public IP for that. Once that is finished, then that information
+will be reported back to the service and it will become available to us. We also
+see our cluster IP port, which is 80, and our NodePort service, which is 3239.
+So let's go ahead and check the service again to see if we have our public IP, it's
+still pending. So let's go ahead and do this, let's go ahead and add a watch, we'll
+do an up arrow --watch, and with this, we'll be able to watch that service until we
+get our public IP allocated by Azure. Now I do want to call out that this
+demonstration isn't specific to Azure, this can be in any of the public clouds that
+support the service type load balancer, and there we can see we have our public
+IP address provisioned 52.177.247.61. So let's go ahead and break out of this watch
+with the Ctrl+C and move forward in our demonstration. So we'll grab that public
+IP and store that in an environment variable and then we'll try to access our
+service on that real public IP address. And so I'll use the curl command to do that
+on the services port which is port 80. Go ahead and run that code there and
+there we can see the output from our application. Alright, so moving forward in
+this demonstration, let's go ahead and do a kubectl get service hello-world-
+loadbalancer and look at that information one more time. So there we see our
+external IP is populated in our services information, and to recap what's going on
+here, when we access that external IP on that cloud load balancer, that cloud
+load balancer is going to send its traffic to the NodePort service, the NodePort
+service is then going to send a traffic onto the cluster IP service which will then
+route it to an individual pod that services our deployment. So let's go ahead and
+clean up this demo, we'll delete our deployment and our service from Azure. With
+our load balancer and our deployment deleted, let's go ahead and switch our
+contacts back to our local on-prem cluster. Now I have some additional examples
+for you at the bottom here for you to do on your own. The demonstrations that
+we did in this demo so far have all been using imperative commands. If you want
+to work with declarative commands, I have the YAML files in the downloads that'll
+be available to you. And it's the same demonstration, is just using the YAML files
+describing what you want Kubernetes to do for you.
+Service Discovery with DNS and Environment Variables
+and Other Types of Services
+One of the key ideas behind Kubernetes is infrastructure independence. In our
+applications, we want to avoid configuring settings pointing to
+static configurations like IP addresses or pod names and services
+provided abstraction around our applications to help us do this, but how can we
+access service information dynamically inside of the cluster? Kubernetes
+provides two key ways to discover services running in the cluster saving us from
+defining infrastructure-specific configuration and that's DNS and environment
+variables. Now, let's take a closer look at each. The key way that you'll want to
+discover services in your cluster is with DNS so let's take a look at that first. As
+you create services in your cluster, each service is going to get a DNS record in
+cluster DNS. So normal services like ClusterIP, NodePort, and load balancer will
+get A or AAAA records in cluster DNS depending on if they're IPv4 or IPv6. You
+can use these DNS records in your application configurations. You'll get a DNS
+record in a format that looks like this where it's service name and then a dot
+followed by the namespace that that service is in followed by a dot, then the
+string svc followed by your cluster domain name. And so, as an example here, we
+see hello-world.default.svc.cluster.local where hello-world is the name of our
+service, default is the name of the namespace, svc is that static string, and
+cluster.local is our cluster domain. Now we're going to discuss additional service
+types a little bit later in the module and how they interact with DNS. We'll look at
+things like headless services and external name services. When you create a
+namespace in Kubernetes, you'll get a DNS subdomain for that namespace. For
+example, if I created a namespace named NS1, I'll get a subdomain that looks
+something like this, ns1.svc.cluster.local, and as I create services in that
+namespace, they'll get DNS records created in that DNS subdomain. Now,
+another key element of service discovery is environment variables. For each
+service available at the time a pod is created, there is a collection of environment
+variables defined giving information about the services that are up and
+running. You'll get environment variables for the various configuration elements
+of a service so things like its IP address, its port, its name, and so on. For more
+information on defining, using, and the lifecycle of environment variables, check
+out my course, Configuring and Managing Kubernetes Storage and Scheduling in
+the module, Configuration as Data, Environment Variables, Secrets, and Config
+Maps where I go into great detail about this. For this module, we're going to be
+focused on services and service discovery and we'll have lots of demos coming
+up shortly looking at both of these methods, DNS and environment variables. In
+addition to the core service types that we've covered so far in this module, there
+are some additional service types and service configurations that I want to
+introduce you to now, external name, headless services, and services
+without selectors and let's dig into each of these now. External name provides
+the benefits of service discovery for services that are external to your cluster. In
+the definition of an external name service, you'll define a DNS name for a service
+outside of your cluster and Kubernetes will create a C name record for that
+service pointing to that external services DNS name. This way, your internal
+applications can use service discovery techniques like DNS and environment
+variables to find this external service. Next is headless service. A headless service
+is a service with no ClusterIP defined. If you define a headless service with
+selectors, you'll get DNS records defined for each endpoint IP that matches
+the selector. When you query DNS for that headless service, it will return all pod
+IPs in the result set and then the client gets to decide which one of these IPs it's
+going to use. This is commonly used in database systems and also is used in
+stateful sets. And then finally, services without selectors. Services without
+selectors enable you to map services to specific endpoints, and since you're not
+defining a selector, you'll need to manually create the endpoint objects. This
+means in that endpoint object, you can define whatever IP import that you like
+and these IPs can be inside or outside of your cluster. If you add multiple
+endpoints, then it'll be load balanced just like regular services. Services without
+selectors are used what you want to manually control where you want to send
+traffic to, but still have the benefits of service discovery.
+Demo: Service Discovery with DNS
+Time for a demo. Let's look at service discovery methods, specifically DNS and
+environment variables. We'll also look at how to create an ExternalName service.
+Alright, so here we are logged into c1-master1 and let's go through working with
+service discovery and we're going to look at DNS and environment variables. We'll
+start off with DNS. The first thing that we're going to do is to create a deployment
+in the default namespace, and then we're also going to go ahead and expose that
+as a service. We'll do that with kubectl expose and we're also going to define it as
+type ClusterIP. So moving forward, we want to be able to run DNS queries against
+our cluster DNS server. If I just ran DNS queries from c1-master1, I would actually
+use my node's local DNS servers as defined in etc/resolve.conf. Let's go ahead
+and grab our cluster DNS DNS service IP and use that so we can send queries
+directly to that service, and with kubectl get service kube-dns from the
+namespace kube-system, we can see that the ClusterIP for our DNS service is
+10.96.0.10. So moving forward in our demo, we can use nslookup to query our
+DNS server and let's walk through what we're doing on Line 24 here. And so on
+Line 24 here with nslookup, I'm going to pass in a DNS record hello-world-
+clusterip.default.svc.cluster.local and let's walk through that DNS name together.
+We can see the service name hello-world-clusterip, then default, which is the
+namespace that that service was created in, then we see the static string svc
+followed by our cluster domain name, which is cluster.local. Now we're going to
+send that DNS query directly to our cluster DNS service at 10.96.0.10. Let's go
+ahead and run that code there and we can see we get a result. In our result, let's
+kind of walk through this line-by-line together. We can see the server that we
+sent the query to was 10.96.0.10. The name that we asked for was our hello-world-
+clusterip.default.svc.cluster.local name and then it returned to us the address
+10.111.188.160 and let's go ahead and verify to make sure that that's actually our
+ClusterIP, and we can do that with kubectl get service hello-world-clusterip, and
+in that output there, we can confirm that we got the right address back
+10.111.188.160. And so, each service that gets created is going to get a DNS
+record created in cluster DNS just like we looked at here. So let's go ahead and
+do another example inside of a namespace. So let's go ahead and bring this code
+into view. We'll go ahead and create a namespace with kubectl create
+namespace ns1. We'll create a deployment named hello-world-clusterip, and we'll
+also expose it as a service. So there we see kubectl expose deployment hello-
+world-clusterip, and both of those commands are being executed in the
+namespace ns1, and so now we actually have two services with the exact same
+names, hello-world-clusterip, but they're in different namespaces, which means
+they'll have also different DNS subdomains. And so there on Line 43, we can see
+that information. So let's run this DNS query against this new DNS record. So we
+have nslookup, and there we see hello-world-clusterip, but this time rather than
+default, we have our namespace ns1.svc.cluster.local, and we're going to initiate
+that query against 10.96.0.10, which is our cluster DNS service and there we can
+see hello-world-clusterip from ns1 gives us a different IP, which is now
+10.104.232.13, and if you want, we can go ahead and compare that result with the
+other DNS record in the default zone and we can see that's on a different IP
+address, so there we see 10.111.188.160.
+Demo: Service Discovery - Environment Variables
+Now moving forward, let's get into the environment variable side of the
+house. And we have a deployment that's up and running, so let's go ahead and
+grab a PODNAME from that deployment, and make sure we have a
+PODNAME. We'll echo that out to the console and there we can see the
+PODNAME. So let's use kubectl exec -it against that PODNAME and execute
+the command env and then pipe its output to sort, and that's going to list all of
+the defined environment variables in the shell and then sort that output for us
+so that we can read it easily. If I run this command now, you can see I have a
+collection of environment variables. I have several environment variables that are
+going to be defined just as part of the base OS, but the services, those ones there
+that start with KUBERNETES, are the ones that were defined for us by
+Kubernetes when it started up the Pod. And the only service that was available at
+the time this Pod started up was the actual Kubernetes service, and so there we
+can see all the different variations of the environment variables that are created
+to represent that service's configuration. But you might be wondering, where's
+the hello-world service? We created that service. Right, we did, but I created the
+deployment first, which deployed the pod, and then I created the service second,
+which then created the service, and so at the time that that Pod started up, that
+service didn't exist yet, so it's not here inside this collection of environment
+variables because they're only defined at Pod startup. And so we can get around
+that by deleting this Pod and letting it recreate, and so let's go ahead and do that
+now. We'll do a kubectl delete pod against that PODNAME. That Pod will be
+immediately recreated by the deployments replica set controller, and now let's go
+ahead and run that same command again. We'll get the new PODNAME. Let's go
+ahead and echo that out. And now if I run that same command against the
+Pod, env | sort, and I scroll up a little bit in the output here, you can see our
+HELLO_WORLD_CLUSTERIP service has a collection of environment variables
+available. And this is one of the key reasons why you prefer DNS over
+environment variables, because DNS information is more easily updated
+without having to terminate and start new Pods. So let's go ahead and move
+forward and look at an ExternalName service. And so inside this YAML file here,
+service-externalname.yaml, I've defined an ExternalName service. Let's go ahead
+and bring that into view. So walking through this configuration here, we have our
+API version v1, our kind is Service, our metadata is the name of the object that
+we're going to create, so that's going to be hello-world.api. Inside of the spec,
+we're going to define the type of service, and that's going to be
+ExternalName. Now, the only element that we have to define is the ExternalName
+parameter. So here you see hello-world.api.example.com, and so we're going to
+create a service named hello-world.api, and that's going to be a cluster service,
+but it's going to have a CNAME record that points to this DNS name here that
+we're defining on line 7. So let's go ahead and jump back over to our driver script
+and run that code. There we see service/hello-world-api is created. And so now if
+I run a DNS query against hello-world-api.default.svc.cluster.local against our
+cluster DNS server, what we'll get is the CNAME record pointing to that
+ExternalName, and so let's walk through the output at the bottom here. So from
+our cluster DNS server at 10.96.0.10, we asked for the DNS record hello-world-
+api.default.svc.cluster.local, and the return, the data that we got back from that
+query, is a CNAME, or a canonical name, which is hello-
+world.api.example.com. And so whenever I ask for hello-world-
+api.default.svc.cluster.local, I will get hello-world.api,example.com in the return. So
+let's go ahead and move forward and clean up our demos and delete all of the
+resources that we created and move on into the next part of the course.
+Module Review and What's Next!
+Alright, that's a wrap for this module. We started this module off with
+understanding services and why they're needed, and then we dove into the
+types of services that are available: ClusterIP, NodePort, and LoadBalancer, and
+then we looked very closely into how they work and build on top of each
+other. And we wrapped up the module with Service Discovery using DNS
+and environment variables to locate services. Well that's a wrap for this module,
+please join me in the next module, Configuring and Managing Application Access
+with Ingress.
+Configuring and Managing Application Access
+with Ingress
+Introduction, Course and Module Overview
+Hello, this is Anthony Nocentino with Centino Systems. Welcome to my course,
+Configuring and Managing Kubernetes Networking, Services, and Ingress. This
+module is Configuring and Managing Application Access with Ingress. In this
+module, we're going to dive into ingress concepts and architecture, looking at
+how we could expose HTTP-based applications to external users outside of the
+cluster. We'll dig into some common use cases for ingress, focusing on simple
+services, name-based virtual hosts, content routing, and also TLS
+configurations. We just wrapped up the module on Configuring and Managing
+Application Access with Services, now let's dig in and see how we can do the
+same with ingress. In this module, we're going to start off with an overview of
+ingress and its architecture, looking at how the Kubernetes ingress object is used
+to define access rules for applications in our cluster, and then we'll look at how
+the ingress controller is used to implement those rules. Once we understand the
+theory and the architecture, we'll look at a series of use cases for ingress, such as
+exposing cluster services externally, content routing, name-based virtual hosts,
+and TLS configurations.
+Ingress Architecture and Overview
+Let's start off with an overview of Kubernetes Ingress architecture, and first up,
+there is the Ingress resource, which defines how HTTP services in a cluster can
+be accessed externally, essentially the rules for how requests are passed into the
+cluster to access pod endpoints running web applications. We can get very
+creative here in our configurations for exposing services, and we're going to
+explore some of those today in this module. Working in conjunction with the
+Ingress resource is the Ingress controller, which is the actual implementation, or
+the thing that implements the Ingress resource's rules. It's the Ingress controller
+that actually provides access to the cluster-based services. This is generally an
+HTTP reverse proxy. It receives the connection, finds a matching rule, and passes
+the traffic directly to the services pod and points to respond to the request. And
+then finally, the Ingress class. In a cluster, you may have more than one Ingress
+controller and the Ingress class gives you the ability to associate an Ingress
+resource with a specific Ingress controller in a cluster. It also defines a default
+Ingress class by defining the isDefault class annotation on the Ingress class. So,
+to bring this all together, you deploy an Ingress controller, you create an Ingress
+class for your Ingress controller, you then define Ingress resources referencing
+the Ingress class that you want to use, and also define the routing rules for your
+traffic. So, as we've introduced so far, the Ingress resource is where we define
+the rules for external access to HTTP-based services in our cluster. Now in
+addition to providing external access, the Ingress will provide load balancing
+directly to the endpoints in the cluster, bypassing the cluster IP service. Now, in
+addition to those capabilities, Ingress gives us the ability to do name-based
+virtual hosting, enabling us to provide access to many different services inside
+of our cluster, based on the host header in the HTTP request. An Ingress will read
+the host header and send the request to the correct back end cluster
+service. This is valuable because it reduces the amount of public IPs and
+resources needed to support multiple web applications, since we can handle
+these requests on one public IP address and route the traffic to a specific service
+in the cluster based on the contents of the host header. Additionally, Ingress
+could do path-based routing. So as requests come into the Ingress controller
+based on the path in the URL, we can direct requests to unique services inside of
+the cluster, giving us very granular control on where incoming traffic is routed to.
+And last, but not least, Ingress gives us the ability to implement TLS
+termination. We can define in our Ingress resource, a certificate configuration and
+use that to provide encryption from the client browser to the Ingress
+controller. Now, in this course, we're going to do a basic introduction to
+Ingress. For a much deeper dive into managing incoming traffic, head over to my
+colleague, Nigel Brown's course, Managing Ingress Traffic Patterns for
+Kubernetes Services.
+Understanding the Ingress Controller and Why Use
+Ingress Rather Than Load Balancers
+So far we've introduced that the Ingress resource defines the rules and the
+configuration and it's the Ingress controller that implements those rules. Let's
+take a second to look more closely at the Ingress controller. Ingress controllers
+are things running in your cluster or adjacent to your cluster, and there's many
+different types of Ingress controllers available and their implementations vary. So,
+they could be running as Pods in your cluster, as is the case with the NGINX
+Ingress controller, which is what we're going to be using in our demos today. An
+Ingress controller can also be external hardware to your cluster, perhaps a load
+balancer from Citrix, F5, or other hardware vendor. There's also cloud Ingress
+controllers, which run external to the cluster in various cloud providers such as
+Azure's App Gateway, Google Load Balancer, and more. Kubernetes defines an
+interface spec, which is used to define how the Ingress objects
+exchange configuration in state to the Ingress controllers. And so that's how
+Kubernetes is able to ensure stability and compatibility, and how the Ingress
+resource is able to configure the Ingress controller in a defined, structured
+way. Now that you know what Ingress does, you might be asking why Ingress
+rather than load balancers? Let's take some time to call out why you'd use
+Ingress instead of load balancers. Ingress functions at Layer 7. This gives Ingress
+the ability to do things like path-based routing and name-based virtual hosts. In
+addition to that, Ingress controllers can implement higher-level capabilities such
+as URL rerouting, session persistency, and dynamic waiting. Traditional load
+balancers don't have these capabilities and can load balance traffic only on IP
+and port. Ingress controllers are a single resource that can provide access to
+multiple internal services, where load balancers expose a single service on a
+single IP and port. This reduces resources consumed, which in some scenarios,
+can even save you on your cloud bill. And finally, when using an Ingress
+controller, your applications can experience reduced latency since requests
+are sent directly to Pod endpoints, rather than to Qproxy, which would then route
+to Pod endpoints and perhaps even routing traffic between nodes. Now I do want
+to call out that this is for HTTP-based applications. You would need load
+balancers for load balancing TCP or UDP-based services functioning at Layer 4.
+Exposing a Single Service with Ingress
+Now, let's look at some example ingress use cases. We'll first look at this from the
+cluster networking standpoint and then next dig into the code for its
+implementation. If we have a cluster that's running some pods which are front
+ended with a Cluster IP-based service, and we want to provide access to these
+pod-based applications within ingress, we'll first define an ingress controller
+and then create an ingress resource defining access rules for accessing
+these services outside of the cluster. Our ingress controller will expose a
+service of type NodePort or LoadBalancer, depending on our infrastructure.
+Requests will come in on the NodePort IP or the public IP, and then they will
+get routed to the ingress controller pod via the NodePort or
+LoadBalancer service. Then the ingress controller will route that traffic to the
+correct back end pod endpoint based on what's defined in the ingress resource.
+Now, I do want to call out that the implementation of ingress controllers can
+vary, but this is a common pattern, and it's what we're going to see today with
+our Nginx ingress controller. So now that we know how ingress works and where
+it fits in in our cluster network, let's dig into the code and learn how to expose a
+single service with ingress. First up, we'll define an API version. So here you can
+see it's networking.k8s.io/v1. We'll define the kind as Ingress, and the metadata
+will give this ingress a name of ingress-single. Inside of the spec, we'll define our
+ingressClassName. The ingress class name is the ingress controller that will
+implement the ingress resources that we're defining here, and so in our case,
+that's going to be nginx. In our upcoming demo, we'll deploy an nginx-based
+ingress controller that will also create the nginx ingress class resource for us. Next
+up is the defaultBackend. A defaultBackend is used to accept all requests where
+an incoming request doesn't find a matching rule, or there are no rules defined, as
+is the case with this example here. And so in this example here, we're going to
+send all traffic to a single service, and that service is going to be hello-world-
+service-single. That service is going to be running on port 80, and so what we'll
+have here with this code is an ingress with a default back end that will accept all
+requests and then send all of those requests to our hello-world-service-single
+service.
+Exposing a Multiple Services with Ingress Using Path
+Based Routing
+Now let's look at another scenario where we have multiple services running inside
+of our cluster, and we want to expose them outside of the cluster and route
+traffic to the services based on the URL path. In this scenario, let's say we have
+some pods that are up and running, and we're exposing cluster IP services named
+Blue and Red. Now I do want to call out that the colored dots here represent the
+network that these resources are on, so the pods are on the pod network, and the
+services are on the cluster network. The next thing that we're going to do is
+define some Ingress rules to define path-based routing, and then deploy an
+Ingress controller, and that's going to expose our resources on a public IP
+address. Now, I do want to call out that we could have a single Ingress controller
+implementing various access patterns, but as we walk through these scenarios
+here, I'm going to describe each as an independent deployment. In the
+demos, we're going to see how we can combine several different access patterns
+together. Now as traffic comes into the Ingress controller, we can use path-based
+routing in our Ingress rules to look at the URL request and route it to the correct
+services pods. And so as requests come in, we can route them based on the
+path. And so for example, if a request comes in on path.example.com/red, we can
+route that to the Red service. And the same would go for /blue. We could take
+that traffic and route that directly to the Blue service. Now, let's look at the code
+to do just that. The code for exposing multiple services with path-based routing
+looks like this. In the spec for our Ingress resource, we'll define our Ingress
+class name, which here is nginx. Next, we'll define some rules. A rule defines how
+traffic is handled when received by the Ingress controller, and to start, we'll
+define a host for the Ingress to listen on, and in our example here, that's going to
+be path.example.com. And so incoming traffic will need to present this host name
+in the incoming request. Then we specify the rule type, and that's going to be
+http. Within that, we define a collection of paths to route on. In our example here,
+the path is going to be /red. We then define the path type, which here, we're
+going to use prefix. Path type is a way to define how to match the incoming
+request to a defined path, and the choices are prefix exact, or
+implementation specific. Prefix will perform a partial prefix match based on the
+path in the request, and exact means the request coming in must be an
+exact case-sensitive match for it to match. Implementation specific pushes this
+configuration responsibility from the Ingress into the Ingress class resource. And
+so in our example here, we're using prefix, so a URL request path coming in
+beginning with /red will match on this path. In the/red path, we define a back end
+to send the request to. The service for this back end is going to be hello-world-
+service-red, and the service port is going to be 4242. This service here is a cluster
+IP-based service running in our cluster on port 4242. With the /red path defined,
+let's move on to defining a blue path. Its path type is going to be exact. Using the
+exact path type means that this path will only match with the URL request
+that's exactly /blue and that's case sensitive. Next, we'll define the back end
+service, and that's going to be hello-world-service-blue, and this service is going
+to run on port 4343. Now these service ports defined for the paths here are for
+the backing cluster IP services. Our Ingress will listen on port 80 for the incoming
+HTTP requests and route traffic based on the rules defined here, using these
+paths and path types. But what if a request comes in that's not on /red or not on /
+blue? With this config here, our clients will get a 404 Resource not found error,
+and that's probably not what we want in our application. Now, in this scenario, we
+can define what's called a default back end, and then specify the service that we
+want to send traffic to, and that's going to be, in this case, hello-world-service-
+single. This service is going to be listening on cluster IP port 80. So users
+accessing paths that are not /red or not /blue will hit this service, and so this
+could be some sort of error page or a redirect, but the idea here is not letting
+your users get a 404, because that's probably not what we want in our
+applications.
+Using Name Based Virtual Hosts with Ingress
+The next scenario that I want to show you is name based virtual hosts with
+ingress. This gives us the ability to route incoming HTTP requests based on the
+host name coming into the ingress controller. So, same apps and services as
+before, and we'll deploy an ingress resource that will define our rules supporting
+name based virtual hosts, and then we'll deploy an ingress controller. That ingress
+controller is exposed as a load balancer service on a public IP. To direct requests
+to the appropriate back end services, we'll use hosts defined in our ingress
+rules, which will enable name based virtual hosting. So, in our example here, we're
+going to have red.example.com and blue.example.com for our name based virtual
+hosts. Now, in addition to this configuration, we'll also need DNS A records
+defined for these host names. As requests come into the ingress controller on the
+domain red.example.com or blue.example.com, based on those names, the
+ingress controller will look at the host header in the request and route that
+request to the appropriate back end service, whether it's red or blue, and so let's
+check out the code to do just that. And so let's look at how to implement name
+based virtual hosts with ingress. In the spec for the resource we start by defining
+the ingressClassName, and in our example here that'll still be nginx. Then we'll
+define some rules. First we'll define a host for the ingress to listen on. In this case,
+it's going to be red.example.com. We'll go on to define the elements of the
+rule, and we're giong to start off with its type http, and for paths, the pathType
+will be Prefix, and for the path itself it's going to be a single forward slash, so that
+all requests coming in on this host name are sent to this back end, and as for that
+back end, we're going to be using a service that's named hello-world-service-
+red, listening on port 4242. Now, that's the first name based virtual host, let's do a
+second. We'll define blue.example.com. It's going to be of type http, and inside of
+path we'll have a pathType of prefix, and the path itself will be a single forward
+slash. As for the service that it's going to go to, here we see the backend, and the
+service is going to be hello-world-service-blue listening on port 4343. And so, any
+requests coming in on blue.example.com will be sent to hello-world-service-blue,
+and any requests coming in on red.example.com will be sent to hello-world-
+service-red.
+Using TLS Certificates with Ingress
+Now, the final scenario that I want to show you today is how to enable TLS
+encryption on your ingress controller, providing TLS termination for your pod-
+based applications. So, the first thing that you need in this scenario is a certificate
+stored as a secret in your cluster, and so let's assume that I have one already, and
+when we get into the demos, I'll show you how to generate one for testing. Now
+in the spec for the ingress resource, of course we need to define an ingress
+class, in this case it's going to be nginx. Then in the TLS section, that's where
+you'll define one or many host names, which are the host names defined in your
+certificate. So here it's going to be tls.example.com. And then next you'll define a
+secretName, specifying the secret that contains your certificate and its private
+key. Then in the ingress rules, you'll build up a rule using some of the same
+techniques that I've introduced so far in this module, and in this case, what we're
+going to do is route incoming requests to a single service. In the host section,
+you'll define a host name that matches the one defined in the TLS section, both
+being tls.example.com. This rule is going to be of type http, and for paths we'll
+define a single path of a forward slash. Its path type will be Prefix, so all
+requests coming into this host name are going to be sent to a single back
+end service, regardless of the path, and that back end service in this case is going
+to be hello-world-service-single. And, that service is going to be running on port
+80. Now, I do want to call out that this TLS certificate is going to be on the ingress
+controller listening on port 443 by default, and it will encrypt traffic from the
+HTTP client to the ingress controller. From the ingress controller to the pod, that
+traffic will be unencrypted, running on port 80.
+Demo: Deploying the NGINX Ingress Controller
+Alright, so let's get into a demo and look at using ingress to provide access to a
+single service, multiple services, services using a default backend, name based
+virtual hosts, and a TLS configuration. Here we are logged into c1-cp1, and the
+very first thing that we want to do today is to deploy an ingress
+controller. Now, we're going to go with the nginx ingress controller running inside
+of a pod in our on-premises cluster. The nginx ingress controller supports
+several different deployment scenarios, Cloud, Bare Metal, and several different
+managed service providers. If you follow the link here on line 10, you'll find
+deployment manifests for these various scenarios. In the course downloads I'm
+going to include demo scripts and deployment manifests for both the Bare Metal
+and Cloud deployments, and so you can choose where you'd like to deploy your
+nginx ingress controller. For the demos that we're going to walk through today,
+I'm going to use a Bare Metal deployment in our on-premises Kubernetes
+cluster, the one that we built together in the course, Kubernetes Installation and
+Configuration Fundamentals. We're going to expose our ingress controller as
+a NodPort service in that cluster. If you want to do the Cloud demos in one of the
+managed platforms like AKS or GKE, the ingress would be exposed as a load
+balancer service. In the course downloads, both the Cloud and Bare Metal
+ingress demo scripts are conceptually identical, covering the same exact ingress
+configurations, it's just that the service type is different, exposing our ingress
+controller as either a NodePort service or a LoadBalancer service, depending on
+where we deploy. And so let's move forward into our demo now with our
+NodePort based deployments, and the very first thing that we're going to do is
+ensure that we are pointing at the correct Kubernetes cluster, our on-premises
+Kubernetes cluster, and that's what we're doing here on line 15 by making sure
+that we're pointed at the right context. Now, on line 16 here, I have the
+deployment yaml that I downloaded from the GitHub page for the nginx ingress
+controller. That manifest is also part of your course downloads for both the Bare
+Metal and cloud deployments, and here let's go ahead and apply the Bare Metal
+deployment manifest, and that'll go through and create all the appropriate
+resources to stand up our nginx based ingress controller. And so moving
+forward, let's look at the status of that deployment. We can do that with kubectl
+get pods, in the namespace, ingress-nginx, that's where all of those resources
+were created. And looking at the bottom here, you can see we have three
+pods, two of which have a status of Completed, and the last one being our
+nginx ingress controller and it is certainly up and running. In addition to the pod,
+we'll also get a service in that same namespace, ingress-nginx, let's go ahead and
+check out the status of that. We'll do a kubectl get services --namespace ingress-
+nginx, and we have two at the bottom here, the first of which is our ingress-nginx-
+controller of type NodePort, it's got a ClusterIP, and on the right there we can see
+the NodePort services associated with this particular ingress controller, our http
+based service on port 80 with a NodePort 30273, and 443 for https on the
+NodePort 31591. Now, when we rolled out that deployment for our nginx ingress
+controller, it also created an ingress class for us, so let's check that out right now.
+We'll do a kubectl describe ingressclasses nginx, and we can see that our nginx
+ingress class is available for us to use. Currently it has no annotations. If we
+wanted to make this the default ingress class, we can use this code here on line
+34 to add an annotation, kubectl annotate ingressclasses nginx, then we define is-
+default-class=true as part of that annotation. I'm going to leave that off so that
+we have to go through and explicitly define our ingress class name in our
+deployment manifests for our ingresses. If you want to leverage this capability of
+having a default ingress class, apply this code here and then you can omit the
+ingress class name in each of your ingress's configurations.
+Demo: Exposing a Single Service with Ingress
+And so with our ingress controller up and running, let's move on to creating our
+first ingress together for a single service. And so what we'll do here on lines 40,
+41, and 42 is we're going to create a deployment with our Hello World
+application, we're going to scale that to two replicas, and then we'll expose that
+as a Cluster IP based service. We're going to run this service on port 80, and it's
+going to have the name hello-world-service-single. Let's go ahead and run that
+code together here on line 42 to expose our service. Now, with our service up and
+running, we want to make it accessible outside of our cluster with an ingress, and
+let's look at the code to do that in the manifest ingress-single.yaml. So let's
+go ahead and open up that file and look at this code, and so just like we looked
+at in the presentation portion of the course, a very basic simple service exposed
+as an ingress. We have our apiVersion, networking.k8s.io/v1, kind is Ingress, we
+gave it a name of ingress-single. Inside of the spec, there we've defined
+our ingressClassName, because we did not define a default ingress class when we
+deployed that, and we're going to use the defaultBackend pointing to a service
+that has the name of hello-world-service-single, running on port 80. So let's jump
+back here and roll that out with kubectl apply -f ingress-single.yaml, and at the
+bottom there we can see ingress-single created. So let's move forward and see
+how we can access that service that's exposed as an ingress. So what we do here
+on line 53 is kubectl get ingress --watch, and if you notice, the first output you
+have is there's no IP address populated by the ingress, you're going to wait for a
+second and then that IP address will be populated, and then that means our
+ingress controller is configured and ready to receive requests for this particular
+ingress that would create it. Now, what IP address do we want to send our traffic
+to? Let's check out kubectl get services --namespace ingress-nginx. We're going
+to send our traffic to the NodePort service that's exposed in our cluster, so we
+can send traffic to any IP address at any node in our cluster on the port 30273 to
+get access to the HTTP endpoints in our services that are exposed as ingresses in
+our cluster, and so, let's move forward and look at our ingress in much more detail
+with kubectl describe ingress ingress-single. And so, in the output at the bottom
+here we have Name: ingress-single in the default namespace and an address of
+172.16.94.12. That's the IP address of the node that our ingress controller pod is
+running on. We can send traffic to any of the nodes in our cluster, because it's a
+NodePort service, and it'll get routed to the ingress controller. Since we're using a
+default backend with no rules, we see Default backend: hello-world-service-
+single port 80, and there we see in parentheses the pod endpoints that this
+ingress will route to. And so even though it says the service name there, the
+service is bypass to skip that extra hop in the kubelet and the request will be sent
+directly to the pod endpoints in a load balancing fashion. Now for the rules, we
+see Host asterisk and Path asterisk, so any incoming requests on any host name
+onto any path will get routed to the backend, hello-world-service-single, and
+again, in parentheses to both of those pod endpoints there. And so let's go ahead
+and try to access our application that's up and running. The first thing that we'll
+do here is on line 64 is we'll use kubectl get ingresses and pull out of the jsonpath
+output, the IP address of our NodePort service, let's go ahead and grab that, and
+we'll use the same technique on line 65 with kubectl get svc for the ingress-
+nginx-controller service, and we'll get the actual NodePort for our HTTP service.
+And so let's go ahead and check to make sure we have appropriate values there,
+and we're going to echo out those two variables that we just loaded up, so there
+we see the NodePort IP of 172.16.94.12, and the NodePort port of 30273. And so
+now if I use curl to access our service, you can see I'm hitting hello-world-service-
+single in the output at the bottom there.
+Demo: Exposing a Multiple Services with Ingress Using
+Path Based Routing
+Now for our next demo we're going to access multiple services with path-based
+routing, so let's go ahead and create a couple services and expose those. So on
+line 74 I'm going to create a deployment for hello-world-service-blue and on line
+75 I'm going to create a deployment for hello-world-service-red, so both of those
+are up and running. And now we're going to expose the deployments on two
+different ports, and so let's go ahead and do that. On line 77, add kubectl expose
+deployment hello-world-service-blue. That's going to be on port 4343, and it's
+going to be of type ClusterIP. We'll do the same for the red service, but that port
+is going to be 4242, and that's what we have here on line 78. So we have the two
+deployments up and running and we have the two services up and running in our
+cluster on unique ports. So let's check out the ingress for accessing those
+services based on their path, and so we'll load up the file ingress-path.yaml
+and walk through this code together. Now, inside of here let's skip down to the
+spec for our path-based ingress. Inside there, we have ingressClassName
+nginx, we've defined some rules for the host name, path.example.com. It's of type
+http, and the paths are going to be /red, which is going to be pathType Prefix, and
+that's going to send our traffic to the backend service hello-world-service-red on
+the ClusterIP port 4242. We have a second path in this ingress that's going to be
+available, /blue. Its pathType is going to be Exact, so the string has to be a case-
+sensitive match to /blue for it to match to hit the backend service, and that
+backend service is going to be hello-world-service-blue running on 4343. So let's
+go ahead and jump over here and roll that out with kubectl apply and -f ingress-
+path.yaml. We'll use kubectl get ingress again --watch so that we can keep track
+of when our IP address is allocated so that we can access that ingress. And so in
+the first line there we see our ingress ingress-path, its class is nginx and its host is
+going to be path.example.com. It doesn't have an address yet, but it should pop
+up here in a second. With our address populated, let's go ahead and break out of
+the watch at the bottom and examine that ingress a little more closely with
+kubectl describe ingress ingress-path. In the output at the bottom we see name
+ingress-path, and it's in the default namespace. Now, in the manifest for this
+ingress, we didn't define a default backend. So here you can see for Default
+backend that where you'd normally see some Pod endpoints, you see endpoints
+default-http-backend not found. And so anything that comes into this ingress
+that doesn't match a path will get a 404 error. Well, we do have some rules, so
+let's check out those rules. The hostname has to be path.example.com, and so
+anything that comes in that wants to hit these paths is going to have to have that
+host defined either as a host header or in the DNS name. We have two paths
+defined in this ingress, /red and /blue, each routing to their respective
+services, hello-world-service-red and hello-world-service-blue. Now remember,
+we're not going to route to the services, we're going to send that traffic directly to
+the Pod endpoints, and so there in the right in parentheses we can see the
+respective Pod endpoints for each one of those services. So our ingress single
+that we deployed earlier is still up and running and available, and so I just wanted
+to run this code here to show you that. So there we see hello-world-service-
+ingress-single if we just send traffic in on the bare IP and the bare node port. But
+now for us to access our path-based routed ingresses, we need to define a host
+header, and so I could either define a DNS name or I can specify the --header
+parameter for curl, and so let's look at how we can do that on line 100 here. So I
+want to access the /red path, and I need to make sure that we're injecting the
+host header, and so on line 100 we're doing just that, and so let's walk through
+this code together. So curl http://, the variable that we loaded for our ingress
+node port IP address, and then the actual node port itself, /red is the path that
+we want to access, --header allows us to inject a host header, and that's what we
+have here, Host: path.example.com. And so when I run that code there, you can
+see at the bottom Hostname: hello-world-service-red, so we got routed to the
+correct service via our path-based ingress. If I want to access /blue I can use the
+same technique and the same host header, since it is going to the same
+ingress. And so when I run that code on line 101 to access the blue path, you can
+see in the bottom hello-world-service-blue. Now let's check out some examples
+of how that path type can influence what we can access and how we can access
+it in the request that we send in. So in line 105 here I'm accessing our ingress, but
+a path beyond just /red. So I have on this first line here I have /red/1, right,
+because this is a prefix match, and so anything that's on /red is going to match
+and get sent to the red service, and so there we can see at the bottom hello-
+world-service-red. Let's go ahead and see another example of that sending traffic
+into /red/2, and I get routed to the appropriate service for hello-world-service-
+red. Now let's look at an example of Exact. Now all three of these examples are
+going to yield a 404. First up, we know that Exact is case sensitive, so if I come in
+on /blue, B instead of b is defined in our ingress, I'm going to get a 404. If I come
+in on any other path, so like /blue/1, that's going to 404. If I do /blue/2, that's
+going to 404 as well, because it's a case sensitive exact match on /blue. If we
+don't define any path, but we do come in on path.example.com, what's going to
+happen here? Well, we don't have a default backend defined in the ingress that
+we defined together, so if I run this code here what's going to happen is I'm going
+to get a 404, and that's not what we're going to want. When we deploy something
+like an ingress, especially a path-based ingress, what we want to do is define a
+default backend, so if somebody does come in on something that we haven't
+defined, well, we can gracefully handle that situation and send the traffic
+to something to reply back with maybe an error page or a redirect for
+our customers for the services that they might want to access. And so let's go
+ahead and deploy a default backend for our path-based ingress. And let's go
+ahead and open up that code in the file ingress-path-backend.yaml. Now, the top
+half of this ingress is identical to the one that we just deployed. All we did in this
+path-based example is I added a default backend to the bottom here, sending
+traffic to the service, hello-world-service-single. So let's hop back over here and
+roll out this new ingress configuration. At the bottom you can see ingress-path
+configured. And so now if I do a kubectl describe ingress-path, whereas before
+for default backend it had an error saying that there were no backends defined,
+here now we can see that's going to send traffic to the hello-world-service-single
+service, and there in parentheses are the Pod endpoints that we'll be routed to.
+And so let's retry hitting our path-based ingress now with our default backend
+defined, and if I do a curl on the base URL this time, whereas before I got a 404,
+here you can see it's going to send traffic to hello-world-service-single.
+Demo: Using Name Based Virtual Hosts with Ingress
+Now, for our next demo, let's look at name based virtual hosts, and so, let's open
+up the manifest for this demo and that's going to be ingress-namebased.yaml.
+Inside of here, let's jump down a little bit inside of the spec and look at the rules
+that we have defined. And so we have on line 8, the host red.example.com of type
+http, inside of paths it's going to be pathType Prefix, and the path is going to be a
+forward slash, so any traffic coming into red.example.com will be sent to the
+backend service hello-world-service-red, and we also have an example here at
+the bottom with the same configuration for the host blue.example.com. Let's
+jump back into our demo script here and roll this ingress out with kubectl apply -
+f ingress-namebased.yaml, and at the bottom we see ingress-namebased
+created. We'll do a kubectl get ingress --watch, we'll hang tight for a second and
+wait for that IP address to get populated. The first line of output, we see ingress-
+namebased, class is nginx, and the two hostnames that we're listening
+on, red.example.com and blue.example.com. Now in a few moments here that IP
+address will get populated, we'll break out of this watch, and kick off the demo.
+Alright, with our IP address populated, let's break out of that watch and test
+out our name based virtual hosts. So we're going to use that same technique as
+we did a few minutes ago, we're going to inject a host header with the --header
+parameter, and the hostname for our first example is going to be
+red.example.com. So let's go ahead and run that code there, and we see Hello
+World, and we're getting routed to the hello-world-service-red, as we can see in
+the output in the hostname. We'll try that example again, but this time we're
+going to go against the hostname blue.example.com, and here you can see
+we're routed to the correct service, in the output at the bottom we see hello-
+world-service-blue.
+Demo: Using TLS Certificates with Ingress
+Now for our final demonstration here, let's look at a TLS example. And so what
+we'll do first in this example is generate a certificate. So on line 147, I have the
+code to generate a self-signed certificate with the openssl command, and so let's
+go ahead and run that code, and what that's going to do is generate a private
+key, and also a certificate file for us to use. The second step of the process here is
+to create a secret with that private key and the certificate, and that's what we're
+doing here on line 152. Kubectl create secret, the type is tls, the name is tls-
+secret; --key is going to point to the tls.key file, and --cert is going to point to tls.crt
+file, the one that's generated by the command on line 147. We'll run that code
+together, and that secret will be stored in our cluster. And so the next part of the
+process is to create a TLS-based Ingress, and let's look at the code to do that. So
+in this manifest, we'll jump down into the spec, we have our Ingress class
+name, which is nginx, and in the tls section, we have our host:
+tls.example.com, and we're going to reference the secret name, the one that we
+just created together, tls-secret. And so inside of rules, we're going to define a
+host, tls.example.com, the type is http. Inside of paths, we'll define a path of /
+pathType: Prefix, so all requests coming in on all paths will get routed to the back
+end service, hello-world-service-single running on port 80. And so let's run that
+code to deploy our TLS-based Ingress. We'll do a kubectl get ingress --watch, and
+wait for the IP address to get populated, and the Ingress controller to be
+configured. And a few moments later, our IP address is populated, and so let's go
+ahead and break out of that watch and proceed with testing access to our TLS-
+based Ingress. So we've been testing against our HTTP-based Ingress. Now we
+need to test against an HTTPS-based Ingress, because we're going to send traffic
+to port 443, and that's going to be routed to a different NodePort port, and so
+let's go ahead and investigate what that port is. Earlier in this demo, we saw that
+we had two NodePort ports associated with our service, and so let's look at them
+again, now that we've deployed a TLS-based Ingress. Now in the output here, we
+can see that the NodePort port for our HTTP endpoint is 3273. We can see for 443
+or for our TLS or HTTPS traffic that the NodePort port is 31591. And so let's get
+that NodePort port and put that in an environment variable, and that's what we're
+doing here on line 166. And we'll go ahead and echo that out to make sure that
+we have the right value, and there we see 31591. So we want to send our HTTPS
+traffic to that NodePort port to get access to our TLS-encrypted Ingress. Now we
+have to tell curl a couple of things to make it test properly against that HTTPS
+Ingress, because we have the expectation of appropriate DNS resolution. And so
+let's walk through the parameters for curl so that we can appropriately test our
+TLS-based Ingress. On line 168, I have curl https://tls.example.com. That's the host
+name in the certificate that we just generated. Then we have colon, and we're
+going to pass in the NodePort port for the HTTPS service. That's going to be
+31591, and we have that stored in that environment variable there. Since we don't
+have a DNS record for the hosting that we have in our certificate,
+tls.example.com, we can use the --resolve parameter to tell curl that
+tls.example.com resolves to our NodePort service IP address. And so that's what
+we're doing here on line 169; --resolve, the host name tls.example.com:, and then
+it's going to be the NodePort port 31591:, and then the IP address of the NodePort
+service, 172.16.94.12. And so that is going to force the resolution of that address to
+our NodePort IP address. Since it's a self-signed certificate, we have to add --
+insecure so that we can trust the certificate that's presented to us, and I added
+the --verbose parameter so that we can see the TLS negotiation. So let's highlight
+all of this code and run it together, and at the bottom there, we can see we're
+getting routed to hello-world-service-single, and in the output, you can see
+the build-up and tear-down of our TLS-encrypted Ingress, and so that's what all
+this output at the bottom is here. And so with that, that's a wrap for this demo. I
+have a bunch of delete statements here to delete all of the resources that we
+created together in this demonstration and also the certificate file. So let's go
+ahead and run all that code to delete all of that. And we will also use kubectl
+delete -f and specify our deployment manifest for our Ingress controller to delete
+our Ingress controller too, if you want to do that, and that'll go ahead and get rid
+of all the resources created inside that deployment manifest.
+Module Review and Thank You!
+Here we are at the end of our module. And to recap, we started off with an
+overview of ingress and its architecture. We looked at the Kubernetes Ingress
+object and how it's used to define access rules for applications running in our
+cluster. And then we looked at the Ingress controller, which is used to implement
+those rules. After that, we looked at a series of common use cases for Ingress,
+exposing cluster services externally with techniques like path-based
+routing, name-based virtual hosts, and TLS encryption. So here we are at the end
+of our course. I really hope you enjoyed listening to this and that we've laid the
+appropriate foundation for your Kubernetes networking studies. We've covered a
+lot of ground together in this course, and we looked at Kubernetes networking
+fundamentals and configuring and managing application access with both
+services and Ingress. It's truly been a pleasure of recording this course, and
+I thank you for listening and, most importantly, learning with me. Thank you. I
+hope you enjoyed the course, and join me again soon, here at Pluralsight.

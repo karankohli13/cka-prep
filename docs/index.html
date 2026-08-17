@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CKA Study Hub</title>
+<meta name="description" content="Flashcards, study guide, and practice questions for the Certified Kubernetes Administrator (CKA) exam.">
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23326ce5' d='M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z'/%3E%3C/svg%3E">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 32 32"><path fill="#326ce5" d="M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z"/><path fill="#fff" d="M16 9l5 2.6v5.2c0 3-2.2 4.7-5 5.2-2.8-.5-5-2.2-5-5.2v-5.2z" opacity=".9"/></svg>
+      CKA Study Hub
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="active">Home</a>
+      <a href="flashcards.html">Flashcards</a>
+      <a href="guide.html">Study Guide</a>
+      <a href="practice.html">Practice</a>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <span class="badge">Certified Kubernetes Administrator · v1.35</span>
+    <h1>CKA Study Hub</h1>
+    <p>Flashcards, a full study guide, and a scored practice-question engine — built from your Pluralsight course transcripts and mapped to the official CKA exam domains.</p>
+    <div class="btn-row" style="justify-content:center">
+      <a class="btn" href="practice.html">Start a practice set</a>
+      <a class="btn secondary" href="flashcards.html">Review flashcards</a>
+    </div>
+  </div>
+
+  <div class="grid cols-3 home-cards mt">
+    <a class="panel home-card" href="flashcards.html">
+      <div class="ic">🗂️</div>
+      <h3>Flashcards</h3>
+      <p><strong id="n-cards">—</strong> cards mixing definitions, concepts, and applied scenarios. Filter by domain or type; flip to reveal the answer.</p>
+    </a>
+    <a class="panel home-card" href="guide.html">
+      <div class="ic">📘</div>
+      <h3>Study Guide</h3>
+      <p>Five domain guides with commands, YAML, and <em>exam-tip callouts</em> pulled straight from the course presenters.</p>
+    </a>
+    <a class="panel home-card" href="practice.html">
+      <div class="ic">✅</div>
+      <h3>Practice Questions</h3>
+      <p><strong id="n-q">—</strong> multiple-choice questions in custom batch sizes, with scoring and a per-domain breakdown of weak areas.</p>
+    </a>
+  </div>
+
+  <div class="panel mt">
+    <h3 style="margin-top:4px">Exam domain weighting</h3>
+    <p class="muted" style="margin-top:0">Your study content is weighted to match the real exam. Hover a segment to see its share.</p>
+    <div class="weightbar" id="weightbar"></div>
+    <div class="chip-row mt" id="domain-legend"></div>
+  </div>
+
+  <div class="panel mt" id="recent-panel" style="display:none">
+    <h3 style="margin-top:4px">Your recent practice</h3>
+    <div id="recent-list"></div>
+  </div>
+
+  <p class="muted center mt" style="font-size:13px">
+    Built from course transcripts · Verify against the
+    <a href="https://kubernetes.io/docs/home/" target="_blank" rel="noopener">official Kubernetes docs</a>
+    before relying on anything for the exam.
+  </p>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+const DOMCOLORS = { storage:'#3fb6c9', workloads:'#8a63d2', services:'#d2a93f', cluster:'#326ce5', troubleshooting:'#e5534b' };
+(async function () {
+  const meta = await CKA.loadJSON('data/meta.json');
+  document.getElementById('n-cards').textContent = meta.totalCards;
+  document.getElementById('n-q').textContent = meta.totalQuestions;
+
+  const bar = document.getElementById('weightbar');
+  const legend = document.getElementById('domain-legend');
+  meta.domains.forEach(d => {
+    const s = document.createElement('span');
+    s.style.width = d.weight + '%';
+    s.style.background = DOMCOLORS[d.key];
+    s.textContent = d.weight + '%';
+    s.title = d.label + ' — ' + d.weight + '% of exam';
+    bar.appendChild(s);
+
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.innerHTML = `<span class="dot ${'d-'+d.key}"></span>${d.label} · ${d.weight}%`;
+    legend.appendChild(c);
+  });
+
+  // recent practice
+  const hist = CKA.getHistory();
+  if (hist.length) {
+    document.getElementById('recent-panel').style.display = '';
+    const list = document.getElementById('recent-list');
+    hist.slice(0, 5).forEach(s => {
+      const pct = Math.round(100 * s.correct / s.total);
+      const div = document.createElement('div');
+      div.className = 'result-row';
+      div.innerHTML = `<span class="lab">${new Date(s.date).toLocaleDateString()} · ${s.total} Qs</span>
+        <div class="track"><i style="width:${pct}%;background:${pct>=70?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}"></i></div>
+        <span class="num">${s.correct}/${s.total} (${pct}%)</span>`;
+      list.appendChild(div);
+    });
+  }
+})();
+</script>
+</body>
+</html>

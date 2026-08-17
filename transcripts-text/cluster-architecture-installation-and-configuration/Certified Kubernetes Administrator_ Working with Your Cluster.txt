@@ -1,0 +1,946 @@
+Certified Kubernetes Administrator:
+Working with Your Cluster
+Course Overview
+Course Overview
+Hi, everyone! My name is Anthony E. Nocentino, Enterprise Architect and
+Founder of CENTINO SYSTEMS. Welcome to my course, Certified Kubernetes
+Administrator: Working with Your Kubernetes Cluster. Are you a systems
+administrator that needs to build and administer Kubernetes clusters? If you do,
+then this is the course for you. In this course, I'll introduce you to the primary CLI
+tool for managing workloads in a Kubernetes cluster, kubectl. And we'll also look
+closely how to deploy workloads in a cluster both imperatively and
+declaratively. By the end of this course, you'll know how to efficiently manage a
+Kubernetes cluster at the command line, understanding key scenarios like
+discovering API resources, executing containers, and how to get deep dive
+configuration and logging information out of resources deployed. You'll also learn
+how to deploy workloads both imperatively and declaratively, and learn how to
+quickly generate YAML manifests at the command line. Before beginning this
+course, you should be familiar with Kubernetes and containers architectural
+concepts and be familiar with the Linux operating system and administering it at
+the command line. You should have a firm understanding of TCP/IP based
+networking and understand the fundamental concepts of containers. I hope you'll
+join me to continue your journey to learn Kubernetes in the course Certified
+Kubernetes Administrator: Working with Your Kubernetes Cluster here at
+Pluralsight.
+Working with Your Cluster
+Introduction, Course, and Module Overview
+Hello, this is Anthony Nocentino. Welcome to my course, Working with Your
+Kubernetes Cluster, part of the Certified Kubernetes Administrator learning
+path. In this course, it's time to sit down, roll up your sleeves, and start working
+with our Kubernetes cluster. Let's get started. We're going to break this course
+down into two big chunks, and we're going to start off with using kubectl to
+interact with our cluster. And then we're going to look at some basics on how
+application deployments work in our cluster.
+Introducing kubectl
+Kubectl, kube-"control," kube-"cuttle," take your choice, it's the primary cli tool for
+controlling workloads in your Kubernetes cluster. Now, what we're going to use
+kubectl for is to form operations against our cluster. Basically, we're going to
+create, read, update, or delete pretty much any kind of resource in
+Kubernetes. Now remember, in Kubernetes, everything goes through the API
+server. And so kubectl is your primary way to interact with the API server at the
+command line. So anytime you need to make a new thing or query something
+or make a modification to an existing object, this is the primary CLI tool for doing
+just that. You're going to perform operations against resources, the API objects in
+Kubernetes. So using kubectl is how you're going to manipulate API objects like
+pods, deployments, and services, amongst many others. And so we're going to
+perform operations against resources. And then, finally, the other facet that we're
+going to look at today is using kubectl as controlling its output. If there's output
+from the commands that we're executing, this is going to define the format that
+we're going to get that output in. And so perhaps you want to have a more
+detailed format with additional attributes being exposed, or maybe you want to
+print output as a particular file type such as JSON or YAML. You can do all of this
+with QC TL.
+Using kubectl - Operations
+We're going to start our deep dive into how kubectl works with the operations
+that you can perform or really what you want to do in your cluster. And so let's
+jump right in and talk about these core operations that you'll likely use at the
+command line with kubectl every day, and the first up is going to be kubectl
+apply/create. Apply and create are the primary operations for sending
+deployments and the creation of resources into the API server. Next up is kubectl
+run, kjubectl run allows you to start a single bare pod, which is a pod that's not
+managed by a controller, and specify a container image, so basically
+bootstrapping the most basic pod configuration. Now, my favorite command is
+kubectl explain, Kubectl explain gives you the documentation for API resources,
+and what this does is it'll show you the documentation for a particular Kubernetes
+object or resource, listening to the description and the fields needed to construct
+that object. And so this is a very valuable command when you work at the
+command line learning how API objects are constructed. Kubectl combined with
+delete will delete a specified resource, and then there's kubectl get. What
+kubectl get will do is display the basic information about the specified
+resource. And so far in this learning path, we've looked at nodes and pods in our
+cluster, and we're going to be using this plenty more as we get into more
+advanced topics. Now, let's look at describe. Describe gives you detailed
+information about resources deployed in your cluster, and this is used to display
+very detailed information about that resource and is extremely valuable in
+troubleshooting scenarios when you're working with Kubernetes resources, and
+we'll look at this much more in an upcoming demo. And then there's exec. Exec
+allows you to run a command inside a container, a pod very similar to Docker
+exec. And then finally, logs. Logs, allow you to view the logs that are written to
+stdout from a container running inside of a pod. Very useful for troubleshooting
+issues with your applications running inside of containers inside of pods. Now, like
+I said in the beginning, this is a short list of what I think are the most
+critical kubectl operations just to get you started. There is a huge list available to
+you here at the documentation page for kubectl, and I strongly encourage you to
+check that out there.
+Using kubectl - Resources
+When you're working at the command line, you're going to combine kubectl with
+an operation like the ones that we just introduced a second ago with a
+resource. Basically, what do you want to perform that operation against? And
+we've introduced things like nodes and pods and services, and honestly, there
+are many, many more objects available to you inside of Kubernetes to work
+with. And so at the command line, we'll perform operations on
+resources. Now, here you can see in parentheses an alias that represents a
+particular resource type. So nodes (no), pods (po), services (svc). This is a good
+way so that we can get more efficient at the command line when executing
+commands. You can refer to deployed resources by using their alias to
+shorten things up at the command line. There's a huge list of resources that are
+available to you, and you can check out this link here for that. But I'm going to
+show you some techniques at the command line where you can discover
+resource names and resource aliases because I want you to get very efficient at
+the command line without having to go back and refer to the documentation to
+get things done and we'll do just that in our upcoming demonstration together.
+Using kubectl - Output
+The final thing that I want to look at today with kubectl is modifying its output. We
+can modify kubectl's output by adding additional flags to our commands. The
+first format that I want to introduce you to today is side. Using the wide option, we
+can specify that we want kubectl to output additional information about
+resources that have been deployed in our cluster. We could also output our
+Kubernetes resources as YAML and JSON. The YAML and JSON formats are the
+core of how Kubernetes describes things declarative, giving us the ability to
+describe our configurations in code. And we can use kubectl to output YAML or
+JSON, and this is a very valuable way to get configuration data out of our clusters
+and describe the resources that have been deployed in our clusters. We can
+persist these to file and exchange that with other system's down
+level environments and other developers if we need to. The final output option
+that I want to introduce you to today here is a dry-run. When combined with the
+YAML output modifier, you can use this to generate YAML for a resource that you
+want to create in your cluster. But dry-run doesn't create the object in the API
+server. It just outputs the YAML for that object. And this is a great tool for quickly
+generating YAML for resources that you want to create. So for things like
+deployments and services and so on. We'll see this in action later in this module.
+If you want to dive deeper into these output options, check out this link here.
+Working with kubectl
+So let's bring all that together and learn how we can use kubectl at the command
+line. When we're sitting at the command line, we can use the command kubectl,
+and we'll specify a command. In other words, the operation. That's the thing that
+we want to do. Then we'll specify a type or a resource, the thing that we want to
+do it to. And if we need to, we could specify individual named object. And then, of
+course, are the optional flags that we can append to any command. And so let's
+look at an example together. If we do something like kubectl get, that's the
+operation, against the pods, which are the resources, and then if we need to get
+information about a particular pod, well, we could append that on. So, kubectl get
+pods would list all of the pods in a default namespace, and kubectl get pods pod1
+would give you the information about just that particular pod. And then I can
+append on some optional flags. And so if I wanted the output as YAML, I could
+append --output=yaml to do just that. Now, one of the commands that I want to
+show you is kubectl create, and what I want to create, well, in this case, I want to
+create a deployment, which is the resource. I'll need to give that deployment
+name, go ahead and call it nginx, and then I can specify an image, and this is how
+we can do a basic deployment at the command line using kubectl. Now I'm going
+to throw two links at you here. One for the reference documentation and the
+other for a cheat sheet for using kubectl, and I strongly encourage you to check
+these out. They're fantastic resources, and you might find a small piece
+of information in there that could be useful to you to get through a scenario more
+efficiently or easily than you're doing today. So go ahead and check out these
+two links here. Very good resources.
+Demo: Using kubectl get
+So let's get into a demo, and we're going to look at using kubectl. We're going to
+use kubectl to work with some nodes, pods, and other API resources. I'm also
+going to throw in a treat for you here. I'm going to show you how to configure
+bash auto-completion. So you don't have to remember all of the syntax
+and shortcuts for kubectl or even resource names. And so here we are logged in
+c1-cp1, our control plane node. And the first thing we're going to do is use kubectl
+cluster-info to list and inspect the cluster that our cluster context is pointed to. In
+other words, what cluster our kubectl command is going to communicate
+with. And so I do that with kubectl cluster-info, execute that command, and in the
+output at the bottom there, we can see the Kubernetes control plane is running
+at https://172.16.94.10 on port 6443. That's the API server for the cluster that we
+built together earlier on in the series of courses. Now, one of the most common
+operations that you'll use for kubectl is kubectl get. So let's go and start that here
+with kubectl get. What are we going to get? Well, the resource here is going to be
+node. So, kubectl get-nodes. Running that code together, and we could see in
+the output at the bottom there, we have a couple columns of information to look
+at. We have the name, the status of our node, the role that it plays in our
+cluster, the age or how long this resource has been deployed, and then the
+version. So let's walk through the output there together. So we see in the name
+column one for each of the nodes in our cluster. So, c1-cp1, c1-node1, 2, and 3. For
+the status, you could see that the status of the kubelet on that node is
+ready, which means this is up running and ready for workload. We can see the
+role for the first one there is control plan for c1-cp1. That's the control plane
+node. Now, for the remaining worker nodes, we can see that the role is none. Then
+the age, 53 days, and the version, v1.29.1. That's the version of Kubernetes
+running on that node. Now up next, we can add the output modifier -o wide to
+get additional information about a resource. And let's go ahead and do that for
+kubectl get nodes -o wide. We can get additional information about each cluster
+node in our cluster. And so in the output at the bottom, we see the first five
+columns, NAME, STATUS, ROLES, AGE, and VERSION. But we also now have some
+additional information about our cluster nodes. We have the internal IP
+address. So there we see for the first one, c1-cp1, 172.16.94.10. There is none for
+external IP because these particular nodes don't have an external IP address in
+our lab configuration. We see the OS image is Ubuntu 22.04.4 LTS, the kernel
+version, and also the version of the container runtime. So here we can see
+containerd 1.7.2. Now up next, let's look at some pods to see what's running in our
+cluster. And if I do a kubectl get pods, we can see that it says no resources found
+in the default namespace because we don't have any user resources deployed in
+the default namespace, which is what kubectl get pods will list, we execute that
+command. But as we learned earlier in a previous course, there are some pods
+that are up and running in our cluster in what's called a namespace, which is kind
+of like a folder or way to group resources together. In our cluster here, if we do
+kubectl get pods --namespace kube-system, we'll see a listing of the system pods
+that are up and running in our cluster. And so in the output here, we can see
+things like kube-apiserver, kube-controller-manager, etcd, coredns, and all the
+networking pods associated with this particular cluster. And so we can get a
+listing of pods for all the system pods by adding --namespace kube-system. Now,
+in this output, we also see the name, we see the status is ready, so that means
+one container is up and running and ready inside this particular pod where we
+see 1/1. We can see the status is running. We can see restarts is 2 because as the
+system booted up about 62 minutes ago, the containers in those pods had to be
+restarted. And then the age of those resources is 53 days. That's when they're
+deployed into this particular cluster. Moving forward, we can ask for additional
+information about each pod by adding the -o wide output modifier. So here we
+have kubectl get pods --namespace to get all of those system pods, adding on -o
+wide, let's go ahead and run that code together and see what we get. Well, we
+have those first five columns again, NAME, READY, STATUS, RESTARTS, AGE. We
+also have some additional information. We actually have the pod's IP address,
+some of which are on our pod network, and some of which are exposed to our
+external network. We could also see the node that that pod is running on. So if
+you look at kube-apiserver, we could see that's running on c1-cp1. We can also
+see that there's a kube-proxy pod running on each node in our cluster. So there
+we see kube-proxy on c1-cp1, c1-node1, c1-node2 and 3. We see NOMINATED
+NODE and also READINESS GATES in the output here. Don't worry about those
+for now; we'll cover that later on in this series of courses. One thing that we
+commonly do when I walk up to a cluster is I might need to look around and kind
+of discover just kind of everything that's running in there and see what's going on
+inside of the cluster. And we can ask kubectl to do that for us. We can say kubectl
+get all. So we're specifying the resources as all, so anything that's running in the
+cluster. We combine that with --all namespaces, and what that will do is list all
+resources across all namespaces in the cluster. And so we'll get a lot of
+information in this output. And so I want to pipe that into more so we can view
+that page by page. Let's go ahead and run this code together. And we can see in
+the output at the bottom, we have the namespace, we have the name, we have
+READY, STATUS, RESTARTS, and AGE, just like previous outputs. But looking a
+little closer, if we look at the NAME column, we can see that the resource type is
+at the beginning of the string there. So we see pod/ and then the pod name
+itself. If we go and page through the output, after we get past pods, we'll see we
+also have some services that are up and running in our cluster, some daemon
+sets, a couple deployments, and some replica sets with different types of
+resources that are up and running in our cluster. And don't worry, we'll learn
+about all these resources throughout this series of courses. But for now, just
+know that you could use this command to list everything that's running in your
+cluster, kubectl get all --all namespaces.
+Demo: Discovering Resources and Documentation at the
+Command Line
+So moving forward, let's go ahead and do some discovery. I want to show you
+how to find things at the command line in terms of what's available to you from a
+command and a documentation standpoint at the command line. And so we can
+ask Kubernetes for all the resources that it knows about, or basically the things
+that I can deploy inside of the cluster. And so I can say kubectl api-resources and
+then pipe that into more. And this will give me a listing of all of the resources or
+objects that I have to work with inside of the Kubernetes API. And so let's look at
+some of the output here from left to right. We see the NAME of the resource, we
+see SHORTNAMES, or aliases. We see the APIVERSION, which is the v1 API. We
+can see if a resource is NAMESPACED or not. And then finally, the KIND, or the
+object type in the REST API. So let's look at these a little bit more closely. In the
+NAME column, if you look down, we see nodes. We see its shortname or its alias is
+no. Its APIVERSION is v1. And we see NAMESPACED as false, which means this
+particular type of resource can't be placed into a namespace. And finally, we see
+KIND, right, which is node. Now, some other resources can fall into a
+namespace, and so let's look at one of those. We see pods for the name,
+shortnames is po, v1, namespace true, type pod. And so generally speaking,
+whether resource is namespaced or not, I like to think of it as physical things, like
+nodes and storage, like persistent volumes generally aren't going to be
+namespaced. Things that are user workload or system pods, things like that,
+generally fall within a namespace. So let's go ahead and break out of this output
+here and look at how we can use an alias. And so I can do kubectl get no rather
+than nodes, and it executes the command, like it says kubectl get nodes, but I
+saved a few keystrokes there. And we can see in the output at the bottom there a
+listing of the nodes running in the cluster. So back on to kind of the discovery
+elements of how we can find things. One of the ways that I like to find objects
+very quickly in that listing of resources for API resources, just plain old grep. And
+so what we can do here is to kubectl api-resources, pipe that output the grep, and
+very quickly find the things that I want to find inside of all the resources that are
+available to me in the cluster. And so once I have a resource like pods, maybe I
+want to dig a little bit deeper and learn how to configure that resource in much
+more detail. And that's where one of my favorite commands, explain, comes in. I
+can do kubectl explain, then the resource name in this case is pods, and I'll pipe
+that output to more. In this output, I get a real deep dive description, or, in other
+words, the documentation, about this particular resource, a pod. And so let's look
+at some of the output here. We see kind is pod, version is v1. We see a
+description, a pod is a collection of containers that can be run on a host. We also
+see the configuration fields, like this is very important how to construct a pod in
+terms of the API requirements for our Kubernetes API. And so let's go ahead and
+look at some of those. So bringing that into view, we see FIELDS apiVersion. We
+see kind, which is the string value representing the REST resource for this
+particular object, which is going to be pod. We see metadata, which is the
+description of the pod. And then the actual spec, which is the configuration
+elements or the technical details about a pod and its status. And so these are all
+the top-level details for an individual resource. But maybe I need to know
+more. Maybe I need to dig into what a pod spec looks like. And I can do that by
+executing the command that looks like this, kubectl explain pod.spec. And so now
+what I have is the next level of detail for that API object, in this case, a pod,
+describing a little bit deeper about the configuration details of a pod spec. And
+so what we have here is the kind, pod, version, v1 again. The description,
+specification of the desired behavior for a pod. Going down into the fields here
+are those more detailed configuration elements, we can see things like affinity, or
+containers, and dnsConfig. And I want to call out that you see Containers, we see
+a required string there. That tells you that this is required as part of a pod's
+definition. And so there we see containers, which can be an array of containers, a
+list of containers belonging to this pod. And so let's go ahead and break out of
+this output and dig a little bit deeper and look at kubectl
+explain pod.spec.containers. Digging into that, we have the constructs of that
+part of this API object, so things like the arguments being passed in, or the entry
+points, we see the commands that are executed. And going down a little bit
+further, eventually we'll get the image, which is the container image that is used
+to run this particular pod inside of our Kubernetes API. So very important
+configuration elements are here because this maps back to what will feed into
+the YAML manifest, kind of the architecture matches, right? These are the
+configuration elements for a pod when we define them in YAML. So we'll revisit
+this a little bit later when we start looking at pod manifests in the next section in
+the course. Now, sometimes I just want to get a pretty dirty peek at
+everything available to me for a particular API resource, and I can do that with
+kubectl explain pod --recursive. And so that'll dump all of the configuration
+elements or fields for a particular API resource for me to look at. And so if I page
+to the output here, we see apiVersion, kind, and metadata, but we don't see the
+description. It's just all of the fields kind of dumped out and so I can get a quick
+look at what's available to me and a lot of different things as I page through this
+about a particular resource that I want to discover maybe a configuration field
+for. And I can go back and look at that in more detail using kubectl explain,
+pointing at the particular configuration field for that object that I want to work
+with.
+Demo: Getting Resource Details with kubectl describe
+So let's move forward and take a closer look at some of our nodes in much more
+detail, and we can do that with kubectl describe. That's going to kind of show me
+some deep dive configuration information and status information about a
+resource. And we'll do this for nodes first. So, kubectl describe nodes c1-cp1. I'm
+going to pipe that output to more and show you some of the configuration and
+status information that's exposed via describe. And so in the output at the
+bottom, we have name, c1-cp1. Role was control-plane, so this is a control plane
+node that we're working with. We have a collection of labels, which are key-value
+pairs that add some metadata to a resource to describe it. So here we could see
+things like the CPU architecture, the operating system that's running, hostname,
+and so on. We also have some annotations, which are used by other parts of
+the cluster, perhaps to store some configuration data. So there we see things
+associated with our pod network and our CRI or containerd Going down a little
+bit further, we can see things like our creation timestamp. We can see things like
+the current conditions of the node. And so it checks for things like
+networking, memory pressure, and disk pressure, and it also tells us if our node is
+up and running and ready, and we could see that also in the conditions where we
+see ready status is true. Moving forward, we see some additional information
+about things like networking. We have the IP address, the hostname, we have
+some resource information in terms of available capacity, and also provisionable
+or allocatable capacity to workloads. Going forward, we see some other
+information around the system information, so in terms of the kernel version, the
+operating system, our CPU architecture, and container runtime, and also our
+kubelet version. So there we see 1.29.1. Other things that we see in here are the
+pods that are running on this particular node and the resources associated with
+those. And we'll go down a little bit further. We can see the remaining allocatable
+resources of the remaining resources available for additional workload in our
+nodes. And we'll look at this information in much more detail as we learn about
+scheduling and workload placement, things like that. But this is some very deep
+dive information describing the current status of a node. If you want to look at a
+regular worker node, we can do that with kubectl describe nodes c1-code1. And
+we see a lot of the same information, just that there's no system pods running on
+this node, so there's a little bit less detail in terms of the workload that's running.
+But things that we need to understand about this are that we know that the
+conditions on this node are up and running already, so good stuff there. We see
+some things like the networking configuration, its available capacity, its
+allocatable capacity, and so on. So going down a little bit further, we could see a
+much shorter list of the pods that are running on this node because it's not
+running the control plane pods. It's just ready for user workload, running both
+kube-proxy and our calico pod.
+Demo: Finding Command Line Help and Configuring
+Bash Auto-completion
+Okay, so let's clear our screen and start out fresh and move forward and look at
+our next demo where we're going to discover how to use the help at the
+command line. So we focused a lot on the API and how to discover resources, but
+also kubectl is just a command, and it's got command line help available to you at
+the command line via the -h flag. And so if I do a kubectl -h, pipe that output into
+more, we get a pretty good description of what we can do with the command line
+grouped by different types of command. So basic commands. So create,
+expose, run, these are all commands that we're going to use in our upcoming
+demo. We could see things like explain and get and edit. We've used a couple of
+these commands throughout this particular demo. And so just remember that
+you do have access to the help at the command line when you're working with
+kubectl. And if you want to dive into a particular help menu for a
+command, well, you can do that with kubectl get -h because I wanted to find the
+operation that I want to do. And in this output, I get additional information about
+what we can do with kubectl get, but also some pretty good examples. So there
+we see kubectl get pods, kubectl get pods -o wide, and other ways that we can
+work with kubectl get, adding some output modifiers at the bottom here. So just
+remember that this is available for you to discover what's going on inside of
+kubectl. Let's look at one more with kubectl create -h, and we can see the
+different ways to create a resource from both file or from standard in with
+some examples of kubectl create there. Pretty cool stuff. So let's go ahead and
+break out of this output and clear our screen and get into our final demo where
+we're going to configure bash-autocomplete, so we can get real quick at the
+command line when working with our cluster. And so to configure bash-
+autocomplete, we install the bash completion package. I'm going to do that here
+with the code line 72. That's going to install that package. And then we're going
+to go ahead and configure that in our bashrc. And then we'll source our bashrc to
+bring that configuration into scope. And so at the bottom here, I can type
+kubectl. If I type g, double tab, it'll autocomplete the command for me because it
+gave it enough information to expand that out to get. So now if I type po and I do
+a double tab, it'll do pod. And then next I'll do a --all and then double tab, and
+that'll give me the available commands that I can use for the output here. So I see
+--all namespaces or --allow-missing-template-keys. Well, I'll need to add a little bit
+more information about what I want, so I'll add an additional minus. Then I'll hit a
+tab. And so there very quickly at the command line, I can complete this command
+sequence with bash-autocomplete. And so now when I hit Enter, I'll see all of the
+resources available to me and I was able to get that command line, construct it
+much more quickly with bash-autocomplete. And so as you work more with your
+cluster at the command line, you can use bash-autocomplete to build command-
+line sequences very quickly across many different commands and many different
+resource types.
+Understanding Application Deployments in Kubernetes
+So now that we know how to interact with our cluster at the command line, let's
+move the conversation to application deployment in Kubernetes. Now, the first
+thing we want to discuss here is imperative configuration. When you're using
+imperative configuration, you're generally going to be executing commands at
+the command line one at a time, and you're going to be operating on one object
+at a time. And so, for example, if I want to create a deployment, I can use kubectl
+create deployment nginx and specify the image as nginx. I punch this in at the
+command line, I hit Enter, the command is sent to the API server, and the object is
+created. But I'm only operating on one object at a time at the command line. Now,
+similarly, I can create other types of objects. I can say kubectl run nginx, and it'll
+create a bare pod that's not managed by a controller for me running nginx. Now,
+that's a fine way to manage a system, but if your application stack starts to grow
+and your configurations and your deployments become more complex, managing
+each individual object at the command line isn't really a sustainable way
+of managing or maintaining your system. We're going to want to do things
+declaratively, and this is a core principle behind Kubernetes where we define our
+desired state and code. Early in the series of courses, we introduced the concept
+of manifests. First, we deployed our pod network, and second, when we
+bootstrapped our cluster with static pod manifests. Those manifests described
+those configurations in code, and Kubernetes was able to use them to bring the
+system up to the desired state as described in those manifest files. And we can
+do the same thing for our own applications. We can define our configurations in
+code using manifests written in YAML or JSON and then feed those into the
+API server with commands like kubectl apply. In this case here, you could see
+kubectl apply -f deployment.yaml. And in the contents of deployment.yaml, we
+will have the description of the things that I want to deploy inside of our
+Kubernetes cluster.
+Working with Manifests - Pods, Deployments, and Using
+dry-run
+So let's look inside our first basic YAML manifest together and we're going to look
+at a pod manifest. We could have manifests for many different types of API
+objects available in Kubernetes, but we're going to start this conversation with
+pods. And the first thing that you're going to find in a manifest is the API
+version. And in this case, it's going to be set to v1. As the Kubernetes API develops
+to give users some stability as to how the API is defined and consumed, it's a
+versioned. This way we know that a v1 pod will always look a particular way when
+we call that in our code. And as API development progresses, perhaps a newer
+version of the API becomes available, and that newer version has a different pod
+definition, or honestly, whatever resource it is. Here in our manifests, we specify
+the API version that we want, and this enables us to control which version of the
+API we're consuming and thus adding some stability to the objects that we
+consume in our deployments. The next thing that you're going to find in a
+manifest is the kind. This is the kind of object that we want to define. In this case,
+we're defining a pod. Remember when we did kubectl API resources in a previous
+demo to list all of the resources available, those are the objects that we can use
+here. We'll need some metadata to describe what we're working with here. And in
+this case, we'll give our pod a name, and we're going to call it hello-app-pod. Next
+up is the spec. Now, if you recall in the previous demonstration when we used
+kubectl explain, I looked at pods, and we saw that the pod spec was in there, and
+we saw that there was a required field. If you remember, we went into kubectl
+explain, pod spec containers was required. And so here we define a
+container. We're going to want to give our container a name. That's also required
+as well. That name has to be unique in all of the containers in this pod, and we're
+going to call this one hello-app. If we had multiple containers in here, we would
+just give them unique names. And then, of course, there's the image backing the
+container that we want to deploy. And so here we see a simple Hello World
+application that I've built for this course and have stored in Azure container
+registry. And for the container name here, we can see hello-app:1.0 for the image
+tag. Now to deploy this, we save this information into a file, and then we can use
+kubectl apply -f and say that we save it into a file named pod.yaml. When we
+execute this command, it will feed this file into the API server, and the API server
+will go make this happen for us and create this bare pod. Now, let's look at
+another type of manifest, a deployment manifest. For a deployment, the
+apiVersion is going to be apps/v1. The next thing that you're going to find in a
+deployment manifest is the kind. In this case, we're defining a deployment. Under
+metadata, we're going to describe what we're working with here, and in this
+case, we're just going to give our deployment a name, and we're going to call it
+hello-world. Next up in the spec, this is defining the implementation details of the
+deployment object. And so first we'll define the number of replicas. This is the
+number of pods that we want to start up and running for this deployment, and
+we're going to start off with 1. The selector is a way for a deployment to know
+which pods are a member of this deployment, and we'll be diving into labels and
+selectors in much more detail in an upcoming course. And then there's the
+template. This is the section that's used to define the pods created by this
+deployment. You'll hear this called the pod template. And here we'll have a
+metadata section as well, and we'll also define some labels. These are matched
+with the selector that we just defined above in a deployment spec. These are
+assigned to each pod that's created by this deployment. And then finally, there's
+another spec this is the pod template spec. Here's where you define the
+containers that are started by pods in this deployment. We'll define an image,
+which here we're using our container, hello-app:1.0 from the application that I
+built and pushed into an Azure container registry. And finally, we give our
+container a name. In this case, it's going to be hello-app. Now to deploy this, we
+save this information into a file named deployment.yaml, and we can use kubectl
+apply -f and then specify that file name and that will feed this manifest into the
+API server, and the API server will go make this habit for us, affecting the desired
+state of the application in the cluster. In this case, it's going to be starting up one
+replica of our hello-world application pod. Now, you might be thinking, how am I
+going to remember all of this? Well, to build YAML manifests for deployments, or
+really any objects that I want to work with, remember in that last demo when we
+talked about kubectl explain, you can use kubectl explain to quickly look up the
+fields for an object and help fill out the details for your manifests. Additionally,
+you can use an output modifier called dry-run, which can generate basic
+manifests like this very quickly. Let's look more closely at dry-run now. Now, we
+can certainly write the YAML for a deployment manifest by hand, ensuring that
+we get all the fields and all the spacing right. But what I want to show you now is
+a way to generate the YAML needed to create a deployment or really any object
+on the fly at the command line quickly and correctly. A few slides back, I showed
+you how to create a deployment imperatively at the command line. With that
+code and its parameters, we can combine that with --dry-run=client -o yaml. What
+this will do is generate the YAML for the API object that you want to create, but
+not send it into the API server for creation. What dry-run client -o yaml will do is
+write the object in YAML to standard out. We can combine that with file IO
+redirection and write the output into a file, and here you can see we're sending
+the output into deployment.yaml. With this YAML manifest written in
+deployment.yaml, we can use kubectl to send to deployment into our API server
+for creation, or use this output as the starting template for more complex
+deployment scenarios. I can't stress enough how helpful the dry-run parameter
+can be to quickly generate correct YAML representation of objects, nearly any
+object, not just deployments. And so I encourage you to use it frequently at the
+command line to help you get proficient at generating correct manifests quickly
+at the command line. Dry-run isn't just for deployments. You can use it for nearly
+all resources, and we're going to use dry-run in our upcoming demos for creating
+manifests for both deployments and also services.
+Understanding the Kubernetes Application Deployment
+Process
+Now it's time to discuss what the API server is actually doing for us when creating
+a deployment, and we're going to discuss the application deployment process in
+Kubernetes. And at this point, we're going to bring together a lot of the theory
+and the concepts that we've been going through throughout this series of
+courses, and so it's that time that we're going to bring all of the elements
+together. And so let's say we have a cluster and we're sitting down at the
+command line with kubectl and we want to deploy an application into
+Kubernetes and we say kubectl apply, and we pass in some sort of manifest
+describing the objects that we want to create. And let's say that we want to
+create a deployment. Well, that deployment is going to send a request into the
+API server. The API server is going to parse that information and store
+those objects persistently in etcd. The Controller Manager is watching for any
+new objects that it needs to know about. Since we defined a deployment, that's
+going to start up a controller for that deployment, which will create a replica set.
+Then that replica set is going to create the required number of pods to support
+that configuration and write that information about the pods back into etcd. The
+scheduler is watching etcd to see if etcd has any pods that haven't yet been
+assigned to nodes. And if it finds any unscheduled pods, it will schedule, or in
+other words, assign a pod to run on a particular node in the cluster. Each pod
+object is updated in etcd with the assigned node it needs to run on. Now, notice
+no pods have actually started yet. What we have is the objects for the
+deployment, the replica set, and the pods with their scheduled node information
+all written in the etcd. And so how do pods actually start? Well, the kubelets on
+the nodes are watching the API server asking do you have any work? Do you have
+any work? And if it finds that there's a pod scheduled for that node, it's going to
+send a message to the container runtime in that node to pull down the
+appropriate container images specified in that pod spec and start up that pod on
+the node. And if that pod is a member of a service, that services information will
+be updated inside of kube-proxy on that node. This entire process is how
+pods get deployed inside of Kubernetes. In this example, we described the
+deployment. Similar processes exist for deploying other types of objects in
+Kubernetes where the workflow will vary slightly. I just wanted to highlight this
+example for you today to kind of connect the dots on all the various concepts
+that we've been discussing throughout this series of courses.
+Demo: Creating Workloads Imperatively
+Let's get in our next demo. And in this demo, we're going to deploy some
+resources using two different techniques. We're going to look at things
+imperatively and declaratively. And using those techniques, we're going to learn
+how to deploy resources in our cluster, focusing on deploying deployments, pods,
+and services. Once we have this up and running, we'll look at how we can make
+changes to existing resources in our cluster using both declarative and
+imperative techniques. Let's get started. All right, so here we are logged into c1-
+cp1, and let's get started with our demo of deploying some resources in our
+cluster, and we're going to start off with creating a deployment together
+imperatively. And so let's go ahead and do that with the code here on line 8. We
+could say kubectl create deployment. We're going to give it a name, hello-world,
+and we're going to use a container image for an application that I built named
+hello-app with a tag of 1.0 that I pushed into an Azure container registry. And so
+let's go ahead and run that code here on line 8 to create that deployment. And in
+the output at the bottom there, we can see deployment.apps/hello-world
+created. What's going to happen behind the scenes is that's going to create the
+deployment, which is going to create the replica set, and that replica set is going
+to create one pod of our application. Now, additionally, I want to create a bare
+pod, or one that's not managed by a controller, just to show you how that works
+as well. And we can do that here with the code on line 12, kubectl run hello-
+world-pod and then specifying the container image for our hello-world
+application. So let's go ahead and run that code here on line 12 to create that
+bare pod. So let's look at some of the things that we have created now in
+our cluster from a pod standpoint with kubectl get pods. Let's go ahead and run
+that code. And you can see we have two pods up and running in our cluster, the
+one that was created by the replica set, and also the bare pod. We could tell the
+one that was created by the replica set by the naming convention. We see the
+name of the deployment, hello-world, and then we see what's called the
+pod template hash of 77bbb and so on. That's a hash of the pod template spec
+and that becomes part of the actual creative pod's name. So this running pod is
+part of the replica set, which is then part of our deployment. And the remainder
+of the name, drmrh, is a unique identifier to uniquely identify this pod. Right
+below that, we see our bare pod, hello-world-pod. Now let's go ahead and add
+the output modifier -o wide to look at some additional information about these
+two pots. So right here, we have the pod's IP addresses, 192.168.131.29 for the pod
+that's managed by our deployment, 192.168.222.221 for the one that was created
+by our bare pod. We could also see that those are scheduled onto two different
+nodes, c1-node2 for the one that is created by our replica set, which was created
+by our deployment, and then c1-node1 for the bare pod. Now remember,
+Kubernetes is a container orchestrator, and it has the job of starting up
+containers on nodes. And so we see that. We see two containers inside of pods
+running on nodes in our cluster. Let's go ahead and SSH into one of those nodes
+to see what's going on a little bit behind the scenes. So I'm going to grab this
+code here and put it in a clipboard and paste it into the command line at the
+bottom here. Let's go ahead and SSH into node2. So here at the bottom, you see
+SSH, my username, log in into c1-node2. Now here on line 30, I have the code to
+go ask the container runtime to list the running containers that are on this
+individual node. So let's go ahead and run that code here on line 30 together,
+sudo crictl, and then pointing at the runtime endpoint, which is that UNIX socket
+right there. And if we run that code, we'll see that there are three different
+containers running on this individual node. Our hello-world application is first,
+and then we have two additional containers, one for our calico pod network and
+also the kube-proxy. And so just to highlight there, really, all Kubernetes is doing
+is starting containers on nodes inside of our cluster for us. So let's go ahead and
+log out of our worker node, get back onto c1-cp1
+Demo: Accessing Pods with kubectl logs and exec
+Moving forward in the demo, I want to call out that we do have the ability to use
+the command kubectl logs to read the logs from anything written to standard out
+by the application running in a container inside of our pod. So this is super useful
+when you're troubleshooting application issues. And so let's go ahead and run
+the code here on line 39, kubectl logs, and then the pod name, hello-world-pod.
+Run that code there, and you can see that the application I wrote when it starts
+up tells us two things. The port that it's listening on, here we see server listening
+on port 8080, and then server requests off of a base URL in our application. Now,
+additionally, we can go ahead and we can launch a process inside of a
+container. And here the process that we're going to launch is actually a shell, and
+I'm going to show you how to attach to a shell so you can execute commands
+interactively inside of a container inside of a pod running anywhere in your
+cluster. And you can do that with kubectl exec -it for interactive terminal. We're
+going to specify the pod name, so hello-world-pod, and then we have a --, and
+then we name the process or the executable that we want to launch inside the
+container here at /bin/sh. And since we use the -it flags here, that gives us an
+interactive shell in that container inside of that pod. And so now we can run
+commands as if we're on that terminal for that particular container. And we can
+do hostname to see what the hostname of the system that we're running on is,
+and we could see that actually is the pod's name. We could type in ip addr, the
+list, the address of the networking stack inside of the pod. And here at the bottom
+there, we can see for the eth0 interface, it's a 192.168.222.221, or the pod IP that
+we looked at a few minutes ago in our kubectl get pods -o wide output. So let's
+go ahead and exit out of that container, get back on to c1-cp1 again. So using
+those commands is quite useful for troubleshooting both kubectl logs and
+kubectl exec when you need to do some things to get information out of your
+container or to execute commands inside of the containers running inside of
+pods.
+Demo: A Deeper Dive into Deployments, Replica Sets,
+and Pods
+And so now let's look a little more closely at the deployment that we
+launched, and we can do that with kubectl get deployment hello-world. So when
+I launched that code right there, what that's gonna do is give me the basic
+information about a deployment. And let's let's walk through that output at the
+bottom here. So we can see the name of the deployment, hello-world, and we see
+READY 1/1. That means there's one pod that's up, running, and ready supporting
+our deployment. We see that it's up to date, meaning it's running the newest
+version of the application deployment that we used. And we haven't talked about
+rolling updates or anything like that yet. We'll talk about that in an upgrading
+course. But for right now, just know that it's running the latest version of our
+application. And we also see that one is available and it's been up for about 6
+minutes and 23 seconds when we rolled out that application at the start of this
+demo. Now, a deployment has the responsibility of creating a replica set, so let's
+look at that. Let's go ahead and launch kubectl get replicaset to look at the
+replica sets right in our cluster. And there in the output at the bottom, we can see
+the replica set supporting our deployment named hello-world -77bbb for the pod
+template hash, and so that uniquely identifies that replica set. We see that
+DESIRED, CURRENT, and READY are all 1s, meaning our 1 pod is up and running,
+it's on the current version of the application, and it's been up for about 7
+minutes. And again, we'll look in much more detail about how deployment rollouts
+and replica set rollouts look in an upcoming course. With kubectl get pods, we
+can see now the pattern for determining a pod be part of a particular
+deployment. So let's look at the output at the bottom here. We see hello-world,
+the deployment name, we see the pod template hash, so 77bbb and so on, and a
+unique identifier for the pod with the pod's name ending in drmrh. So that's how
+we can see how that all stitches together from a naming convention standpoint,
+but let's look even closer at how that all comes together. Let's use kubectl
+describe to get that deep dive information about a resource. In this case, we're
+going to look at our deployment that we just rolled out. And so on line 62, I have
+kubectl describe deployment hello-world. We're going to pipe that output into
+more. Now on the output at the bottom here, we have tons of information about
+the deployment. We have the name hello-world. We can see that it was deployed
+into the default namespace. If we go down a little bit further, we can see the pod
+template that was used to create the pods in the replica set, and then
+subsequently the replica set creating those pods for us. And this was part of the
+pod template spec that is executed when we typed kubectl create
+deployment. And so there is the pod template and then our containers hello-
+app running the image of our hello-app 1.0 application. Going down a little bit
+further in the output here, I'm going to point out the events. The events show
+some really good information about the status of what's going on in a particular
+deployment. So here we see ScalingReplicaSet event from the deployment
+controller, which is the controller that had the responsibility of creating the
+replica set for us. And so there we see them in the message, scaled up replica
+set hello-world 77bbb and so on to 1. Right, so the deployment here created the
+replica set for us. Now let's look in more detail at the replica set. We can do that
+with the code here on line 67, kubectl describe replicaset hello-world. I'm going
+to pipe that into more as well. So in here we have the deep dive
+information describing our hello-world replica set. We can see the name, hello-
+world, with the pod template hash 77bbb and so on. Going down a little bit
+further here, we see the pod template for the replica set, same as before because
+it's the application that we've rolled out. Our container is going to be hello-
+app. Our image is going to be our hello-app 1.0 application. Now, the replica set
+had the responsibility of creating the pods. We can see that in the events. We see
+SuccessfulCreate from the replicaset-controller, and it created our pod for us. And
+so that pod name looks pretty familiar by now. Hello-world, the pod template
+hash, followed by the unique identifier, drmrh. That's that unique pod running our
+application. And so that's how you can see how that all pieces together. The
+deployment controller creates the replicaset-controller, and the replicaset-
+controller creates the pods. Now let's dig a little bit deeper into that pods
+configuration, and we're going to do that with this kubectl command here on line
+73. So I'm going to grab this and put it in my clipboard because we can use bash-
+autocomplete to show you how that works to complete the pod name for us. So
+I'm going to copy kubectl describe pod hello-world, and that minus at the end
+there. Put that in my clipboard, paste it at the bottom here, and when I double
+tab now, you can see it's going to try to autocomplete, giving me the two unique
+pods that are running in our cluster, the one that's controlled by our deployment
+and also that bare pod. Let's give our autocomplete a little bit more information
+about the pod that we want. I'll add a 7 here and then I'll hit tab, and you can see
+it autocompletes. Go ahead and hit Enter to execute that command. And so let's
+scroll up and look at the output of kubectl describe pod. So first off, we see the
+pod's name, hello-world 77bbb and so on with the unique identifier of
+drmrh. Looking at some other information, we could see for the node, it's
+scheduled on c1-node2. Going down a little bit further in the output, we can see
+that the status is running and its IP address is 192.168.131.29 for this particular pod
+that's part of our deployment. We also see Controlled By: ReplicaSet, and then
+the hello-world replica set that is responsible for this particular pod, the one with
+the pod template hash beginning with 77bbb and so on. We also see our
+containers, our hello-app container, and then the container image is our hello-
+app: 1.0 image. We can see the state is running, and it was started just a
+few minutes ago when the replica set created this particular pod. And so I'm
+going to jump down to the bottom now to look at some of the events associated
+with this pod. And again, some really good information is available to us here. And
+let's walk through this together. The first event that we see, we see successfully
+assigned, and then our pod name to c1-node2. That's that scheduling event that
+occurred. Now, remember, the scheduling event just updates the pod's metadata
+in etcd via the API. It just says, you know what, run this pod on this node. It's then
+the responsibility of the kubelet to pull for that information or to watch for that
+information, and so that's why we see the next event is the container image being
+pulled out. In this particular example here, the container image was already
+present on this machine. It knew that, and it doesn't have to re-pull that image
+down. Once that image is on that node, create and then start the container
+and our application is now up and running. So, some pretty good information
+about the scheduling events will be in this part of a pod. So if you're in a
+troubleshooting situation, fantastic place to look right there. Now, we're just
+scratching the surface here introducing deployments. If you want to deep dive
+into how deployments work, check out my other course, Managing Kubernetes
+Controllers and Deployments, and we will go into all facets of managing
+deployments and rollouts in Kubernetes.
+Demo: Imperatively Exposing Applications with Services
+So let's go ahead and move forward. We have our deployment up and
+running. We're running a pod. I want to make that accessible to our users. And
+that's what we're going to do here on line 87. We're gonna expose our
+deployment as a service on a port so users can access our application. And so
+let's walk through the code here on line 87 together, kubectl expose, what are we
+going to expose. The resource is going to be a deployment, and a specific
+deployment, hello-world. We're going to send user traffic to port 80, and we
+define that with the parameter --port=80. Our application inside the container is
+listed on port 80, and we saw that when we looked at the kubectl logs output. And
+so on line 89, we specify --target-port=8080. And so user traffic will come in on
+port 80 and be routed to port 8080 in the application running inside of
+our containers inside of our deployments. And so let's go ahead and run that
+code there to expose our service, and in the output at the bottom, you can see
+service/hello-world exposed. So now that our service is available, we can use
+kubectl get service hello-world to find out what IP to send user traffic to and the
+output at the bottom. Let's walk through that together. We have our service name
+is hello-world. It's a type cluster IP. The cluster IP address is 10.111.7.20. So that's
+where we'll send user traffic inside the cluster. There's no external IP because this
+is available just inside of our cluster because it is a cluster IP service and
+it's listening on port 80 on TCP. Now, kubectl describe can give us some pretty
+good information about some deeper dive configuration elements of our
+service. And so let's go ahead and run that here. So kubectl describe service
+hello-world, and then we can see a lot more information about our deployment.
+We see the name, hello-world, the namespace associated with that. We can see
+the type is cluster IP and the IP address is 10.111.7.20. The port is 80/tcp, and then
+a target port, which is what the actual application is listing on, is port 8080. Now,
+the endpoints are the pods that the traffic will actually be routed to. So right now
+we just have one pod up and running, and so we see just one IP address there of
+the pod IP for the pod supporting our deployment, 192.168.131.29 listening on
+8080. And so as user traffic comes in on the service address, 10.111.7.20, it's going
+to route it to the actual pod on that pod endpoint. And so let's do just that. Let's
+grab this particular IP address and throw it into our clipboard. And at the bottom
+here, I'm gonna type curl http://, paste in the services IP address on port 80. I
+want to execute curl. We can see that we hit our application. It says Hello, world!,
+version 1.0, and the application outputs the actual pod name. So there you see
+hello-world, the pod template hash, and then a unique identifier for this particular
+pod, the one that is running right now supporting our deployment, drmrh. All
+right. So let's move forward and look at something a little more closely from a
+service standpoint. We can actually, when we're inside the cluster, hit the
+endpoint address directly. And so this can be very useful for troubleshooting a
+single application on a single pod if I want to access it directly, not through a
+service. And so if I do a kubectl get endpoints for our hello-world service, that's
+going to output all of the end points that are running in the cluster. In this case,
+it's still just one. And so then I can use curl to access that application So I'm going
+to grab our endpoint, put that in our clipboard, and I'll do a curl http://, paste that
+in there. And now I'm hitting that individual pod directly, not via the service, so it's
+not going to get routed or load balanced or anything. And so if I need to hit an
+exact pod's traffic, I can use this technique to do that. If I need to troubleshoot or
+look more closely at the individual pod's application. So, very useful technique
+there for troubleshooting.
+Demo: Accessing Resources with Output Modifiers
+Now we have a bunch of code up and running, which we deployed in our
+cluster all imperatively, and we can get some YAML representations of what's
+running on our cluster if we want by using output modifiers. And so that's what
+we're doing here on lines 114 and 115. I'm going to do a kubectl get deployment
+hello-world, and then I'm going to use the output modifier -o yaml. I want to pipe
+that output to more. And now at the bottom here instead of just getting kind
+of that table representation of the deployment, I get the YAML representation of
+the deployment, and all the deep dive information that describes this particular
+API resource deployed in our cluster. And so we see things like apiVersion: apps/
+v1, the kind is deployment, the metadata, the spec, associated with this particular
+deployment, and so much more. Breaking out of this output here, we could also
+do the same in JSON if we need to get output of our cluster in JSON format. So
+I'm going to do a kubectl get deployment hello-world -o json, pipe that output to
+more, and we can see that we have a JSON representation of our object now. This
+can be useful for monitoring our configuration management if you want to look at
+what's running in our cluster and pulling that information out in kind of more
+machine consumable formats like JSON or YAML. So let's go ahead and break out
+of this code here, and what we're going to do now is we're gonna delete
+everything that we just created imperatively, and we're going to start over doing
+the same tasks, but using a declarative model. I'm gonna show you how to
+create all the resources that we just created in code. And so let's go ahead and
+clean some things up. First up, let's see what we have running in our cluster, and
+we have our deployment, which created the replica set, which created a pod. We
+have our bare pod up and running, and we also have the service supporting our
+application. And so let's go ahead and delete all of those things. I'm going to
+delete the service with kubectl delete service hello-world, and I'm going to delete
+the deployment with kubectl delete deployment hello-world, which will delete
+the deployment, which will delete the replica set, which will also terminate and
+delete the pod. I have to delete the bare pod by hand because that's not
+managed by a controller. And so let's go ahead and highlight these three lines of
+code and run them together in the output at the bottom here. We can see those
+resources all being deleted. And now if I do a kubectl get all again, all I should
+have left is our Kubernetes service supporting our API inside the cluster, and
+there it is.
+Demo: Generating Manifests with dry-run and Deploying
+Resources Declaratively
+So now it's time to deploy some resources declarative in a cluster, and I want to
+show you first how to use dry-run client to build a YAML manifest from a template
+very quickly. And we can use the declarative code to do that. And so that's what
+we're doing here on line 134. Line 134, I'm seeing kubectl create deployment
+hello-world for our hello-world application running on our container image, hello-
+app:1.0. And then I want to add the output modifier, dry-run=client -o yaml. I want
+to pipe that into more. Running this code here, we can see in the output at the
+bottom we now have, well, a well-formed YAML manifest describing what we want
+to do. We want to create a deployment, hello- world, and there we see all of the
+code supporting just that at the bottom here. And so everything from the API
+version all the way down to the number of replicas, and if we move to the bottom
+of the output, even the actual pod template spec defined in our container image.
+And we didn't have to do any layout or mess around with spaces. It's just a well-
+formed template for us to work with. And so let's take that and write that at the
+file, and that's what we're doing here on line 140. We're in the same code, kubectl
+create deployment. Dry-run=client. But I'm going to redirect that IO into a file
+named deployment.yaml. Let's go ahead and run that code together, and if we
+look inside of that file with the more command, we see more deployment.yaml. We
+have our well-formed deployment manifest for a simple deployment. It's going to
+break out of that code there, and then we can do a kubectl apply -f to push that
+manifest into the API server, which creates the deployment, which creates the
+replica set, which creates that single pod for us since we asked for just one
+replica. Now let's do the same thing, but for service. I can say kubectl expose
+deployment hello-world again declaratively, specifying the port and target port,
+port 80 for our service and port 8080 for the container-based applications
+port. Combine that with dry-run=client -o yaml, pipe that into more, and now we
+have the YAML manifest describing the service that we want to create. Now we
+use the same technique of file IO redirection to send that code into a file named
+service.yaml. Look inside of there before we move forward to make sure
+everything is okay, and it is, with more space service.yaml, and the output at
+the bottom shows us the contents of that file. So let's go ahead and push that
+into the API server with kubectl apply -f service.yaml. In the output at the bottom
+there, we could see our hello-world service was created. So let's see what we
+have now, right? We'll do a kubectl get all to kind of check the current state of our
+cluster. Well, we created a deployment, and there it is in the output at the
+bottom, deployment.apps/hello-world. It's 1/1 is ready because they have a
+single replica in that deployment. That deployment created a replica set, which
+then created a pod, and so there we see the pod at the top, pod/hello-
+world-77bbb and so on, different unique identifier because the new pod, s2449, is
+that new pod. We also have our service up and running, and there these service/
+hello-world, type is ClusterIP. We've got a new service IP address 10.99.12.154.
+Demo: Modifying Existing Resources in Your Cluster -
+Part 1
+And so that's how quickly we can generate code and deploy code in our
+cluster. And so now let's do some operations on these deployments from a scaling
+standpoint. I'm going to show you how to affect changes to existing resources in
+your cluster. And so let's go ahead and start that process. The first thing I want to
+do is on a scale are replicas from 1 replica to 20 replicas. Let's go ahead and do
+that by opening up our deployment manifest, deployment.yaml, and then going
+down here, I'm going to change the replicas in the pod template spec from 1 to
+20. And now I'm going to save that file out. Nothing changed yet. It's just
+changed in the file because I have to take that file and send it back into the API
+server to effect that change. And that's what we're doing here on line 184. I'm
+going to do kubectl apply -f, sending in that same file, but with the replicas
+changed from 1 to 20. What's going to happen is it's going to change the state of
+the cluster. And so there in the output at the bottom, you see deployment.apps/
+hello-world configured. We changed the state of the cluster, and it's going to
+move the running state of the cluster into the desired state. And if we check now
+and I do kubectl get deployment hello-world, run that code, I now have 20 pods
+up and running in our cluster, and there we see 20/20 is up running and
+ready. And if I do kubectl get pods now and I type that into more, we see a lot
+more pods up and running. If you look at the structure of the name, you can see
+the pattern now. Hello-world for the deployment, the pod template hash 77bbb
+and so on. And then at the end there, a unique identifier for each pod
+that's running in this particular deployment that's managed by this replica set for
+the 20 pods that are created. Let's go ahead and break out of that output there,
+and let's look at how load balancing works inside of our cluster. If I do kubectl get
+service hello-world, you'll see that our service, hello-world, is running on the
+cluster IP 10.99.12.154. And so we'll send end user traffic to that particular cluster
+IP address on port 80.
+Demo: Modifying Existing Resources in Your Cluster -
+Part 2
+And then the service has the responsibility of load balancing that traffic across all
+of the pods that support that service. And so let's go ahead and grab that cluster
+IP and put that into our clipboard. ANd at the bottom here, I'll type curl http://,
+pasting in our service IP address on port 80. And if I hit Enter now, we'll see I hit a
+pod whose unique identifier ends in dhn2s. Do it again, cft98. So now you can see
+how I'm load balancing across the many different pods supporting this particular
+deployment in our cluster. And so that's the responsibility of the service is to
+send that traffic to the various pods in our cluster. And so there we see it load
+balancing across all of those. Now, we changed our state of our cluster by
+changing the code and redeploying the code. But sometimes you might have to
+get in there and make a quick on-the-fly change that's not reflected in a YAML
+manifest. Just maybe this is a kind of an emergency operation or just something
+that you need to change quickly. And we could edit an object that's running
+in the cluster with the code kubectl edit deployment, and here we're going to do
+our hello-world deployment. So if I highlight this code and I run it, what it's going
+to do is it's going to open that API object and it's going to retrieve the YAML
+representation of that resource and present it to me in my default editor. And for
+me that's VIM. If you're on Windows, this would be on Notepad or whatever your
+default system editor is. And so in the YAML manifest here at the bottom, it's all of
+various metadata for an object. So it's a little bit deeper dive than the things that
+we've looked at so far. But I want to go down to the bottom here, and you can
+look for the replica section in the deployment spec. And so in our initial
+deployment, we set it to 1, and we change the state to 20. Now I'm going to
+change the state from 20 to 30. Now we're editing the API resource directly. And
+so when I save this out here, what it's going to do, it's going to send that change
+back into the API server immediately and affect that change. And so there we see
+at the bottom deployment.apps, hello-world is edited. So that actually changed
+the state of that resource. And so if we go and do a kubectl get deployment now
+for hello-world, we'll see that there are 30 pods up and running. So it's just a
+different technique for managing the state of your cluster. If you need to make a
+quick change, you can do that with kubectl edit. Another way that we can affect
+the change to a deployment is using the scale command, kubectl scale
+deployment hello-world --replicas=40. Again, this will change the state of the
+cluster from 30 to 40 replicas, but it's not representing code. So this is the
+change against that object in the cluster that's up and running right now, so we
+won't have that representation in the YAML manifest. It's just a runtime
+change. And if I do a kubectl get deployment hello-world now, we can see that
+we have 40 pods up and running in our cluster. And so now we are all done with
+this particular demo. And let's go ahead and clean things up. I'm going to do a
+kubectl delete deployment, which will delete the deployment, which will delete
+the replica set, and we'll delete all the pods that are controlled by that replica
+set. We'll also delete the service here with kubectl delete service. It's going to
+clean things up. And now if I do a kubectl get all, the only thing that should be
+running is the Kubernetes service, and that's that.
+Module Summary, What's Next, and Thank You!
+Here we are at the end of our course. So we introduced how we can interact with
+a cluster focusing on using kubectl to retrieve different types of information out
+of our cluster. And then we look closely at how we can deploy some
+applications and what's really happening behind the scenes. We discussed both
+imperative and declarative deployment methods. And hopefully, I made the case
+for using declarative deployment methods in your Kubernetes clusters. So here
+we are at the end of our course, and I really hope you enjoyed listening to this
+and that we laid the appropriate foundations for your Kubernetes studies. We
+looked closely at how to interact with our cluster using kubectl, and we did some
+application deployments together. It's truly been a pleasure recording this
+course, and I thank you for listening, and most importantly, learning with me. I
+hope you enjoyed the course and join me again soon here at Pluralsight.

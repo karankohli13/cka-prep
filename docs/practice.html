@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice · CKA Study Hub</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23326ce5' d='M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z'/%3E%3C/svg%3E">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 32 32"><path fill="#326ce5" d="M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z"/><path fill="#fff" d="M16 9l5 2.6v5.2c0 3-2.2 4.7-5 5.2-2.8-.5-5-2.2-5-5.2v-5.2z" opacity=".9"/></svg>
+      CKA Study Hub
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="flashcards.html">Flashcards</a>
+      <a href="guide.html">Study Guide</a>
+      <a href="practice.html" class="active">Practice</a>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- SETUP -->
+  <section id="setup">
+    <h1 class="page-title">Practice Questions</h1>
+    <p class="lead">Pick how many questions and which domains, then go. You'll see the correct answer after each question and a full score breakdown at the end.</p>
+
+    <div class="panel">
+      <div class="muted" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Batch size</div>
+      <div class="chip-row" id="size-filters">
+        <span class="chip" data-size="5">5</span>
+        <span class="chip on" data-size="15">15</span>
+        <span class="chip" data-size="20">20</span>
+        <span class="chip" data-size="30">30</span>
+        <span class="chip" data-size="all">All</span>
+      </div>
+
+      <div class="muted" style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px">Domains</div>
+      <div class="chip-row" id="domain-filters"></div>
+
+      <div class="btn-row mt">
+        <button class="btn" id="start-btn">Start practice set →</button>
+      </div>
+      <p class="muted mt" id="pool-note" style="font-size:13px"></p>
+    </div>
+
+    <div class="panel mt" id="history-panel" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h3 style="margin:4px 0">Past sessions</h3>
+        <button class="btn ghost" id="clear-hist" style="font-size:12px;padding:6px 10px">Clear history</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </section>
+
+  <!-- QUIZ -->
+  <section id="quiz" class="hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <span class="fc-counter" id="q-counter">Question 1</span>
+      <span class="fc-counter" id="q-score">Score: 0</span>
+    </div>
+    <div class="progressbar"><i id="q-progress" style="width:0%"></i></div>
+
+    <div class="panel q-card">
+      <div class="fc-meta" id="q-meta"></div>
+      <div class="q-stem" id="q-stem"></div>
+      <div id="q-options"></div>
+      <div id="q-feedback" class="hidden">
+        <div class="explain" id="q-explain"></div>
+        <div class="btn-row mt">
+          <button class="btn" id="next-q">Next →</button>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="quit-btn" style="font-size:13px">Quit set</button>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="results" class="hidden">
+    <h1 class="page-title">Results</h1>
+    <div class="panel center">
+      <div class="score-big" id="r-score">0%</div>
+      <p class="muted" id="r-sub" style="margin-top:6px"></p>
+      <div id="r-verdict" class="mt"></div>
+    </div>
+
+    <div class="panel mt">
+      <h3 style="margin-top:4px">Score by domain</h3>
+      <p class="muted" style="margin-top:0;font-size:14px">Focus your studying on the lowest bars.</p>
+      <div id="r-domains"></div>
+    </div>
+
+    <div class="panel mt" id="review-panel">
+      <h3 style="margin-top:4px">Review</h3>
+      <p class="muted" style="margin-top:0;font-size:14px">Every question with your answer and the explanation.</p>
+      <div id="r-review"></div>
+    </div>
+
+    <div class="btn-row mt center" style="justify-content:center">
+      <button class="btn" id="again-btn">New practice set</button>
+      <a class="btn secondary" href="guide.html">Review the study guide</a>
+    </div>
+  </section>
+</div>
+
+<script src="assets/common.js"></script>
+<script>
+let POOL = [], META = null;
+let size = 15, domSel = new Set(); // empty = all
+let quiz = [], qi = 0, answered = false, correctCount = 0, perDom = {}, sessionLog = [];
+
+const el = id => document.getElementById(id);
+const LETTERS = ['A','B','C','D'];
+
+function poolFor() {
+  return POOL.filter(q => domSel.size === 0 || domSel.has(q.domainKey));
+}
+function updatePoolNote() {
+  const n = poolFor().length;
+  const want = size === 'all' ? n : Math.min(size, n);
+  el('pool-note').textContent = `${n} questions available with current filters · this set: ${want}.`;
+}
+
+function startSet() {
+  const pool = CKA.shuffle(poolFor());
+  const count = size === 'all' ? pool.length : Math.min(size, pool.length);
+  quiz = pool.slice(0, count);
+  qi = 0; correctCount = 0; perDom = {}; sessionLog = [];
+  META.domains.forEach(d => perDom[d.key] = { label: d.label, correct: 0, total: 0 });
+  el('setup').classList.add('hidden');
+  el('results').classList.add('hidden');
+  el('quiz').classList.remove('hidden');
+  renderQ();
+}
+
+function renderQ() {
+  answered = false;
+  const q = quiz[qi];
+  el('q-counter').textContent = `Question ${qi + 1} of ${quiz.length}`;
+  el('q-score').textContent = `Score: ${correctCount}`;
+  el('q-progress').style.width = (100 * qi / quiz.length) + '%';
+  el('q-meta').innerHTML = `<span class="chip" style="cursor:default"><span class="dot ${'d-'+q.domainKey}"></span>${q.domain}</span>`;
+  el('q-stem').innerHTML = CKA.inline(q.question);
+  const opts = el('q-options');
+  opts.innerHTML = '';
+  q.choices.forEach((ch, i) => {
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.innerHTML = `<span class="key">${LETTERS[i]}</span><span>${CKA.inline(ch)}</span>`;
+    b.onclick = () => choose(i);
+    opts.appendChild(b);
+  });
+  el('q-feedback').classList.add('hidden');
+}
+
+function choose(i) {
+  if (answered) return;
+  answered = true;
+  const q = quiz[qi];
+  const right = q.answer;
+  const btns = el('q-options').querySelectorAll('.opt');
+  btns.forEach((b, j) => {
+    b.disabled = true;
+    if (j === right) b.classList.add('correct');
+    else if (j === i) b.classList.add('wrong');
+  });
+  const ok = i === right;
+  if (ok) correctCount++;
+  perDom[q.domainKey].total++;
+  if (ok) perDom[q.domainKey].correct++;
+  sessionLog.push({ q, picked: i, ok });
+  el('q-score').textContent = `Score: ${correctCount}`;
+  el('q-explain').innerHTML =
+    `<strong>${ok ? '✅ Correct' : '❌ Incorrect'}.</strong> Answer: <strong>${LETTERS[right]}</strong>. ` +
+    CKA.inline(q.explanation) +
+    (q.source ? `<span class="src">Source: ${q.source}</span>` : '');
+  el('q-feedback').classList.remove('hidden');
+  el('next-q').textContent = qi + 1 < quiz.length ? 'Next →' : 'See results →';
+  el('next-q').focus();
+}
+
+function nextQ() {
+  if (qi + 1 < quiz.length) { qi++; renderQ(); window.scrollTo({top:0,behavior:'smooth'}); }
+  else finish();
+}
+
+function finish() {
+  el('quiz').classList.add('hidden');
+  el('results').classList.remove('hidden');
+  const total = quiz.length;
+  const pct = total ? Math.round(100 * correctCount / total) : 0;
+  el('r-score').textContent = pct + '%';
+  el('r-sub').textContent = `${correctCount} of ${total} correct`;
+  const verdict = pct >= 75 ? ['Passing range — keep it up.', 'var(--green)']
+    : pct >= 60 ? ['Close. Tighten up weak domains below.', 'var(--amber)']
+    : ['More review needed. Use the breakdown to target study.', 'var(--red)'];
+  el('r-verdict').innerHTML = `<span class="badge" style="background:${verdict[1]};color:#fff">${verdict[0]}</span>`;
+
+  const dd = el('r-domains'); dd.innerHTML = '';
+  META.domains.forEach(d => {
+    const p = perDom[d.key];
+    if (!p || p.total === 0) return;
+    const pc = Math.round(100 * p.correct / p.total);
+    const col = pc >= 75 ? 'var(--green)' : pc >= 50 ? 'var(--amber)' : 'var(--red)';
+    const row = document.createElement('div');
+    row.className = 'result-row';
+    row.innerHTML = `<span class="lab"><span class="dot ${'d-'+d.key}"></span> ${d.label}</span>
+      <div class="track"><i style="width:${pc}%;background:${col}"></i></div>
+      <span class="num">${p.correct}/${p.total} · ${pc}%</span>`;
+    dd.appendChild(row);
+  });
+
+  const rv = el('r-review'); rv.innerHTML = '';
+  sessionLog.forEach((s, n) => {
+    const d = document.createElement('div');
+    d.style.cssText = 'padding:12px 0;border-top:1px solid var(--border)';
+    d.innerHTML = `<div style="font-weight:600;margin-bottom:6px">${s.ok ? '✅' : '❌'} ${n+1}. ${CKA.inline(s.q.question)}</div>
+      <div style="font-size:14px;color:var(--text-dim)">Your answer: <strong style="color:${s.ok?'var(--green)':'var(--red)'}">${LETTERS[s.picked]}</strong>${s.ok?'':` · Correct: <strong style="color:var(--green)">${LETTERS[s.q.answer]}</strong>`}</div>
+      <div class="explain" style="margin-top:8px">${CKA.inline(s.q.explanation)}${s.q.source?`<span class="src">Source: ${s.q.source}</span>`:''}</div>`;
+    rv.appendChild(d);
+  });
+
+  CKA.saveSession({ date: Date.now(), total, correct: correctCount,
+    perDomain: Object.fromEntries(Object.entries(perDom).filter(([k,v])=>v.total>0).map(([k,v])=>[k,{c:v.correct,t:v.total}])) });
+}
+
+function renderHistory() {
+  const h = CKA.getHistory();
+  const panel = el('history-panel');
+  if (!h.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const list = el('history-list'); list.innerHTML = '';
+  h.slice(0, 8).forEach(s => {
+    const pct = Math.round(100 * s.correct / s.total);
+    const col = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    const row = document.createElement('div');
+    row.className = 'result-row';
+    row.innerHTML = `<span class="lab">${new Date(s.date).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+      <div class="track"><i style="width:${pct}%;background:${col}"></i></div>
+      <span class="num">${s.correct}/${s.total} · ${pct}%</span>`;
+    list.appendChild(row);
+  });
+}
+
+(async function () {
+  POOL = await CKA.loadJSON('data/questions.json');
+  META = await CKA.loadJSON('data/meta.json');
+
+  const df = el('domain-filters');
+  const allChip = document.createElement('span');
+  allChip.className = 'chip on'; allChip.dataset.dom = 'all'; allChip.textContent = `All domains (${POOL.length})`;
+  df.appendChild(allChip);
+  META.domains.forEach(d => {
+    const n = POOL.filter(q => q.domainKey === d.key).length;
+    const s = document.createElement('span');
+    s.className = 'chip'; s.dataset.dom = d.key;
+    s.innerHTML = `<span class="dot ${'d-'+d.key}"></span>${d.label} (${n})`;
+    df.appendChild(s);
+  });
+
+  df.addEventListener('click', e => {
+    const chip = e.target.closest('.chip'); if (!chip) return;
+    const dom = chip.dataset.dom;
+    if (dom === 'all') { domSel.clear(); df.querySelectorAll('.chip').forEach(c=>c.classList.remove('on')); allChip.classList.add('on'); }
+    else {
+      allChip.classList.remove('on');
+      chip.classList.toggle('on');
+      if (chip.classList.contains('on')) domSel.add(dom); else domSel.delete(dom);
+      if (domSel.size === 0) allChip.classList.add('on');
+    }
+    updatePoolNote();
+  });
+  el('size-filters').addEventListener('click', e => {
+    const chip = e.target.closest('.chip'); if (!chip) return;
+    el('size-filters').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+    chip.classList.add('on');
+    size = chip.dataset.size === 'all' ? 'all' : parseInt(chip.dataset.size, 10);
+    updatePoolNote();
+  });
+
+  el('start-btn').onclick = startSet;
+  el('next-q').onclick = nextQ;
+  el('again-btn').onclick = () => { el('results').classList.add('hidden'); el('setup').classList.remove('hidden'); renderHistory(); window.scrollTo({top:0}); };
+  el('quit-btn').onclick = () => { if (confirm('Quit this set? Progress will be lost.')) { el('quiz').classList.add('hidden'); el('setup').classList.remove('hidden'); } };
+  el('clear-hist').onclick = () => { if (confirm('Clear all saved practice history?')) { CKA.clearHistory(); renderHistory(); } };
+
+  updatePoolNote();
+  renderHistory();
+})();
+</script>
+</body>
+</html>

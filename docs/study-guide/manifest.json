@@ -1,0 +1,27 @@
+[
+  {
+    "key": "storage",
+    "label": "Storage",
+    "file": "01-storage.md"
+  },
+  {
+    "key": "workloads",
+    "label": "Workloads & Scheduling",
+    "file": "02-workloads.md"
+  },
+  {
+    "key": "services",
+    "label": "Services & Networking",
+    "file": "03-services.md"
+  },
+  {
+    "key": "cluster",
+    "label": "Cluster Architecture",
+    "file": "04-cluster.md"
+  },
+  {
+    "key": "troubleshooting",
+    "label": "Troubleshooting",
+    "file": "05-troubleshooting.md"
+  }
+]

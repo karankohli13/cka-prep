@@ -1,0 +1,366 @@
+[
+ {
+  "id": "ca-q001",
+  "domain": "Cluster Architecture",
+  "question": "Which control plane component is the single entry point that validates all requests and persists state to etcd?",
+  "choices": [
+   "kube-scheduler",
+   "kube-apiserver",
+   "kube-controller-manager",
+   "kubelet"
+  ],
+  "answer": 1,
+  "explanation": "The kube-apiserver is the only front door — every kubectl command, internal call, and webhook flows through it, and it persists state to etcd. The scheduler only places pods, the controller-manager runs reconciliation loops, and the kubelet is a node agent; none of these are the cluster's entry point or talk to etcd directly.",
+  "source": "Kubernetes Foundations — Understanding Kubernetes architecture"
+ },
+ {
+  "id": "ca-q002",
+  "domain": "Cluster Architecture",
+  "question": "In which directory does the kubelet watch for the static pod manifests of the control plane components?",
+  "choices": [
+   "/etc/kubernetes/manifests",
+   "/etc/kubernetes/pki",
+   "/var/lib/kubelet/manifests",
+   "/etc/containerd"
+  ],
+  "answer": 0,
+  "explanation": "The kubelet watches /etc/kubernetes/manifests and starts any static pods defined there (kube-apiserver.yaml, etcd.yaml, kube-controller-manager.yaml, kube-scheduler.yaml). /etc/kubernetes/pki holds certificates, /etc/containerd holds the runtime config, and /var/lib/kubelet/manifests is not the kubeadm default path.",
+  "source": "Installing Clusters with kubeadm — What kubeadm init creates"
+ },
+ {
+  "id": "ca-q003",
+  "domain": "Cluster Architecture",
+  "question": "A pod fails to receive an IP address and the node reports NetworkPluginNotReady. Which extension interface is responsible?",
+  "choices": [
+   "CRI",
+   "CSI",
+   "CRD",
+   "CNI"
+  ],
+  "answer": 3,
+  "explanation": "The CNI (Container Network Interface) gives pods their IPs and configures pod-to-pod routing; a missing or broken CNI causes NetworkPluginNotReady and NotReady nodes. CRI is the runtime interface (container won't start), CSI is storage (PV pending), and CRD is an API extension mechanism, not a networking interface.",
+  "source": "Kubernetes Foundations — Kubernetes extension interfaces"
+ },
+ {
+  "id": "ca-q004",
+  "domain": "Cluster Architecture",
+  "question": "You are preparing an Ubuntu host for kubeadm. Why must net.bridge.bridge-nf-call-iptables be set to 1?",
+  "choices": [
+   "To enable swap accounting for the scheduler",
+   "To make bridged Layer-2 traffic visible to iptables so kube-proxy and CNI rules work",
+   "To allow containerd to use OverlayFS image layers",
+   "To open port 6443 for the API server"
+  ],
+  "answer": 1,
+  "explanation": "This sysctl makes bridged L2 traffic visible to iptables/netfilter, which kube-proxy and CNI plug-ins rely on; it's a hard kubeadm requirement and defaults to 0 on stock Ubuntu. Swap is handled by swapoff, OverlayFS is enabled by the overlay kernel module, and port 6443 is unrelated to this sysctl.",
+  "source": "Installing Clusters with kubeadm — Kernel modules and sysctl"
+ },
+ {
+  "id": "ca-q005",
+  "domain": "Cluster Architecture",
+  "question": "After a clean kubeadm init, containerd and the kubelet appear to start but pods crash-loop and logs are misleading. What is the most likely root cause?",
+  "choices": [
+   "The pod-network-CIDR is too small",
+   "Swap was left enabled",
+   "The cgroup driver mismatch — SystemdCgroup is not set to true in containerd",
+   "The API server certificate expired"
+  ],
+  "answer": 2,
+  "explanation": "containerd ships with SystemdCgroup = false but the kubelet uses the systemd cgroup driver; a mismatch makes pods crash-loop while logs point at the wrong layer. A small CIDR or enabled swap produce different, more obvious failures, and a fresh cluster's certs are valid.",
+  "source": "Installing Clusters with kubeadm — containerd and the CRI"
+ },
+ {
+  "id": "ca-q006",
+  "domain": "Cluster Architecture",
+  "question": "Which kubeadm init flag is the most common silent cause of broken cross-node pod communication?",
+  "choices": [
+   "--upload-certs",
+   "--apiserver-advertise-address",
+   "--pod-network-cidr not matching the CNI's expected range",
+   "--kubernetes-version"
+  ],
+  "answer": 2,
+  "explanation": "If --pod-network-cidr doesn't match what the CNI expects (e.g., Calico's 192.168.0.0/16), pods get IPs but can't route across nodes — a silent timeout with no clean error. --upload-certs handles cert distribution, --apiserver-advertise-address sets the bind interface, and --kubernetes-version pins the version; none cause this silent routing failure.",
+  "source": "Installing Clusters with kubeadm — kubeadm init flags that matter"
+ },
+ {
+  "id": "ca-q007",
+  "domain": "Cluster Architecture",
+  "question": "Immediately after kubeadm init (before installing a CNI), what is the expected state of the nodes and CoreDNS?",
+  "choices": [
+   "All nodes Ready, CoreDNS Running",
+   "Nodes NotReady and CoreDNS Pending — this is correct, not a failure",
+   "Nodes Ready but CoreDNS CrashLoopBackOff",
+   "The API server is down until the CNI is installed"
+  ],
+  "answer": 1,
+  "explanation": "The kubelet won't mark a node Ready until a CNI can assign pod IPs, and CoreDNS needs a pod IP to start, so NotReady nodes and Pending CoreDNS are expected. The control plane static pods use host networking and run fine; installing the CNI flips nodes to Ready in ~30 seconds. Misreading this as a failure wastes exam time.",
+  "source": "Installing Clusters with kubeadm — From init to ready"
+ },
+ {
+  "id": "ca-q008",
+  "domain": "Cluster Architecture",
+  "question": "How does kubeadm join provide two-way verification when a worker joins the cluster?",
+  "choices": [
+   "The worker and API server exchange SSH keys",
+   "Username and password over HTTPS",
+   "The kubelet certificate is manually copied to every node",
+   "A bootstrap token authenticates the worker, and the CA cert hash lets the worker verify the API server"
+  ],
+  "answer": 3,
+  "explanation": "The short-lived bootstrap token proves the worker is allowed to join, while --discovery-token-ca-cert-hash (SHA-256 of the CA cert) lets the worker confirm it's talking to the genuine control plane, preventing a man-in-the-middle. There are no SSH keys or passwords in this flow, and the kubelet cert is auto-generated via CSR, not hand-copied.",
+  "source": "Installing Clusters with kubeadm — Bootstrap tokens and join workflow"
+ },
+ {
+  "id": "ca-q009",
+  "domain": "Cluster Architecture",
+  "question": "You lost the join command printed by kubeadm init. Which command regenerates a complete, ready-to-paste join command?",
+  "choices": [
+   "kubeadm token create --print-join-command",
+   "kubeadm init phase bootstrap-token",
+   "kubeadm certs renew all",
+   "kubectl get bootstraptokens"
+  ],
+  "answer": 0,
+  "explanation": "kubeadm token create --print-join-command emits a full join command with a fresh token and the correct CA cert hash. The other options don't produce a ready-to-use join command: 'certs renew' rotates certificates, and there's no kubectl resource that prints the assembled join string.",
+  "source": "Installing Clusters with kubeadm — Managing kubeconfig"
+ },
+ {
+  "id": "ca-q010",
+  "domain": "Cluster Architecture",
+  "question": "A Kubernetes context bundles which three elements?",
+  "choices": [
+   "Node, pod, namespace",
+   "API version, kind, metadata",
+   "Cluster, user, and default namespace",
+   "CA cert, token, kubeconfig path"
+  ],
+  "answer": 2,
+  "explanation": "A context is a named tuple of a cluster (API endpoint + CA), a user (identity/credentials), and a default namespace. The other options describe pod manifest fields or arbitrary pieces; they are not the definition of a context.",
+  "source": "Kubernetes Foundations — Context management"
+ },
+ {
+  "id": "ca-q011",
+  "domain": "Cluster Architecture",
+  "question": "Why is 'kubectl config use-context' a safe first command for every exam task even if the cluster is unreachable?",
+  "choices": [
+   "It only reads and writes your local kubeconfig file, not the cluster",
+   "It restarts the API server",
+   "It validates RBAC permissions remotely",
+   "It refreshes the bootstrap token"
+  ],
+  "answer": 0,
+  "explanation": "kubectl config commands operate purely on the local ~/.kube/config file and don't contact the API server, so they succeed regardless of cluster state — making them the ideal first step after each question to avoid running work against the wrong cluster.",
+  "source": "Kubernetes Foundations — When to use YAML instead of imperative"
+ },
+ {
+  "id": "ca-q012",
+  "domain": "Cluster Architecture",
+  "question": "A task requires granting a user read access to pods only within the 'frontend' namespace. Which combination should you use?",
+  "choices": [
+   "ClusterRole + ClusterRoleBinding",
+   "Role + RoleBinding in the frontend namespace",
+   "ClusterRole + RoleBinding bound cluster-wide",
+   "Pod Security Admission"
+  ],
+  "answer": 1,
+  "explanation": "Because the task names a specific namespace and a namespaced resource (pods), a Role plus a RoleBinding in the frontend namespace is correct. A ClusterRoleBinding would grant access cluster-wide, and Pod Security Admission governs pod security context, not RBAC permissions.",
+  "source": "CKA Advanced Cluster Configuration — The foundation of RBAC"
+ },
+ {
+  "id": "ca-q013",
+  "domain": "Cluster Architecture",
+  "question": "What happens when a subject has no RBAC binding that grants a requested action?",
+  "choices": [
+   "The API server returns 403 Forbidden because RBAC is additive with no deny rules",
+   "A deny rule must explicitly block it",
+   "The action is allowed by default",
+   "The request is queued until a binding is created"
+  ],
+  "answer": 0,
+  "explanation": "Kubernetes RBAC is purely additive — there are no deny rules. With no matching binding, the default answer is 403 Forbidden (secure by default). It is never allow-by-default, and there is no queuing behavior.",
+  "source": "CKA Advanced Cluster Configuration — The foundation of RBAC"
+ },
+ {
+  "id": "ca-q014",
+  "domain": "Cluster Architecture",
+  "question": "Which command verifies whether the service account 'kube-explorer' in the default namespace can delete pods?",
+  "choices": [
+   "kubectl get clusterrolebinding kube-explorer",
+   "kubectl auth can-i delete pods --as=system:serviceaccount:default:kube-explorer",
+   "kubectl describe sa kube-explorer",
+   "kubectl auth reconcile"
+  ],
+  "answer": 1,
+  "explanation": "kubectl auth can-i with the --as impersonation flag and the full service account principal (system:serviceaccount:<ns>:<name>) asks the API server (via a SubjectAccessReview) whether that action is permitted. Describing the SA or listing bindings shows configuration but doesn't evaluate the effective allow/deny decision.",
+  "source": "CKA Advanced Cluster Configuration — Checking API access with can-i"
+ },
+ {
+  "id": "ca-q015",
+  "domain": "Cluster Architecture",
+  "question": "You need to bind a reusable set of permissions defined cluster-wide, but limit them to a single namespace. What is the correct approach?",
+  "choices": [
+   "Create a Role that copies the ClusterRole's rules",
+   "Bind the ClusterRole using a RoleBinding in that namespace",
+   "Use a ClusterRoleBinding and add a namespace field",
+   "Aggregate the ClusterRole into the admin role"
+  ],
+  "answer": 1,
+  "explanation": "Binding a ClusterRole with a RoleBinding scopes those permissions to just the namespace where the RoleBinding lives — the DRY hybrid pattern. A ClusterRoleBinding can't be namespace-scoped (the field is ignored), copying rules defeats reuse, and aggregation merges roles rather than scoping them.",
+  "source": "CKA Advanced Cluster Configuration — Cluster-wide permissions"
+ },
+ {
+  "id": "ca-q016",
+  "domain": "Cluster Architecture",
+  "question": "Which kubectl verbosity level best reveals the raw HTTP request, headers, bearer token, and response body for RBAC debugging?",
+  "choices": [
+   "-v=2",
+   "-v=4",
+   "-v=6",
+   "-v=8"
+  ],
+  "answer": 3,
+  "explanation": "-v=8 prints the curl-equivalent request including headers (the authorization bearer token) and a truncated response body — ideal for RBAC and auth debugging. (Use -v=9 for the full untruncated body.) -v=6 shows the URL and HTTP status code, while levels 2 and 4 are standard operational logs without the HTTP wire detail.",
+  "source": "CKA Advanced Cluster Configuration — Accessing resources with kubectl -v"
+ },
+ {
+  "id": "ca-q017",
+  "domain": "Cluster Architecture",
+  "question": "For a highly available control plane, why are odd numbers of etcd members (3, 5, 7) recommended?",
+  "choices": [
+   "They reduce disk usage",
+   "Even numbers are not supported by Raft",
+   "They prevent split-brain and maximize fault tolerance because quorum needs a majority",
+   "They allow faster image pulls"
+  ],
+  "answer": 2,
+  "explanation": "etcd's Raft protocol requires a majority (quorum = N/2 + 1) to make decisions; odd numbers avoid split-brain and give the best fault tolerance per node. A 3-node cluster survives losing 1; a 2-node cluster is worse than 1 because losing either node loses quorum. The other options are unrelated to consensus.",
+  "source": "CKA Advanced Cluster Configuration — Introduction to high availability"
+ },
+ {
+  "id": "ca-q018",
+  "domain": "Cluster Architecture",
+  "question": "In a stacked-etcd HA topology, where does etcd run?",
+  "choices": [
+   "On dedicated external hosts separate from the API servers",
+   "As a local static pod on each control plane node, managed by kubeadm",
+   "Inside the kube-proxy DaemonSet",
+   "As a Deployment in the kube-system namespace"
+  ],
+  "answer": 1,
+  "explanation": "In the stacked topology each control plane node runs its own etcd as a local static pod, and kubeadm manages etcd membership as nodes join — simpler and cheaper for medium clusters. External etcd runs on dedicated hosts. etcd is never part of kube-proxy, and the control plane components are static pods, not Deployments.",
+  "source": "CKA Advanced Cluster Configuration — Introduction to high availability"
+ },
+ {
+  "id": "ca-q019",
+  "domain": "Cluster Architecture",
+  "question": "Which set of credentials must accompany an 'etcdctl snapshot save' command?",
+  "choices": [
+   "--cacert, --cert, and --key with the endpoint",
+   "--username and --password",
+   "An admin.conf kubeconfig",
+   "A bootstrap token"
+  ],
+  "answer": 0,
+  "explanation": "etcd requires full TLS authentication, so the snapshot command must pass --cacert (validates etcd's identity), --cert (proves your admin rights), and --key (authenticates the session), plus the endpoint (https://127.0.0.1:2379). etcdctl talks to etcd directly, not through kubeconfig, usernames, or bootstrap tokens.",
+  "source": "CKA Advanced Cluster Configuration — Disaster recovery"
+ },
+ {
+  "id": "ca-q020",
+  "domain": "Cluster Architecture",
+  "question": "When restoring an etcd snapshot, why must you restore to a NEW data directory rather than the live one?",
+  "choices": [
+   "To save disk space",
+   "Because overwriting the active directory while etcd is running corrupts the transaction tables",
+   "The live directory is read-only",
+   "etcdctl cannot read the live directory"
+  ],
+  "answer": 1,
+  "explanation": "Restoring into the running database's active directory while the API server is still writing corrupts the transaction/page tables. The correct workflow restores to a new empty directory (e.g., /var/lib/etcd-restored), then repoints etcd.yaml's hostPath to it. Disk space and read-only attributes are not the reason.",
+  "source": "CKA Advanced Cluster Configuration — Disaster recovery"
+ },
+ {
+  "id": "ca-q021",
+  "domain": "Cluster Architecture",
+  "question": "What is the correct order for upgrading a kubeadm cluster?",
+  "choices": [
+   "Worker nodes first, then the control plane",
+   "All nodes simultaneously",
+   "Control plane first, then worker nodes, one minor version at a time",
+   "Skip directly to the newest available version"
+  ],
+  "answer": 2,
+  "explanation": "You upgrade the control plane first (kubeadm upgrade plan/apply), then each worker (kubeadm upgrade node), advancing one minor version at a time and never skipping versions. Upgrading workers first or jumping multiple versions violates the version-skew policy and breaks the cluster.",
+  "source": "Kubernetes docs — Upgrading kubeadm clusters"
+ },
+ {
+  "id": "ca-q022",
+  "domain": "Cluster Architecture",
+  "question": "Before upgrading the kubelet on a node during a cluster upgrade, which command should you run, and what does --ignore-daemonsets do?",
+  "choices": [
+   "kubectl cordon; it deletes DaemonSet pods",
+   "kubectl drain --ignore-daemonsets; it allows the drain to proceed because DaemonSet pods can't be evicted",
+   "kubectl delete node; it removes the node from etcd",
+   "kubectl taint node; it blocks all pods including system pods"
+  ],
+  "answer": 1,
+  "explanation": "You drain the node to safely evict workloads and cordon it; --ignore-daemonsets is required because DaemonSet-managed pods can't be evicted and would otherwise block the drain. cordon alone doesn't evict, deleting the node is destructive, and tainting isn't the upgrade procedure.",
+  "source": "Kubernetes docs — Upgrading kubeadm clusters"
+ },
+ {
+  "id": "ca-q023",
+  "domain": "Cluster Architecture",
+  "question": "In Helm, what is the distinction between a chart and a release?",
+  "choices": [
+   "A chart is the running instance; a release is the package",
+   "They are synonyms",
+   "A release is a repository of charts",
+   "A chart is the package (templates + values); a release is a specific running instance of that chart"
+  ],
+  "answer": 3,
+  "explanation": "A chart is the package — Chart.yaml metadata, templates, and values.yaml. A release is a specific deployed instance of that chart in a cluster; Helm tracks release history so you can 'helm rollback'. The terms are not interchangeable, and a release is not a repository.",
+  "source": "CKA Advanced Cluster Configuration — Templating with Helm"
+ },
+ {
+  "id": "ca-q024",
+  "domain": "Cluster Architecture",
+  "question": "How do you apply a Kustomize overlay directly with kubectl?",
+  "choices": [
+   "kubectl apply -f overlays/dev",
+   "kubectl apply -k overlays/dev",
+   "helm install overlays/dev",
+   "kubectl kustomize apply overlays/dev"
+  ],
+  "answer": 1,
+  "explanation": "Kustomize is built into kubectl via the -k flag: 'kubectl apply -k overlays/dev' builds and applies in one step (use 'kubectl kustomize overlays/dev' to preview the rendered YAML). -f applies a single file without overlay processing, helm is a different tool, and 'kubectl kustomize apply' is not valid syntax.",
+  "source": "CKA Advanced Cluster Configuration — Layering with Kustomize"
+ },
+ {
+  "id": "ca-q025",
+  "domain": "Cluster Architecture",
+  "question": "Running 'kubectl get certificates' returns an error that the resource type isn't found. After installing the cert-manager operator manifest, what changes?",
+  "choices": [
+   "Nothing — certificates are a built-in resource",
+   "The operator registers CRDs so the API recognizes 'certificates', and a controller runs the reconciliation loop",
+   "kube-proxy starts managing certificates",
+   "The API server must be restarted manually to load the new type"
+  ],
+  "answer": 1,
+  "explanation": "Installing the operator manifest registers CustomResourceDefinitions (adding the 'certificates' type to the API) and deploys the controller that watches them and runs the control loop. 'certificates' is not built in, kube-proxy is unrelated, and the API server picks up new CRDs dynamically without a manual restart.",
+  "source": "CKA Advanced Cluster Configuration — CRDs and the operator pattern"
+ },
+ {
+  "id": "ca-q026",
+  "domain": "Cluster Architecture",
+  "question": "Which command quickly generates a syntactically correct deployment manifest without creating anything in the cluster?",
+  "choices": [
+   "kubectl create deployment web --image=nginx --dry-run=client -o yaml",
+   "kubectl apply -f deployment.yaml",
+   "kubectl run web --image=nginx",
+   "kubectl edit deployment web"
+  ],
+  "answer": 0,
+  "explanation": "--dry-run=client -o yaml builds the manifest locally and prints valid YAML without contacting the API server, giving a correct starting template to redirect to a file and edit. 'apply' requires an existing file, 'run' creates a live bare pod, and 'edit' modifies an existing resource.",
+  "source": "Working with Your Cluster — Working with Manifests and dry-run"
+ }
+]

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study Guide · CKA Study Hub</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23326ce5' d='M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z'/%3E%3C/svg%3E">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html">
+      <svg class="logo" viewBox="0 0 32 32"><path fill="#326ce5" d="M16 2l12 6v10c0 7-5 11-12 12C9 29 4 25 4 18V8z"/><path fill="#fff" d="M16 9l5 2.6v5.2c0 3-2.2 4.7-5 5.2-2.8-.5-5-2.2-5-5.2v-5.2z" opacity=".9"/></svg>
+      CKA Study Hub
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="flashcards.html">Flashcards</a>
+      <a href="guide.html" class="active">Study Guide</a>
+      <a href="practice.html">Practice</a>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <h1 class="page-title">Study Guide</h1>
+  <p class="lead">Five domain guides drawn from the course transcripts, with commands, YAML, and <em>💡 exam-tip callouts</em>. Use the menu to switch domains.</p>
+
+  <div class="guide-layout">
+    <aside>
+      <div class="panel toc" id="toc"><div class="spinner">Loading…</div></div>
+    </aside>
+    <main>
+      <div class="markdown" id="content"><div class="spinner">Loading study guide…</div></div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="assets/common.js"></script>
+<script>
+const el = id => document.getElementById(id);
+let MANIFEST = [], current = null;
+
+function slug(s){ return s.toLowerCase().replace(/[^\w]+/g,'-').replace(/^-|-$/g,''); }
+
+async function loadGuide(item) {
+  current = item.key;
+  el('content').innerHTML = '<div class="spinner">Loading…</div>';
+  const md = await (await fetch('study-guide/' + item.file, {cache:'no-cache'})).text();
+  el('content').innerHTML = marked.parse(md);
+  // add anchors to h2s
+  const subs = [];
+  el('content').querySelectorAll('h2').forEach(h => {
+    const id = slug(h.textContent);
+    h.id = id;
+    subs.push({ id, text: h.textContent });
+  });
+  buildToc(subs);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function buildToc(subs) {
+  const toc = el('toc');
+  toc.innerHTML = '';
+  MANIFEST.forEach(item => {
+    const a = document.createElement('a');
+    a.href = '#'; a.textContent = item.label;
+    a.className = item.key === current ? 'active' : '';
+    a.innerHTML = `<span class="dot ${'d-'+item.key}"></span> ${item.label}`;
+    a.onclick = e => { e.preventDefault(); loadGuide(item); location.hash = item.key; };
+    toc.appendChild(a);
+    if (item.key === current && subs.length) {
+      subs.forEach(s => {
+        const sa = document.createElement('a');
+        sa.href = '#' + s.id; sa.textContent = s.text; sa.className = 'sub';
+        toc.appendChild(sa);
+      });
+    }
+  });
+}
+
+(async function () {
+  marked.setOptions({ gfm: true, breaks: false });
+  MANIFEST = await CKA.loadJSON('study-guide/manifest.json');
+  const hashKey = location.hash.replace('#','');
+  const start = MANIFEST.find(m => m.key === hashKey) || MANIFEST[0];
+  await loadGuide(start);
+})();
+</script>
+</body>
+</html>
