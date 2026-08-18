@@ -186,19 +186,30 @@ a:hover { text-decoration: underline; }
 .result-row .num { width: 64px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-dim); }
 
 /* ---------- Study guide ---------- */
-.guide-layout { display: grid; gap: 20px; }
+.guide-layout { display: grid; gap: 20px; min-width: 0; }
+.guide-layout > * { min-width: 0; }
 @media (min-width: 860px) { .guide-layout { grid-template-columns: 240px 1fr; align-items: start; } }
-.toc { position: sticky; top: 64px; }
+.toc-details { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.toc-details summary { display: none; }
+.toc { padding: 8px 10px; }
+@media (min-width: 860px) {
+  .toc-details { position: sticky; top: 64px; }
+  .toc-details[open] > .toc, .toc-details > .toc { display: block !important; }
+}
 .toc a { display:block; padding: 6px 10px; border-radius: 7px; color: var(--text-dim); font-size: 14px; }
 .toc a:hover { background: var(--bg-elev2); text-decoration: none; color: var(--text); }
 .toc a.active { background: var(--accent); color:#fff; }
 .toc .sub { padding-left: 20px; font-size: 13px; }
-.markdown { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 26px 30px; box-shadow: var(--shadow); overflow-wrap: break-word; }
+.markdown {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 26px 30px; box-shadow: var(--shadow);
+  overflow-wrap: break-word; word-break: break-word; min-width: 0; max-width: 100%;
+}
 .markdown h1 { font-size: 1.7rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
 .markdown h2 { font-size: 1.35rem; margin-top: 30px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 .markdown h3 { font-size: 1.12rem; margin-top: 22px; color: var(--accent); }
 .markdown code { background: var(--bg); padding: 2px 6px; border-radius: 5px; font-size: .88em; }
-.markdown pre { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; }
+.markdown pre { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; max-width: 100%; }
 .markdown pre code { background: none; padding: 0; }
 .markdown blockquote {
   margin: 14px 0; padding: 12px 16px; border-left: 4px solid var(--amber);
@@ -206,7 +217,7 @@ a:hover { text-decoration: underline; }
 }
 .markdown blockquote p { margin: 0; }
 .markdown em { color: var(--text-dim); }
-.markdown table { border-collapse: collapse; width: 100%; margin: 14px 0; display:block; overflow-x:auto; }
+.markdown table { border-collapse: collapse; width: 100%; margin: 14px 0; display:block; overflow-x:auto; max-width: 100%; }
 .markdown th, .markdown td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; font-size: 14px; }
 .markdown th { background: var(--bg-elev2); }
 .markdown a { color: var(--accent); }
@@ -234,14 +245,6 @@ a:hover { text-decoration: underline; }
   line-height: 1;
 }
 
-/* ---------- Study guide TOC toggle ---------- */
-.toc-details { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-.toc-details summary { display: none; }
-.toc-details .toc { position: sticky; top: 64px; }
-@media (min-width: 860px) {
-  .toc-details[open] > .toc, .toc-details > .toc { display: block !important; }
-}
-
 /* ---------- Mobile responsive ---------- */
 @media (max-width: 639px) {
   /* Nav collapse */
@@ -261,7 +264,7 @@ a:hover { text-decoration: underline; }
   .nav-inner { flex-wrap: wrap; }
 
   /* General spacing */
-  .wrap { padding: 16px 12px 60px; }
+  .wrap { padding: 16px 12px 60px; max-width: 100%; }
   .page-title { font-size: 1.35rem; }
   .lead { font-size: 14px; }
   .panel { padding: 14px; }
@@ -290,25 +293,29 @@ a:hover { text-decoration: underline; }
   .fc-controls { gap: 8px; }
 
   /* Study guide */
-  .guide-layout { gap: 0; }
+  .guide-layout { gap: 14px; }
   .toc-details summary {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     cursor: pointer;
     font-weight: 700;
     font-size: 14px;
     padding: 12px 14px;
     color: var(--text);
+    user-select: none;
     list-style: none;
   }
-  .toc-details summary::before { content: '📑 '; }
+  .toc-details summary::after { content: '▾'; font-size: 14px; color: var(--text-dim); transition: transform .2s; }
+  .toc-details[open] summary::after { transform: rotate(180deg); }
   .toc-details summary::-webkit-details-marker { display: none; }
-  .toc-details .toc { position: static; padding: 0 8px 8px; }
+  .toc-details .toc { position: static; padding: 4px 8px 10px; border-top: 1px solid var(--border); }
   .toc-details:not([open]) .toc { display: none; }
-  .markdown { padding: 8px 14px 20px; }
-  .markdown h1 { font-size: 1.3rem; }
-  .markdown h2 { font-size: 1.12rem; margin-top: 22px; }
-  .markdown pre { padding: 10px; font-size: 12.5px; }
-  .markdown th, .markdown td { padding: 5px 8px; font-size: 12.5px; }
+  .markdown { padding: 12px 14px 24px; }
+  .markdown h1 { font-size: 1.35rem; }
+  .markdown h2 { font-size: 1.15rem; margin-top: 22px; }
+  .markdown pre { padding: 10px 12px; font-size: 12.5px; border-radius: 8px; }
+  .markdown th, .markdown td { padding: 6px 9px; font-size: 12.5px; }
 
   /* Home */
   .hero { padding: 20px 8px 6px; }

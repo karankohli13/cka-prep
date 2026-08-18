@@ -30,8 +30,8 @@
 
   <div class="guide-layout">
     <aside>
-      <details class="toc-details" open>
-        <summary>Navigation</summary>
+      <details class="toc-details" id="toc-details">
+        <summary>📑 Topics & Navigation</summary>
         <nav class="toc" id="toc"><div class="spinner">Loading…</div></nav>
       </details>
     </aside>
@@ -73,12 +73,22 @@ function buildToc(subs) {
     a.href = '#'; a.textContent = item.label;
     a.className = item.key === current ? 'active' : '';
     a.innerHTML = `<span class="dot ${'d-'+item.key}"></span> ${item.label}`;
-    a.onclick = e => { e.preventDefault(); loadGuide(item); location.hash = item.key; };
+    a.onclick = e => {
+      e.preventDefault();
+      loadGuide(item);
+      location.hash = item.key;
+      const det = el('toc-details');
+      if (det && window.innerWidth < 860) det.removeAttribute('open');
+    };
     toc.appendChild(a);
     if (item.key === current && subs.length) {
       subs.forEach(s => {
         const sa = document.createElement('a');
         sa.href = '#' + s.id; sa.textContent = s.text; sa.className = 'sub';
+        sa.onclick = () => {
+          const det = el('toc-details');
+          if (det && window.innerWidth < 860) det.removeAttribute('open');
+        };
         toc.appendChild(sa);
       });
     }
