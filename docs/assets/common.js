@@ -15,6 +15,28 @@
   document.addEventListener('DOMContentLoaded', function () {
     const b = document.querySelector('.theme-btn');
     if (b) b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+
+    // Inject mobile hamburger toggle
+    const navInner = document.querySelector('.nav-inner');
+    const navLinks = document.querySelector('.nav-links');
+    if (navInner && navLinks) {
+      const toggle = document.createElement('button');
+      toggle.className = 'nav-toggle';
+      toggle.setAttribute('aria-label', 'Toggle navigation');
+      toggle.textContent = '☰';
+      navInner.insertBefore(toggle, navLinks);
+      toggle.addEventListener('click', function () {
+        const open = navLinks.classList.toggle('open');
+        toggle.textContent = open ? '✕' : '☰';
+      });
+      // Close menu when a nav link is clicked
+      navLinks.addEventListener('click', function (e) {
+        if (e.target.tagName === 'A') {
+          navLinks.classList.remove('open');
+          toggle.textContent = '☰';
+        }
+      });
+    }
   });
 })();
 

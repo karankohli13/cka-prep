@@ -184,7 +184,9 @@ function choose(i) {
     (q.source ? `<span class="src">Source: ${q.source}</span>` : '');
   el('q-feedback').classList.remove('hidden');
   el('next-q').textContent = qi + 1 < quiz.length ? 'Next →' : 'See results →';
-  el('next-q').focus();
+  // Ensure the feedback + Next button are visible (mobile scroll fix)
+  setTimeout(() => el('q-feedback').scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  el('next-q').focus({ preventScroll: true });
 }
 
 function nextQ() {

@@ -106,6 +106,14 @@ function render() {
   el('back-a').innerHTML = CKA.inline(c.back);
   el('back-src').textContent = c.source || '';
   el('counter').textContent = el('counter2').textContent = `${idx + 1} / ${deck.length}`;
+  // Size the card to fit the taller face (absolute-positioned faces can't drive parent height)
+  requestAnimationFrame(() => {
+    const front = document.querySelector('.fc-front');
+    const back = document.querySelector('.fc-back');
+    if (front && back) {
+      el('card').style.height = Math.max(front.scrollHeight, back.scrollHeight) + 'px';
+    }
+  });
 }
 
 function flip() { flipped = !flipped; el('card').classList.toggle('flipped', flipped); }

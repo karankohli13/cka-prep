@@ -218,3 +218,101 @@ a:hover { text-decoration: underline; }
 .hidden { display: none !important; }
 .spinner { text-align:center; color: var(--text-dim); padding: 40px; }
 .kbd { font-family: ui-monospace, monospace; background: var(--bg-elev2); border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; padding:1px 6px; font-size:12px; }
+
+/* ---------- Mobile hamburger ---------- */
+.nav-toggle {
+  display: none;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 36px; height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ---------- Study guide TOC toggle ---------- */
+.toc-details { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+.toc-details summary { display: none; }
+.toc-details .toc { position: sticky; top: 64px; }
+@media (min-width: 860px) {
+  .toc-details[open] > .toc, .toc-details > .toc { display: block !important; }
+}
+
+/* ---------- Mobile responsive ---------- */
+@media (max-width: 639px) {
+  /* Nav collapse */
+  .nav-toggle { display: inline-flex; }
+  .nav-links {
+    display: none;
+    width: 100%;
+    order: 10;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  .nav-links.open { display: flex; }
+  .nav-links a { padding: 10px 12px; width: 100%; }
+  .nav-inner { flex-wrap: wrap; }
+
+  /* General spacing */
+  .wrap { padding: 16px 12px 60px; }
+  .page-title { font-size: 1.35rem; }
+  .lead { font-size: 14px; }
+  .panel { padding: 14px; }
+
+  /* Chips */
+  .chip { font-size: 11px; padding: 4px 8px; }
+  .chip-row { gap: 5px; }
+
+  /* Practice questions */
+  .q-stem { font-size: 1rem; margin: 4px 0 12px; }
+  .opt { padding: 10px 12px; font-size: 14px; gap: 8px; }
+  .explain { padding: 10px 12px; font-size: 13.5px; }
+
+  /* Results */
+  .result-row { flex-wrap: wrap; gap: 4px; }
+  .result-row .lab { width: 100%; font-size: 13px; }
+  .result-row .track { width: 100%; }
+  .result-row .num { width: auto; text-align: left; font-size: 12px; }
+  .score-big { font-size: 2.5rem; }
+
+  /* Flashcards */
+  .fc-stage { margin: 12px 0; }
+  .fc-face { padding: 16px; }
+  .fc-q { font-size: 1rem; }
+  .fc-a { font-size: 0.92rem; }
+  .fc-controls { gap: 8px; }
+
+  /* Study guide */
+  .guide-layout { gap: 0; }
+  .toc-details summary {
+    display: block;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px 14px;
+    color: var(--text);
+    list-style: none;
+  }
+  .toc-details summary::before { content: '📑 '; }
+  .toc-details summary::-webkit-details-marker { display: none; }
+  .toc-details .toc { position: static; padding: 0 8px 8px; }
+  .toc-details:not([open]) .toc { display: none; }
+  .markdown { padding: 8px 14px 20px; }
+  .markdown h1 { font-size: 1.3rem; }
+  .markdown h2 { font-size: 1.12rem; margin-top: 22px; }
+  .markdown pre { padding: 10px; font-size: 12.5px; }
+  .markdown th, .markdown td { padding: 5px 8px; font-size: 12.5px; }
+
+  /* Home */
+  .hero { padding: 20px 8px 6px; }
+  .hero h1 { font-size: 1.6rem; }
+  .hero p { font-size: 0.95rem; }
+  .weightbar > span { font-size: 9px; }
+}
