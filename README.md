@@ -2,7 +2,7 @@
 
 Interactive study resources for the **Certified Kubernetes Administrator (CKA)** exam (curriculum v1.35), built from a Pluralsight learning-path transcript set and mapped to the official exam domains.
 
-🔗 **Live site:** https://pweinrich3.github.io/cka-prep/
+🔗 **Live site:** https://karankohli13.github.io/cka-prep/
 
 ## What's inside
 
